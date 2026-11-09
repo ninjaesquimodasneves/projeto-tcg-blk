@@ -128,3 +128,68 @@ Mantenha só a pergunta 1 em "Perguntas abertas". Depois grave docs/00_persona.m
 
 ### Decisão humana
 “Corrigido para projeto individual; respondidas as perguntas 2 a 5 com base no enunciado; frequência da P-01 mantida como hipótese.”
+
+## 2026-11-09 — Etapa: objetivos de negócio (docs/01_objetivos_negocio.md)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um gerente de produto de dados. Transforma a dor das personas em objetivos mensuráveis, sem inventar metas. Não escreve requisitos técnicos nem código.
+
+[R] Pedido
+Leia docs/00_persona.md e crie docs/01_objetivos_negocio.md com: objetivos (OBJ-xx), cada um ligado a uma persona, com métrica, como medir e meta; drivers de negócio; restrições com origem; fora do escopo; fatos, lacunas e suposições.
+Cubra no mínimo: série diária contínua de preços da coleção; preço em reais com separação do efeito da carta e do efeito do dólar; comparação entre selado e avulso; comparação com as coleções da turma; dados desta coleção legíveis pelos colegas; o desafio da carteira de R$ 1.000 contra dólar e CDI.
+
+[E] Exemplos
+## OBJ-01 Série diária contínua
+- Persona: P-01, P-02
+- Métrica: dias com coleta gravada / dias desde o primeiro dia de coleta
+- Como medir: listagem das datas em raw/tcgplayer/group_id=24325/
+- Meta: hipótese, validação pendente
+- Origem: persona P-02, enunciado
+
+[A] Ajustes
+- Restrições obrigatórias, com origem "enunciado do projeto": fonte principal TCGCSV com User-Agent próprio, pausa de pelo menos 100 ms e no máximo 10.000 requisições por dia; PTAX e CDI das APIs públicas do Banco Central; lake no RustFS da turma, escrita só nos prefixos com group_id=24325; silver no contrato comum da turma; repositório público, sem segredos versionados; agendamento no GitHub Actions ou Railway; entrega em 12/12/2026.
+- Fora do escopo, com origem: previsão de preço e recomendação de compra; preço por condição da carta; frete, taxas reais do marketplace e IOF; scraping do PriceCharting; streaming com fila.
+- Toda meta sem fonte é "hipótese, validação pendente".
+- Não altere docs/00_persona.md.
+
+[T] Tipo de saída
+Somente docs/01_objetivos_negocio.md, em Markdown, até 90 linhas. Mostre o conteúdo antes de gravar e espere minha confirmação.
+
+[E] Extras
+Leia AGENTS.md e docs/00_persona.md. Ao gravar, acrescente o prompt em docs/prompts.md. Pare ao final.
+```
+
+### Prompt 2 (literal)
+
+```text
+Pontos 1 e 2: mantenha como está (OBJ-02 fica; imagem junto do OBJ-04).
+
+Correções antes de gravar (origem: enunciado do projeto):
+
+A. PTAX em fim de semana e feriado vira fato: a PTAX só existe em dia útil; o preço do dia D usa o boletim de fechamento da PTAX do próprio dia D ou, se ele não existir, o do dia útil anterior mais próximo; nunca uma cotação posterior ao dia do preço. Troque a suposição por esse fato.
+
+B. Remova a suposição "o valor de venda é o preço de referência, sem descontos" e a lacuna "qual preço representa o que o colecionador receberia". Fato no lugar: o valor de liquidação usa o market_price, desconta uma taxa de venda parametrizável (15% como hipótese declarada em ADR), converte para reais pela PTAX de compra e soma a sobra em caixa, que rende CDI; as compras usam a PTAX de venda e unidades inteiras. Detalhes do cálculo ficam para a spec. Ajuste o fora do escopo para "frete, IOF e o percentual real de taxa do marketplace (a taxa entra só como parâmetro)".
+
+C. Cada objetivo deve citar qual das cinco perguntas do dashboard atende. As perguntas são:
+   P1 cartas que mais valorizaram e desvalorizaram em reais, com efeito da carta e do câmbio;
+   P2 selado contra avulsas (índice base 100);
+   P3 qual coleção da turma valorizou mais;
+   P4 onde está concentrado o valor de cada coleção (participação por raridade e número de cartas que somam 80% do valor);
+   P5 retorno contra risco (volatilidade) das cartas da turma.
+   Ligue OBJ-03 a P1, OBJ-04 a P2, OBJ-05 a P3, e crie:
+   OBJ-08 Concentração de valor por raridade (P-01, P-03; atende P4);
+   OBJ-09 Retorno contra risco das cartas da turma (P-01, P-03; atende P5).
+   Metas como hipótese. Pode passar de 90 linhas, até 110.
+
+Depois grave docs/01_objetivos_negocio.md, acrescente o prompt em docs/prompts.md e pare.
+```
+
+### Arquivos gerados
+- `docs/01_objetivos_negocio.md`
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+“Corrigidos PTAX em dia não útil e valor de liquidação conforme o enunciado; criados OBJ-08 e OBJ-09 para as perguntas 4 e 5.”
