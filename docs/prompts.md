@@ -62,8 +62,8 @@ Respostas:
 - `docs/prompts.md` (esta entrada)
 
 ### Decisão humana
-“Rascunho revisado; pedi ajustes A (não falhar se a chave existir), B (regra de testes com VCR e Testcontainers) e C (coleta após 20h UTC) e respondi às 4 perguntas.”
-“Aprovado. Mantida a quarentena com group_id=24325.”
+Rascunho revisado; pedi ajustes A (não falhar se a chave existir), B (regra de testes com VCR e Testcontainers) e C (coleta após 20h UTC) e respondi às 4 perguntas.
+Aprovado. Mantida a quarentena com group_id=24325.
 ## 2026-11-09 — Etapa: persona (docs/00_persona.md)
 
 ### Prompt 1 (literal)
@@ -127,7 +127,7 @@ Mantenha só a pergunta 1 em "Perguntas abertas". Depois grave docs/00_persona.m
 - `docs/prompts.md` (esta entrada)
 
 ### Decisão humana
-“Corrigido para projeto individual; respondidas as perguntas 2 a 5 com base no enunciado; frequência da P-01 mantida como hipótese.”
+Corrigido para projeto individual; respondidas as perguntas 2 a 5 com base no enunciado; frequência da P-01 mantida como hipótese.
 
 ## 2026-11-09 — Etapa: objetivos de negócio (docs/01_objetivos_negocio.md)
 
@@ -192,7 +192,7 @@ Depois grave docs/01_objetivos_negocio.md, acrescente o prompt em docs/prompts.m
 - `docs/prompts.md` (esta entrada)
 
 ### Decisão humana
-“Corrigidos PTAX em dia não útil e valor de liquidação conforme o enunciado; criados OBJ-08 e OBJ-09 para as perguntas 4 e 5.”
+Corrigidos PTAX em dia não útil e valor de liquidação conforme o enunciado; criados OBJ-08 e OBJ-09 para as perguntas 4 e 5.
 
 ## 2026-11-09 — Etapa: spec v1, coleta diária e camada bruta (specs/spec.md)
 
@@ -273,4 +273,4 @@ Depois grave specs/spec.md, acrescente o prompt em docs/prompts.md e pare.
 - `docs/prompts.md` (esta entrada)
 
 ### Decisão humana
-“Aprovada a v1 da spec da coleta; acrescentado alerta de dia útil sem boletim no RF-08; RNF-04 ligado ao OBJ-06.”
+Aprovada a v1 da spec da coleta; acrescentado alerta de dia útil sem boletim no RF-08; RNF-04 ligado ao OBJ-06.
