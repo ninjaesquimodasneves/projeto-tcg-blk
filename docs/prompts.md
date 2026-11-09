@@ -193,3 +193,84 @@ Depois grave docs/01_objetivos_negocio.md, acrescente o prompt em docs/prompts.m
 
 ### Decisão humana
 “Corrigidos PTAX em dia não útil e valor de liquidação conforme o enunciado; criados OBJ-08 e OBJ-09 para as perguntas 4 e 5.”
+
+## 2026-11-09 — Etapa: spec v1, coleta diária e camada bruta (specs/spec.md)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de requisitos de dados. Escreve requisitos verificáveis, cada um com critério de aceite Dado/Quando/Então que um teste ou comando confirma. Não escreve código.
+
+[R] Pedido
+Crie specs/spec.md, versão 1, cobrindo só a coleta diária e a camada bruta. Deixe uma seção "Próximas versões" listando o que vem depois (silver, gold, conversão para reais, dashboard, carteira, testes de integração), sem detalhar.
+Cubra no mínimo, cada item com origem (OBJ-xx ou restrição):
+- coleta de produtos e preços da coleção (groupId 24325) no TCGCSV: https://tcgcsv.com/tcgplayer/3/24325/products e https://tcgcsv.com/tcgplayer/3/24325/prices;
+- coleta da PTAX do dólar do dia: https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoMoedaDia(moeda=@moeda,dataCotacao=@dataCotacao)?@moeda='USD'&@dataCotacao='MM-DD-AAAA'&$format=json, que devolve todos os boletins do dia;
+- coleta do CDI (série SGS 12): https://api.bcb.gov.br/dados/serie/bcdata.sgs.12/dados?formato=json&dataInicial=DD/MM/AAAA&dataFinal=DD/MM/AAAA, consultando uma janela de dias, porque a taxa de um dia útil só aparece na manhã seguinte;
+- gravação da resposta original, byte a byte, nas chaves:
+  raw/tcgplayer/group_id=24325/data=D/products.json
+  raw/tcgplayer/group_id=24325/data=D/prices.json
+  raw/bcb_ptax/group_id=24325/data=D/cotacao.json
+  raw/bcb_cdi/group_id=24325/data=D/cdi.json
+  com D = data da coleta no fuso America/Sao_Paulo;
+- recusa de sobrescrita: se a chave já existir, não grava e registra ja_existia, sem erro;
+- metadados ASCII em cada objeto: fonte-url, coletado-em (UTC), sha256 dos bytes gravados, versao-coletor, group-id;
+- User-Agent próprio, pausa mínima de 100 ms entre chamadas, timeout explícito de conexão e leitura;
+- repetição só para timeout, erro de conexão, 408, 429 e 5xx, com espera crescente com jitter, respeitando Retry-After e com limite de tentativas; 4xx não se repete;
+- PTAX vazia (fim de semana ou feriado) é gravada mesmo assim e registrada no log como "sem boletim", sem erro;
+- log por execução com, para cada fonte: URL, status HTTP, tentativas, bytes, sha256 e resultado (gravado, ja_existia, erro);
+- código de saída diferente de zero se alguma fonte terminar em erro;
+- execução agendada uma vez por dia depois das 20h UTC (GitHub Actions), também disparável à mão;
+- credenciais só por variável de ambiente; nenhum segredo em código, log ou commit;
+- escrita somente em chaves com group_id=24325.
+
+[E] Exemplos
+### RF-03 Recusa de sobrescrita no bruto
+Origem: OBJ-01, OBJ-02, restrição "raw/ nunca sobrescrito"
+- Dado que raw/tcgplayer/group_id=24325/data=2026-11-10/prices.json já existe no bucket
+- Quando o coletor roda de novo no mesmo dia
+- Então nenhum put é feito nessa chave, o log registra ja_existia para prices e a execução termina com código 0
+Verificação: teste de integração com MinIO em Testcontainers; e, no bucket real, rodar a coleta duas vezes e listar a chave.
+
+[A] Ajustes
+- Numere RF-01, RF-02... e RNF-01, RNF-02...; preserve os IDs P-xx e OBJ-xx.
+- Números sem fonte (tamanho da janela do CDI, limite de tentativas, timeouts, teto da espera) entram como "hipótese, validação pendente", com um valor inicial sugerido.
+- Não escolha bibliotecas nem descreva módulos; isso é do plano.
+- Termine com uma tabela de rastreabilidade requisito → OBJ e uma seção "Fatos, lacunas e suposições".
+
+[T] Tipo de saída
+Somente specs/spec.md, em Markdown, até 160 linhas. Mostre primeiro a lista de requisitos (só títulos), espere minha confirmação, depois o arquivo completo.
+
+[E] Extras
+Leia AGENTS.md, docs/00_persona.md e docs/01_objetivos_negocio.md. Ao gravar, acrescente o prompt em docs/prompts.md. Pare ao final.
+```
+
+### Prompt 2 (literal)
+
+```text
+Lista aprovada. Respostas:
+1. Mantenha a sua numeração (recusa de sobrescrita = RF-06). O RF-03 do exemplo era só ilustração do formato.
+2. Valores iniciais aprovados, todos como "hipótese, validação pendente": janela do CDI de 10 dias corridos até D; até 5 tentativas; timeout de conexão 10 s e de leitura 30 s; teto de espera 60 s.
+3. Sim, a PTAX usa a própria data D (fuso America/Sao_Paulo) como dataCotacao. Registre como fato que o boletim de fechamento sai por volta das 13h de Brasília (origem: enunciado), então a coleta depois das 20h UTC já o encontra nos dias úteis.
+
+Pode mostrar o specs/spec.md completo.
+```
+
+### Prompt 3 (literal)
+
+```text
+Aprovado, com dois ajustes:
+1. Mantenha os testes de integração com Testcontainers nos RF-05, RF-06, RF-07 e RNF-04, como está.
+2. RF-08: acrescente que, se D cair de segunda a sexta e a lista de boletins vier vazia, o log marca também "alerta: dia útil sem boletim" para conferência manual (pode ser feriado ou erro no formato da data; origem: Aula 03, em que data em formato ISO devolveu 200 com lista vazia). Continua sem contar como erro no RF-11.
+3. Na rastreabilidade, ligue o RNF-04 também ao OBJ-06.
+
+Depois grave specs/spec.md, acrescente o prompt em docs/prompts.md e pare.
+```
+
+### Arquivos gerados
+- `specs/spec.md`
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+“Aprovada a v1 da spec da coleta; acrescentado alerta de dia útil sem boletim no RF-08; RNF-04 ligado ao OBJ-06.”
