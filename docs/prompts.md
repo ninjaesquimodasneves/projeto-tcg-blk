@@ -64,3 +64,67 @@ Respostas:
 ### Decisão humana
 “Rascunho revisado; pedi ajustes A (não falhar se a chave existir), B (regra de testes com VCR e Testcontainers) e C (coleta após 20h UTC) e respondi às 4 perguntas.”
 “Aprovado. Mantida a quarentena com group_id=24325.”
+## 2026-11-09 — Etapa: persona (docs/00_persona.md)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um analista de requisitos de dados. Nesta etapa você só descreve pessoas e problemas. Não propõe tecnologia, não escreve código e não executa comandos.
+
+[R] Pedido
+Crie docs/00_persona.md com as personas do projeto. Contexto (origem: enunciado do projeto da disciplina): um colecionador que mora no Brasil compra cartas avulsas e produtos selados (booster box, elite trainer box, booster bundle, blisters) do Pokémon TCG para guardar como ativo e quer saber onde o dinheiro dele rende mais. Os preços estão em dólar no TCGplayer; ele mede o patrimônio em reais. Ele quer ver o preço ao longo do tempo, reconhecer a carta pela imagem, comparar selado com avulso, comparar a coleção dele (SV: Black Bolt) com as dos colegas da turma e saber se uma carteira de cartas teria ganhado de deixar o dinheiro em dólar ou no CDI.
+Crie no máximo três personas:
+P-01 o colecionador (usuário do dado);
+P-02 quem opera o pipeline e responde quando a coleta falha;
+P-03 os colegas da turma, que leem a silver desta coleção para as perguntas comparativas.
+Para cada uma: quem é, decisão que toma, pergunta típica, frequência de uso, o que precisa do dado, dor atual, consequência de dado errado ou ausente.
+
+[E] Exemplos
+Linha bem escrita:
+| Dor atual | Não sabe se a carta que subiu 3% em reais subiu de verdade ou se foi só o dólar que subiu. |
+Linha mal escrita (não faça assim):
+| Dor atual | Precisa de uma solução de dados escalável. |
+
+[A] Ajustes
+- Use só as informações deste prompt e do AGENTS.md.
+- Não invente números (frequência, valores, prazos). Onde faltar, escreva "hipótese, validação pendente".
+- Não cite ferramentas (RustFS, DuckDB, Streamlit) nas linhas de dor e de necessidade; a persona fala do problema dela.
+- Termine com uma seção "Fatos, lacunas e suposições" (cada fato com a origem) e uma seção "Perguntas abertas".
+- Não crie nem altere outros arquivos, exceto acrescentar este prompt ao docs/prompts.md conforme o AGENTS.md.
+
+[T] Tipo de saída
+Somente docs/00_persona.md, em Markdown, até uma página. Mostre o conteúdo antes de gravar e espere minha confirmação.
+
+[E] Extras
+Se faltar informação para alguma linha, pergunte antes de supor. Pare ao final.
+```
+
+### Prompt 2 (literal)
+
+```text
+Ajustes antes de gravar:
+
+1. O projeto é individual, não em grupo (origem: enunciado). Corrija:
+   - P-02 "Quem é": "A própria aluna, responsável individual pelo projeto, que roda a coleta diária e responde quando ela falha."
+   - P-03 "Quem é": "Colegas da turma, cada um responsável por outra coleção, que leem a silver desta coleção e o resultado da carteira para as perguntas comparativas."
+   - Remova a suposição "P-02 é alguém do próprio grupo".
+
+2. Respostas às perguntas abertas (todas com origem: enunciado do projeto):
+   - Pergunta 1: continua lacuna, mantenha como hipótese.
+   - Pergunta 2: P-02 é a própria aluna (projeto individual). Vira fato.
+   - Pergunta 3: a fonte devolve só o preço do dia; a série histórica é formada pela gravação diária, e um dia não coletado não se recupera. Dia sem coleta fica como lacuna declarada, nunca preenchido com dado inventado. Vira fato, e tire o "(hipótese, validação pendente)" da consequência da P-02.
+   - Pergunta 4: sim, os colegas também leem gold_turma/carteira, que alimenta o placar da turma. Vira fato e entra em "O que precisa do dado" da P-03.
+   - Pergunta 5: a carteira é definida pelo enunciado: R$ 1.000 no primeiro dia de coleta, comparando cinco carteiras (selado, cesta de raras, uma regra própria, dólar parado e CDI), avaliadas todo dia pelo que o colecionador receberia vendendo tudo. Troque a suposição sobre a carteira por esse fato, sem entrar em detalhes de cálculo (isso vai para a spec).
+
+3. Na P-02, "O que precisa do dado": acrescente "saber quais dias ficaram sem coleta, para declará-los no README".
+
+Mantenha só a pergunta 1 em "Perguntas abertas". Depois grave docs/00_persona.md, acrescente o prompt em docs/prompts.md e pare.
+```
+
+### Arquivos gerados
+- `docs/00_persona.md`
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+“Corrigido para projeto individual; respondidas as perguntas 2 a 5 com base no enunciado; frequência da P-01 mantida como hipótese.”
