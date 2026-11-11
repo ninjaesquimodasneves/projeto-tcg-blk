@@ -18,7 +18,7 @@ Comando base: `.venv/bin/pytest` com `pythonpath = src` no `pytest.ini`.
 - Comando: pytest tests/unidade/test_config.py -q
 - Depende de: T-01
 
-## T-03 URLs, chaves e datas
+## T-03 URLs, chaves e datas — concluída (2026-11-11)
 - Requisitos: RF-01, RF-02, RF-03, RF-04, RF-05, RNF-04
 - Arquivos: `src/coleta/urls.py`, `tests/unidade/test_urls.py`
 - Teste: test_data_d_em_sao_paulo (02h UTC de 12/11 vira D = 2026-11-11); test_url_ptax_em_mm_dd_aaaa; test_janela_cdi_d_menos_10_ate_d; test_urls_tcgcsv_products_e_prices; test_chaves_raw_das_quatro_fontes

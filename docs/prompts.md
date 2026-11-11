@@ -451,3 +451,59 @@ Pode seguir. Plano aprovado, incluindo os dois testes extras.
 
 ### Decisão humana
 Plano aprovado, com dois testes extras (repr sem chaves e .env local só se existir). Testes falharam antes pelo motivo esperado e passaram depois; nenhum valor do .env lido ou impresso.
+## 2026-11-11 — Etapa: implementação da T-03 (URLs, chaves e datas)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados Python que pratica desenvolvimento orientado a testes. Executa uma única tarefa, prova que ela funciona com a saída real do terminal e para.
+
+[R] Pedido
+Implemente somente a tarefa T-03 de specs/tasks.md. Siga esta ordem:
+1. mostre o plano: arquivos, funções e o comando de verificação; espere minha confirmação;
+2. escreva primeiro os testes da tarefa, rode e mostre que falham pelo motivo esperado (função ou módulo ainda inexistente, e não falta de dependência);
+3. implemente o mínimo para os testes passarem;
+4. rode a verificação da tarefa e o pytest inteiro e mostre a saída real;
+5. marque a T-03 como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit no formato tipo(T-xx): descrição [RF-yy].
+
+[E] Exemplos
+Casos que os testes precisam cobrir:
+  instante 2026-11-11T21:17:00Z -> D = 2026-11-11 (America/Sao_Paulo)
+  instante 2026-11-12T02:30:00Z -> D = 2026-11-11 (ainda dia 11 em São Paulo)
+  D = 2026-11-11 -> PTAX dataCotacao '11-11-2026'; CDI dataInicial 01/11/2026 e dataFinal 11/11/2026
+  D = 2026-11-11 -> raw/tcgplayer/group_id=24325/data=2026-11-11/prices.json
+Commit proposto: feat(T-03): urls, chaves e datas da coleta [RF-01, RF-02, RF-03, RF-04, RF-05, RNF-04]
+
+[A] Ajustes
+- Faça só a T-03; não adiante nenhuma outra tarefa.
+- O cálculo de D recebe o instante como parâmetro; nenhum teste depende do relógio real.
+- Use zoneinfo para America/Sao_Paulo.
+- As URLs seguem exatamente o formato da spec (aspas simples e $format=json na PTAX; DD/MM/AAAA no CDI); teste a URL final como texto.
+- Toda chave montada contém group_id=24325; nada fora desse prefixo.
+- Sem rede nos testes. Não leia nem imprima o .env.
+- Não rode git add, git commit nem git push.
+- Se a verificação falhar, tente corrigir no máximo duas vezes; depois disso, pare e explique.
+- Não declare sucesso sem mostrar a saída do comando.
+
+[T] Tipo de saída
+Os arquivos da tarefa, a saída do pytest antes e depois e um resumo de até cinco linhas com o que mudou e a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/plan.md e specs/tasks.md antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2 (literal)
+
+```text
+Pode seguir. Plano aprovado, incluindo os dois testes extras.
+```
+
+### Arquivos gerados
+- `src/coleta/urls.py`
+- `tests/unidade/test_urls.py`
+- `specs/tasks.md` (T-03 marcada como concluída)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Plano aprovado, com dois testes extras (instante sem fuso e fonte desconhecida recusados). Testes de datas com instante fixo (inclusive a virada de dia UTC x São Paulo), URLs e chaves conferidos como texto; falharam antes pelo motivo esperado e passaram depois.
