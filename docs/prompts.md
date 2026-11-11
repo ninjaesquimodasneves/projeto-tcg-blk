@@ -507,3 +507,57 @@ Pode seguir. Plano aprovado, incluindo os dois testes extras.
 
 ### Decisão humana
 Plano aprovado, com dois testes extras (instante sem fuso e fonte desconhecida recusados). Testes de datas com instante fixo (inclusive a virada de dia UTC x São Paulo), URLs e chaves conferidos como texto; falharam antes pelo motivo esperado e passaram depois.
+## 2026-11-11 — Etapa: implementação da T-04 (cliente HTTP com User-Agent, pausa e timeouts)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados Python que pratica desenvolvimento orientado a testes. Executa uma única tarefa, prova que ela funciona com a saída real do terminal e para.
+
+[R] Pedido
+Implemente somente a tarefa T-04 de specs/tasks.md. Siga esta ordem:
+1. mostre o plano: arquivos, funções e o comando de verificação; espere minha confirmação;
+2. escreva primeiro os testes da tarefa, rode e mostre que falham pelo motivo esperado (função ou módulo ainda inexistente, e não falta de dependência);
+3. implemente o mínimo para os testes passarem;
+4. rode a verificação da tarefa e o pytest inteiro e mostre a saída real;
+5. marque a T-04 como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit no formato tipo(T-xx): descrição [RF-yy].
+
+[E] Exemplos
+Casos que os testes precisam cobrir:
+  toda requisição sai com o User-Agent da configuração;
+  toda requisição usa timeout (10, 30);
+  duas chamadas seguidas ao TCGCSV: a segunda espera o que falta para completar 100 ms desde a primeira (relógio e sleep falsos);
+  a resposta devolvida guarda os bytes do corpo sem decodificar.
+Commit proposto: feat(T-04): cliente http com user-agent, pausa e timeouts [RNF-01, RNF-02]
+
+[A] Ajustes
+- Faça só a T-04; a repetição com jitter e Retry-After é da T-05, não adiante.
+- Relógio monotônico e função de espera injetáveis, para os testes não dependerem do tempo real.
+- Sem rede nos testes: use uma sessão ou adaptador falso.
+- Não leia nem imprima o .env.
+- Não rode git add, git commit nem git push.
+- Se a verificação falhar, tente corrigir no máximo duas vezes; depois disso, pare e explique.
+- Não declare sucesso sem mostrar a saída do comando.
+
+[T] Tipo de saída
+Os arquivos da tarefa, a saída do pytest antes e depois e um resumo de até cinco linhas com o que mudou e a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/plan.md e specs/tasks.md antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2 (literal)
+
+```text
+Pode seguir. Plano aprovado, incluindo o teste extra.
+```
+
+### Arquivos gerados
+- `src/coleta/cliente_http.py`
+- `tests/unidade/test_cliente_http.py`
+- `specs/tasks.md` (T-04 marcada como concluída)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Plano aprovado, com teste extra de corpo em bytes sem decodificar. Pausa de 100 ms aplicada só ao TCGCSV; timeout e erro de conexão viram FalhaTransitoria, tratada na T-05. Testes sem rede, com relógio e espera falsos; falharam antes pelo motivo esperado e passaram depois.

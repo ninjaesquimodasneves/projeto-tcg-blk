@@ -25,7 +25,7 @@ Comando base: `.venv/bin/pytest` com `pythonpath = src` no `pytest.ini`.
 - Comando: pytest tests/unidade/test_urls.py -q
 - Depende de: T-02
 
-## T-04 Cliente HTTP com User-Agent, pausa e timeouts
+## T-04 Cliente HTTP com User-Agent, pausa e timeouts — concluída (2026-11-11)
 - Requisitos: RNF-01, RNF-02
 - Arquivos: `src/coleta/cliente_http.py`, `tests/unidade/test_cliente_http.py`
 - Teste: test_user_agent_do_ambiente_em_toda_chamada; test_pausa_minima_de_100ms_no_tcgcsv (relógio e sleep falsos); test_timeout_10_30_repassado_a_sessao; test_timeout_vira_falha_transitoria (sessão falsa lança ReadTimeout)
