@@ -398,4 +398,56 @@ Pode seguir, com um ajuste no requirements.txt: troque "testcontainers==4.15.0" 
 - `docs/prompts.md` (esta entrada)
 
 ### Decisão humana
-Plano aprovado; ajustado testcontainers para testcontainers[minio]==4.15.0. Teste falhou antes (ModuleNotFoundError) e passou depois.
+Plano aprovado; ajustado testcontainers para testcontainers[minio]==4.15.0. A primeira execução falhou por falta do pytest no .venv, não pela ausência do pacote coleta; depois da instalação, 1 passed.
+## 2026-11-11 — Etapa: implementação da T-02 (configuração lida do ambiente)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados Python que pratica desenvolvimento orientado a testes. Executa uma única tarefa, prova que ela funciona com a saída real do terminal e para.
+
+[R] Pedido
+Implemente somente a tarefa T-02 de specs/tasks.md. Siga esta ordem:
+1. mostre o plano: arquivos, funções e o comando de verificação; espere minha confirmação;
+2. escreva primeiro os testes da tarefa, rode e mostre que falham pelo motivo esperado (função ou módulo ainda inexistente, e não falta de dependência);
+3. implemente o mínimo para os testes passarem;
+4. rode a verificação da tarefa e o pytest inteiro e mostre a saída real;
+5. marque a T-02 como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit no formato tipo(T-xx): descrição [RF-yy].
+
+[E] Exemplos
+Saída esperada no fim:
+  Antes:  pytest tests/unidade/test_config.py -q -> falha com ImportError (config ainda não existe)
+  Depois: pytest -q -> N passed
+  Commit proposto: feat(T-02): configuracao lida do ambiente [RNF-03, RF-07]
+
+[A] Ajustes
+- Faça só a T-02; não adiante nenhuma outra tarefa.
+- Configuração só por variáveis de ambiente, com os nomes do .env.example; python-dotenv só carrega o .env local se ele existir.
+- Nos testes, use valores falsos com monkeypatch; nunca leia nem imprima o .env real.
+- Nenhum segredo em código, teste, log ou mensagem de erro (uma variável ausente aparece pelo nome, nunca pelo valor).
+- Não rode git add, git commit nem git push.
+- Se a verificação falhar, tente corrigir no máximo duas vezes; depois disso, pare e explique.
+- Não declare sucesso sem mostrar a saída do comando.
+
+[T] Tipo de saída
+Os arquivos da tarefa, a saída do pytest antes e depois e um resumo de até cinco linhas com o que mudou e a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/plan.md e specs/tasks.md antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2 (literal)
+
+```text
+Pode seguir. Plano aprovado, incluindo os dois testes extras.
+```
+
+### Arquivos gerados
+- `src/coleta/config.py`
+- `tests/unidade/test_config.py`
+- `specs/tasks.md` (T-02 marcada como concluída)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Plano aprovado, com dois testes extras (repr sem chaves e .env local só se existir). Testes falharam antes pelo motivo esperado e passaram depois; nenhum valor do .env lido ou impresso.

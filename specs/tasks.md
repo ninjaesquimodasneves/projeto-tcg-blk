@@ -11,7 +11,7 @@ Comando base: `.venv/bin/pytest` com `pythonpath = src` no `pytest.ini`.
 - Comando: pytest tests/unidade/test_pacote.py -q && pytest --markers | grep -E "integracao|vcr"
 - Depende de: —
 
-## T-02 Configuração lida do ambiente
+## T-02 Configuração lida do ambiente — concluída (2026-11-11)
 - Requisitos: RNF-03, RF-07
 - Arquivos: `src/coleta/config.py`, `tests/unidade/test_config.py`
 - Teste: test_config_le_variaveis_do_ambiente; test_variavel_ausente_falha_sem_mostrar_valores (a mensagem cita o nome, nunca o valor); test_group_id_diferente_de_24325_e_recusado
