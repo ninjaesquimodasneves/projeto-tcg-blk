@@ -273,4 +273,75 @@ Depois grave specs/spec.md, acrescente o prompt em docs/prompts.md e pare.
 - `docs/prompts.md` (esta entrada)
 
 ### Decisão humana
-Aprovada a v1 da spec da coleta; acrescentado alerta de dia útil sem boletim no RF-08; RNF-04 ligado ao OBJ-06.
+Aprovada a v1 da spec da coleta; acrescentado alerta de dia útil sem boletim no RF-08; RNF-04 ligado ao OBJ-06./
+## 2026-11-11 — Etapa: plano e tarefas v1 da coleta (specs/plan.md, specs/tasks.md)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é arquiteto de software de dados e líder técnico. Justifica cada escolha técnica com um requisito e quebra o trabalho em tarefas pequenas, cada uma provada por um teste. Não escreve código nesta etapa.
+
+[R] Pedido
+Crie dois arquivos, versão 1, cobrindo só a coleta e a camada bruta de specs/spec.md:
+1. specs/plan.md com:
+   - diagrama C4 de contexto em Mermaid: colecionador, aluna operadora, coletor, TCGCSV, APIs do Banco Central (PTAX e CDI), RustFS da turma, GitHub Actions, colegas da turma (sistemas externos que leem o lake);
+   - diagrama C4 de contêineres e componentes em Mermaid: módulos em src/coleta/ (config, urls, cliente HTTP, gravador do raw, orquestrador/CLI) e o workflow do GitHub Actions;
+   - tabela de escolhas técnicas: escolha, alternativa descartada, requisito que justifica. Escolhas já decididas: Python com .venv e requirements.txt; requests para HTTP; boto3 com endpoint do .env, região us-east-1 e addressing_style path; python-dotenv só para desenvolvimento local; pytest; vcrpy com pytest-recording para os testes de contrato; testcontainers para MinIO nos testes de integração, imagem coollabsio/minio:RELEASE.2025-10-15T17-29-55Z; GitHub Actions com schedule e workflow_dispatch;
+   - onde o log fica (saída padrão, capturada pelo GitHub Actions, e cópia em docs/evidencias/ para execuções relevantes).
+2. specs/tasks.md com tarefas T-01, T-02... em ordem, cada uma com: requisitos atendidos, arquivos, teste que a prova (nome), comando de verificação, dependências. Sugestão de sequência:
+   T-01 estrutura do pacote, requirements.txt, pytest.ini com marcadores integracao e vcr, teste trivial;
+   T-02 configuração e montagem de URLs e datas (D em America/Sao_Paulo, PTAX em MM-DD-AAAA, janela do CDI);
+   T-03 cliente HTTP: User-Agent, pausa, timeouts, retry com jitter e Retry-After;
+   T-04 gravador do raw: verificação de group_id, head antes do put, ja_existia, metadados ASCII, sha256;
+   T-05 teste de integração do gravador com Testcontainers, incluindo a recusa de sobrescrita;
+   T-06 orquestrador: chama as quatro fontes, PTAX vazia e alerta de dia útil, log, código de saída;
+   T-07 testes de contrato com cassetes VCR das quatro fontes;
+   T-08 primeira execução real contra o bucket e evidência em docs/evidencias/;
+   T-09 workflow do GitHub Actions com schedule depois das 20h UTC, workflow_dispatch e secrets.
+   Ajuste a sequência se encontrar motivo, explicando.
+
+[E] Exemplos
+## T-04 Gravador do raw com recusa de sobrescrita
+- Requisitos: RF-05, RF-06, RF-07, RNF-04
+- Arquivos: src/coleta/gravador.py, tests/unidade/test_gravador.py
+- Teste: test_chave_existente_vira_ja_existia (cliente S3 falso: head encontra a chave, nenhum put é chamado)
+- Comando: pytest tests/unidade/test_gravador.py -q
+- Depende de: T-01
+
+[A] Ajustes
+- Toda escolha do plano aponta para um RF ou RNF existente; nada sem requisito.
+- Testes de unidade sem rede e sem Docker; integração marcada com integracao.
+- Cada tarefa cabe em cerca de 30 minutos; cada RF e RNF da v1 aparece em pelo menos uma tarefa (tabela final requisito → tarefa → teste).
+- Os nomes dos diagramas são os mesmos do texto; Mermaid sem ponto e vírgula nos rótulos.
+- Não escreva código.
+
+[T] Tipo de saída
+specs/plan.md (até 120 linhas) e specs/tasks.md (até 150 linhas). Mostre primeiro a lista de tarefas (só títulos e requisitos) e a tabela de escolhas, espere minha confirmação, depois os arquivos completos.
+
+[E] Extras
+Leia AGENTS.md, docs/ e specs/spec.md. Ao gravar, acrescente o prompt em docs/prompts.md. Pare ao final.
+```
+
+### Prompt 2 (literal)
+
+```text
+Lista e tabela aprovadas. Respostas:
+1. Python 3.14 no .venv e no Actions.
+2. Cron "17 21 * * *" (minuto quebrado para evitar o atraso do GitHub em hora cheia), mais workflow_dispatch.
+3. Concordo: sem parâmetro --data.
+
+Ajuste de ordem, por prazo (a série de preços só começa no primeiro dia coletado e hoje é 11/11): mova a integração com Testcontainers e os testes de contrato com VCR para depois do workflow. Nova ordem:
+T-01 estrutura; T-02 configuração; T-03 URLs, chaves e datas; T-04 cliente HTTP; T-05 repetição; T-06 gravador do raw (S3 falso); T-07 classificação da PTAX; T-08 orquestrador e CLI; T-09 primeira execução real e evidência; T-10 workflow do GitHub Actions; T-11 integração com Testcontainers; T-12 testes de contrato com VCR.
+Cada tarefa continua com o seu teste de unidade. Registre essa decisão no plan.md, com o motivo.
+
+Pode escrever specs/plan.md e specs/tasks.md, acrescentar o prompt em docs/prompts.md e parar.
+```
+
+### Arquivos gerados
+- `specs/plan.md`
+- `specs/tasks.md`
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Aprovados o plano e as tarefas v1 da coleta. Python 3.14 no .venv e no Actions; cron 17 21 * * * (minuto quebrado) mais workflow_dispatch; CLI sem parâmetro --data. Ordem das tarefas ajustada por prazo: integração com Testcontainers (T-11) e contrato com VCR (T-12) depois do workflow, para a coleta começar em 11/11; testes de unidade mantidos em cada tarefa.
