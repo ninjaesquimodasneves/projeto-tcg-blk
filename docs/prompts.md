@@ -561,3 +561,74 @@ Pode seguir. Plano aprovado, incluindo o teste extra.
 
 ### Decisão humana
 Plano aprovado, com teste extra de corpo em bytes sem decodificar. Pausa de 100 ms aplicada só ao TCGCSV; timeout e erro de conexão viram FalhaTransitoria, tratada na T-05. Testes sem rede, com relógio e espera falsos; falharam antes pelo motivo esperado e passaram depois.
+## 2026-11-11 — Etapa: implementação da T-05 (repetição com jitter e Retry-After)
+
+### Prompt 1 (literal, completado)
+
+Nota: o prompt chegou cortado depois de "- Não declare sucesso sem". O trecho final, a partir de "mostrar a saída do comando.", foi completado pela aluna no Prompt 2 e está reproduzido aqui.
+
+```text
+[C] Personagem
+Você é um engenheiro de dados Python que pratica desenvolvimento orientado a testes. Executa uma única tarefa, prova que ela funciona com a saída real do terminal e para.
+
+[R] Pedido
+Implemente somente a tarefa T-05 de specs/tasks.md. Siga esta ordem:
+1. mostre o plano: arquivos, funções e o comando de verificação; espere minha confirmação;
+2. escreva primeiro os testes da tarefa, rode e mostre que falham pelo motivo esperado (função ou módulo ainda inexistente, e não falta de dependência);
+3. implemente o mínimo para os testes passarem;
+4. rode a verificação da tarefa e o pytest inteiro e mostre a saída real;
+5. marque a T-05 como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit no formato tipo(T-xx): descrição [RF-yy].
+
+[E] Exemplos
+Casos que os testes precisam cobrir:
+  503 e depois 200 -> devolve o 200 com tentativas = 2;
+  429 com Retry-After: 2 -> a espera usada é 2 s, e não o valor sorteado;
+  Retry-After maior que 60 -> a espera fica limitada a 60 s;
+  404 -> não repete, tentativas = 1, resultado de erro;
+  FalhaTransitoria (timeout) nas 5 tentativas -> erro final com tentativas = 5;
+  a espera da tentativa k é sorteada entre 0 e min(60, base * 2**k) (full jitter), com sorteio injetável.
+Commit proposto: feat(T-05): repeticao com jitter e retry-after [RF-09]
+
+[A] Ajustes
+- Faça só a T-05; não adiante o gravador nem o orquestrador.
+- Repete só timeout, erro de conexão, 408, 429 e 5xx; qualquer outro 4xx não se repete.
+- Limite de 5 tentativas e teto de espera de 60 s, ambos marcados no código como "hipótese, validação pendente".
+- O número de tentativas de cada chamada precisa ficar disponível para o log do RF-10.
+- Espera e sorteio injetáveis; nenhum teste espera tempo real nem depende de sorte.
+- Sem rede nos testes. Não leia nem imprima o .env.
+- Não rode git add, git commit nem git push.
+- Se a verificação falhar, tente corrigir no máximo duas vezes; depois disso, pare e explique.
+- Não declare sucesso sem mostrar a saída do comando.
+
+[T] Tipo de saída
+Os arquivos da tarefa, a saída do pytest antes e depois e um resumo de até cinco linhas com o que mudou e a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/plan.md, specs/tasks.md e src/coleta/cliente_http.py antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2 (literal)
+
+```text
+Pode seguir. Respostas:
+1. Suas suposições sobre o fim do prompt estão certas. O trecho que faltou era:
+"- Não declare sucesso sem mostrar a saída do comando.
+
+[T] Tipo de saída
+Os arquivos da tarefa, a saída do pytest antes e depois e um resumo de até cinco linhas com o que mudou e a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/plan.md, specs/tasks.md e src/coleta/cliente_http.py antes de começar. Pare ao final da tarefa."
+Registre em docs/prompts.md o prompt completo, com esse trecho, e uma nota de que ele chegou cortado e foi completado nesta mensagem.
+2. O cliente_http.py fica sem mudanças: a repetição envolve o get por fora. Atualize a lista de arquivos da T-05 em specs/tasks.md para refletir isso.
+3. Plano aprovado, incluindo os dois testes extras e BASE_ESPERA_S = 1 como hipótese.
+```
+
+### Arquivos gerados
+- `src/coleta/repeticao.py`
+- `tests/unidade/test_repeticao.py`
+- `specs/tasks.md` (T-05 marcada como concluída; lista de arquivos sem `cliente_http.py`)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Plano aprovado, com testes extras de full jitter e Retry-After em data HTTP. Repetição em módulo próprio, sem alterar o cliente HTTP; tasks.md atualizado. Base de espera de 1 s, teto de 60 s e 5 tentativas como hipóteses. Prompt chegou cortado e foi completado. Testes falharam antes pelo motivo esperado e passaram depois.

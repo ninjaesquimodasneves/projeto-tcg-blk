@@ -32,9 +32,9 @@ Comando base: `.venv/bin/pytest` com `pythonpath = src` no `pytest.ini`.
 - Comando: pytest tests/unidade/test_cliente_http.py -q
 - Depende de: T-02
 
-## T-05 Repetição só para falhas transitórias
+## T-05 Repetição só para falhas transitórias — concluída (2026-11-11)
 - Requisitos: RF-09
-- Arquivos: `src/coleta/repeticao.py`, `src/coleta/cliente_http.py`, `tests/unidade/test_repeticao.py`
+- Arquivos: `src/coleta/repeticao.py`, `tests/unidade/test_repeticao.py` (`cliente_http.py` fica sem mudanças: a repetição envolve o `get` por fora)
 - Teste: test_503_depois_200_tem_duas_tentativas; test_429_respeita_retry_after_com_teto_60s; test_404_nao_repete; test_cinco_falhas_viram_erro (sleep e jitter falsos)
 - Comando: pytest tests/unidade/test_repeticao.py -q
 - Depende de: T-04
