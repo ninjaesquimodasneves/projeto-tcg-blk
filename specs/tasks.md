@@ -4,7 +4,7 @@ Origem: `specs/spec.md` v1 e `specs/plan.md`. Uma tarefa por vez, cada uma em ce
 Testes de unidade ficam em `tests/unidade/` e não usam rede nem Docker. Integração fica em `tests/integracao/` (marcador `integracao`). Contrato fica em `tests/contrato/` (marcador `vcr`).
 Comando base: `.venv/bin/pytest` com `pythonpath = src` no `pytest.ini`.
 
-## T-01 Estrutura do pacote e do ambiente de testes
+## T-01 Estrutura do pacote e do ambiente de testes — concluída (2026-11-11)
 - Requisitos: infraestrutura (sem RF)
 - Arquivos: `requirements.txt`, `pytest.ini`, `src/coleta/__init__.py`, `tests/unidade/test_pacote.py`
 - Teste: test_pacote_importa_e_tem_versao (`coleta.__version__` existe)

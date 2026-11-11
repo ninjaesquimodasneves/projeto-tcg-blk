@@ -345,3 +345,57 @@ Pode escrever specs/plan.md e specs/tasks.md, acrescentar o prompt em docs/promp
 
 ### Decisão humana
 Aprovados o plano e as tarefas v1 da coleta. Python 3.14 no .venv e no Actions; cron 17 21 * * * (minuto quebrado) mais workflow_dispatch; CLI sem parâmetro --data. Ordem das tarefas ajustada por prazo: integração com Testcontainers (T-11) e contrato com VCR (T-12) depois do workflow, para a coleta começar em 11/11; testes de unidade mantidos em cada tarefa.
+## 2026-11-11 — Etapa: implementação da T-01 (estrutura do pacote e pytest)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados Python que pratica desenvolvimento orientado a testes. Executa uma única tarefa, prova que ela funciona com a saída real do terminal e para.
+
+[R] Pedido
+Implemente somente a tarefa T-01 de specs/tasks.md. Siga esta ordem:
+1. mostre o plano: arquivos que vai criar ou alterar, pacotes do requirements.txt com versões fixadas e o comando de verificação; espere minha confirmação;
+2. escreva primeiro o teste da tarefa, rode e mostre a saída;
+3. crie o restante dos arquivos da tarefa e instale as dependências no .venv com pip install -r requirements.txt;
+4. rode a verificação da tarefa e mostre a saída real;
+5. marque a tarefa como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit no formato tipo(T-xx): descrição.
+
+[E] Exemplos
+Saída esperada no fim:
+  Comando: pytest -q
+  Resultado: 1 passed
+  Arquivos: requirements.txt, pytest.ini, src/coleta/__init__.py, tests/unidade/test_estrutura.py, specs/tasks.md, docs/prompts.md
+  Commit proposto: chore(T-01): estrutura do pacote e configuracao do pytest
+
+[A] Ajustes
+- Faça só a T-01; não adiante nenhuma outra tarefa.
+- Use o .venv do projeto; não instale nada fora dele.
+- Não leia nem imprima o .env.
+- Não rode git add, git commit nem git push; eu faço o commit.
+- Se a verificação falhar, tente corrigir no máximo duas vezes; depois disso, pare e explique.
+- Não declare sucesso sem mostrar a saída do comando.
+
+[T] Tipo de saída
+Os arquivos da tarefa, a saída do pytest e um resumo de até cinco linhas com o que mudou e a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/plan.md e specs/tasks.md antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2 (literal)
+
+```text
+Pode seguir, com um ajuste no requirements.txt: troque "testcontainers==4.15.0" por "testcontainers[minio]==4.15.0" (o MinioContainer usa o cliente minio, instalado por esse extra; origem: Aula 07). O resto do plano está aprovado.
+```
+
+### Arquivos gerados
+- `requirements.txt`
+- `pytest.ini`
+- `src/coleta/__init__.py`
+- `tests/unidade/test_pacote.py`
+- `specs/tasks.md` (T-01 marcada como concluída)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Plano aprovado; ajustado testcontainers para testcontainers[minio]==4.15.0. Teste falhou antes (ModuleNotFoundError) e passou depois.
