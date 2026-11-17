@@ -1,0 +1,57 @@
+# Coleta diaria do raw BLK (groupId 24325) [RF-11, RF-12, RNF-03].
+# Credenciais so via secrets; os demais valores sao os publicos do .env.example.
+name: coleta
+
+on:
+  schedule:
+    - cron: "17 21 * * *"   # 21h17 UTC = 18h17 em Sao Paulo, depois da atualizacao do TCGCSV
+  workflow_dispatch:
+    inputs:
+      forcar_falha:
+        description: "RF-11: esvazia SIGLA para o coletor falhar na configuracao, antes de qualquer chamada HTTP ou S3"
+        type: boolean
+        default: false
+
+concurrency:
+  group: coleta-blk
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  coleta:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Python 3.14
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: python -m pip install -r requirements.txt
+
+      - name: Rodar o coletor
+        shell: bash
+        env:
+          S3_ENDPOINT_URL: ${{ secrets.S3_ENDPOINT_URL }}
+          S3_ACCESS_KEY: ${{ secrets.S3_ACCESS_KEY }}
+          S3_SECRET_KEY: ${{ secrets.S3_SECRET_KEY }}
+          S3_REGION: us-east-1
+          BUCKET: tcg
+          GROUP_ID: "24325"
+          SIGLA: BLK
+          USER_AGENT: colecao-blk/1.0
+          FORCAR_FALHA: ${{ inputs.forcar_falha }}
+        run: |
+          if [ "$FORCAR_FALHA" = "true" ]; then
+            export SIGLA=""
+          fi
+          PYTHONPATH=src python -m coleta

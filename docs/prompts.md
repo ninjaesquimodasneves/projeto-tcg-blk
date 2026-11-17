@@ -1110,3 +1110,85 @@ Pendência: `tests/unidade/test_evidencias.py` (test_evidencia_sem_segredos), ci
 
 ### Decisão humana
 Primeira coleta real aprovada: às 20:39 UTC de 17/11, as quatro fontes gravadas com código 0; a segunda execução deu ja_existia nas quatro, sem regravar. Listagem e sha256 conferidos; evidência salva sem credenciais. O teste test_evidencias.py citado no tasks.md não foi criado nesta tarefa (pedido sem alteração de código) e passa para a T-10. Registrado como melhoria futura que a reexecução busca as fontes antes de checar o bucket (8 chamadas no dia, dentro do limite).
+## 2026-11-17 — Etapa: implementação da T-10 (workflow do GitHub Actions) e teste pendente da T-09
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados que configura pipelines agendados no GitHub Actions com cuidado com segredos. Executa uma única tarefa e para.
+
+[R] Pedido
+Implemente somente a T-10 de specs/tasks.md: o workflow .github/workflows/coleta.yml. Inclua também nesta tarefa o tests/unidade/test_evidencias.py que ficou pendente da T-09 (registre isso em specs/tasks.md e em docs/prompts.md). Siga esta ordem:
+1. mostre o plano, o conteúdo completo do workflow e os testes de test_evidencias.py; espere minha confirmação;
+2. escreva test_evidencias.py e rode;
+3. crie o workflow;
+4. valide o YAML localmente (por exemplo, carregando com Python) e rode o pytest inteiro, mostrando a saída real;
+5. marque a T-10 como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit.
+
+[E] Exemplos
+Elementos esperados no workflow:
+  on: schedule com cron "17 21 * * *" e workflow_dispatch;
+  concurrency com um grupo fixo e cancel-in-progress: false;
+  permissions: contents: read;
+  actions/checkout e actions/setup-python com Python 3.14;
+  pip install -r requirements.txt;
+  passo que roda PYTHONPATH=src python -m coleta;
+  S3_ENDPOINT_URL, S3_ACCESS_KEY e S3_SECRET_KEY vindos de secrets (já cadastrados no repositório com esses nomes);
+  S3_REGION, BUCKET, GROUP_ID, SIGLA e USER_AGENT como env no próprio workflow, com os valores do .env.example.
+test_evidencias.py: varre os arquivos de docs/evidencias/ e falha se encontrar padrões de credencial (chave de acesso, segredo, cabeçalho Authorization, URL com usuário e senha), sem nunca imprimir o valor encontrado.
+Commit proposto: ci(T-10): coleta diaria agendada no github actions [RF-11, RF-12, RNF-03]
+
+[A] Ajustes
+- Não rode o coletor contra o bucket e não dispare o workflow; eu disparo pela interface do GitHub depois do push.
+- Nenhum valor de segredo no workflow; só referências a secrets.
+- O job fica vermelho quando o coletor sai com código diferente de zero (RF-11).
+- Não leia nem imprima o .env.
+- Não rode git add, git commit nem git push.
+- Não declare sucesso sem mostrar a saída dos comandos.
+
+[T] Tipo de saída
+O workflow, os testes, a saída da validação e do pytest e um resumo de até cinco linhas com a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, .env.example, requirements.txt, specs/plan.md, specs/tasks.md e docs/evidencias/ antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2 (literal)
+
+```text
+Plano aprovado, incluindo o ponto 1: marque a T-10 como concluída com a evidência do Actions pendente até o push e os disparos; a evidência entra depois num commit docs(T-10). Mantenha S3_ENDPOINT_URL vindo de secret e as versões das actions por tag maior. Pode seguir com os passos 2 a 5.
+```
+
+### Saída dos testes
+
+`.venv/bin/pytest tests/unidade/test_evidencias.py -v`: 15 passed in 0.05s (varredura de `docs/evidencias/` sem achados, os 7 padrões reconhecidos em exemplos sintéticos, achado sem o valor e 5 textos legítimos sem falso positivo).
+
+Validação do YAML com `yaml.safe_load` (PyYAML que já está no `.venv` como dependência do vcrpy; usado só nesta validação). Código de saída 0:
+
+```text
+name: coleta
+on.schedule: [{'cron': '17 21 * * *'}]
+on.workflow_dispatch.inputs: ['forcar_falha']
+concurrency: {'group': 'coleta-blk', 'cancel-in-progress': False}
+permissions: {'contents': 'read'}
+passo: Checkout | actions/checkout@v5
+passo: Python 3.14 | actions/setup-python@v6
+passo: Instalar dependencias | python -m pip install -r requirements.txt
+passo: Rodar o coletor | PYTHONPATH=src python -m coleta
+env do coletor: {'S3_ENDPOINT_URL': '<referencia a secret>', 'S3_ACCESS_KEY': '<referencia a secret>', 'S3_SECRET_KEY': '<referencia a secret>', 'S3_REGION': 'us-east-1', 'BUCKET': 'tcg', 'GROUP_ID': '24325', 'SIGLA': 'BLK', 'USER_AGENT': 'colecao-blk/1.0', 'FORCAR_FALHA': '${{ inputs.forcar_falha }}'}
+```
+
+Suíte inteira (`.venv/bin/pytest -q`): 90 passed in 10.68s.
+
+Não houve execução do coletor contra o bucket nem disparo do workflow nesta etapa. A falha forçada (`forcar_falha`) não foi testada localmente; ela depende do `ErroConfiguracao` já coberto por test_variavel_ausente_falha_sem_mostrar_valores e será comprovada no Actions.
+
+### Arquivos gerados
+- `.github/workflows/coleta.yml`
+- `tests/unidade/test_workflow.py`
+- `tests/unidade/test_evidencias.py` (pendente da T-09)
+- `specs/tasks.md` (T-10 concluída com evidência do Actions pendente; nota na T-09; opção `forcar_falha`; rastreabilidade do RF-11)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Plano aprovado. Workflow com cron 17 21 * * *, workflow_dispatch com opção forcar_falha (esvazia SIGLA, valor público) para provar o RF-11, concurrency sem cancelamento, permissions contents read e Python 3.14. Credenciais só via secrets; valores públicos do .env.example no próprio workflow. Incluído o test_evidencias.py pendente da T-09. Evidência das execuções reais do Actions fica para um commit seguinte, depois dos disparos.

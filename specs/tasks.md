@@ -66,13 +66,14 @@ Comando base: `.venv/bin/pytest` com `pythonpath = src` no `pytest.ini`.
 - Teste: test_evidencia_sem_segredos (`tests/unidade/test_evidencias.py` busca padrões de chave nos arquivos de `docs/evidencias/`). A evidência registra a 1ª execução com 4 gravado, a 2ª com 4 ja_existia e código 0, e a listagem das chaves de D.
 - Comando: PYTHONPATH=src .venv/bin/python -m coleta (duas vezes, depois das 20h UTC) && pytest tests/unidade/test_evidencias.py -q
 - Depende de: T-08. Exige autorização explícita para gravar no bucket.
+- Nota: `tests/unidade/test_evidencias.py` não foi criado na T-09 (o prompt proibia alterar código); a conferência de segredos foi feita à mão e o teste entrou na T-10.
 
-## T-10 Workflow do GitHub Actions
+## T-10 Workflow do GitHub Actions — concluída (2026-11-17); evidência do Actions pendente até o push e os disparos
 - Requisitos: RF-12, RF-11, RNF-03
-- Arquivos: `.github/workflows/coleta.yml`, `tests/unidade/test_workflow.py`, `docs/evidencias/T-10_workflow.md`
-- Teste: test_workflow_tem_cron_17_21_e_dispatch; test_workflow_usa_secrets_e_nenhum_valor_literal; test_workflow_tem_concurrency_e_python_314 (leitura do YAML como texto, sem dependência nova)
-- Comando: pytest tests/unidade/test_workflow.py -q. Depois do push autorizado: `gh workflow run coleta.yml` e `gh run list --workflow coleta.yml`.
-- Depende de: T-09. Secrets cadastrados pela aluna no GitHub. A falha forçada do RF-11 usa um dispatch com uma variável obrigatória vazia, que falha antes de qualquer chamada HTTP ou S3.
+- Arquivos: `.github/workflows/coleta.yml`, `tests/unidade/test_workflow.py`, `tests/unidade/test_evidencias.py` (pendente da T-09), `docs/evidencias/T-10_workflow.md` (entra depois, num commit `docs(T-10)`)
+- Teste: test_workflow_tem_cron_17_21_e_dispatch; test_workflow_usa_secrets_e_nenhum_valor_literal; test_workflow_tem_concurrency_e_python_314; test_workflow_falha_quando_o_coletor_falha (leitura do YAML como texto, sem dependência nova); test_evidencia_sem_segredos e testes do detector em `test_evidencias.py`
+- Comando: pytest tests/unidade/test_workflow.py tests/unidade/test_evidencias.py -q. Depois do push autorizado: `gh workflow run coleta.yml` e `gh run list --workflow coleta.yml`.
+- Depende de: T-09. Secrets cadastrados pela aluna no GitHub. A falha forçada do RF-11 usa um dispatch com uma variável obrigatória vazia, que falha antes de qualquer chamada HTTP ou S3. No workflow, isso é a opção `forcar_falha` do workflow_dispatch, que esvazia `SIGLA`.
 
 ## T-11 Integração do gravador com Testcontainers — concluída (2026-11-17)
 - Requisitos: RF-05, RF-06, RF-07, RNF-04
@@ -101,7 +102,7 @@ Comando base: `.venv/bin/pytest` com `pythonpath = src` no `pytest.ini`.
 | RF-08 | T-07, T-08, T-12 | test_lista_vazia_em_quarta_gera_alerta_dia_util, test_formato_inesperado_vira_erro, test_ptax_vazia_nao_conta_como_erro, test_contrato_ptax_sabado_sem_boletim |
 | RF-09 | T-05 | test_503_depois_200_tem_duas_tentativas, test_429_respeita_retry_after_com_teto_60s, test_404_nao_repete, test_cinco_falhas_viram_erro |
 | RF-10 | T-08, T-09 | test_log_tem_campos_por_fonte, evidência da T-09 |
-| RF-11 | T-08, T-10 | test_saida_diferente_de_zero_com_erro_em_uma_fonte, falha forçada no Actions |
+| RF-11 | T-08, T-10 | test_saida_diferente_de_zero_com_erro_em_uma_fonte, test_workflow_falha_quando_o_coletor_falha, falha forçada no Actions |
 | RF-12 | T-10 | test_workflow_tem_cron_17_21_e_dispatch, histórico do Actions |
 | RNF-01 | T-04, T-09 | test_user_agent_do_ambiente_em_toda_chamada, test_pausa_minima_de_100ms_no_tcgcsv |
 | RNF-02 | T-04 | test_timeout_10_30_repassado_a_sessao, test_timeout_vira_falha_transitoria |
