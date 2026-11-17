@@ -1033,3 +1033,21 @@ Nenhum teste revelou defeito no código de produção; `src/` não foi alterado.
 
 ### Decisão humana
 Plano aprovado. Tarefa antecipada para antes da primeira execução real e do workflow, por só ler das fontes públicas e não tocar no bucket. Cinco cassetes gravados uma única vez (products, prices, PTAX de 13/11, PTAX do sábado 14/11 e CDI de 03 a 13/11); sábado corrigido para 14/11 no tasks.md. O teste de segredos detectou Set-Cookie do BCB em duas respostas; escolhida a opção A: filtro before_record_response para gravações futuras e remoção só desse cabeçalho nos dois cassetes, sem regravar. User-Agent público do .env.example mantido. Testes de contrato rodam sem rede.
+## 2026-11-17 — Ajuste do AGENTS.md (gate de conclusão de tarefa)
+
+Motivo: alinhar o AGENTS.md à decisão já registrada no `specs/plan.md` (a cópia em `docs/evidencias/` fica só para as execuções relevantes) e aplicada nas tarefas T-06, T-11 e T-12, que registraram a saída real dos testes nesta página.
+
+### Prompt (literal)
+
+```text
+Edite apenas o AGENTS.md, na seção "Gates por etapa": troque a exigência de evidência em docs/evidencias/ ao concluir cada tarefa por:
+"Ao concluir: testes passando, saída real dos testes registrada em docs/prompts.md, commit da tarefa, e então pare. A pasta docs/evidencias/ guarda só execuções reais (coleta contra o bucket da turma, GitHub Actions, reprocessamento), sempre sem credenciais."
+Motivo (registre em docs/prompts.md): alinhar o AGENTS.md à decisão já registrada no specs/plan.md e aplicada nas tarefas T-06, T-11 e T-12. Não altere nenhum outro arquivo e pare.
+```
+
+### Arquivos gerados
+- `AGENTS.md` (seção "Gates por etapa", item "Ao concluir")
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Aprovado. AGENTS.md alinhado ao specs/plan.md: saída dos testes registrada em docs/prompts.md; docs/evidencias/ reservada a execuções reais, sem credenciais.

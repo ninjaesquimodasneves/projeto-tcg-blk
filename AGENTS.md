@@ -49,7 +49,7 @@
 - Nenhum código sem requisito em `specs/spec.md` e tarefa em `specs/tasks.md` já commitados antes.
 - Uma tarefa por vez; não adiante trabalho de outras tarefas.
 - Antes de editar: mostre o plano (arquivos, mudanças, RF atendido, como validar) e espere confirmação.
-- Ao concluir: testes passando, evidência em `docs/evidencias/`, commit da tarefa, e então pare.
+- Ao concluir: testes passando, saída real dos testes registrada em docs/prompts.md, commit da tarefa, e então pare. A pasta docs/evidencias/ guarda só execuções reais (coleta contra o bucket da turma, GitHub Actions, reprocessamento), sempre sem credenciais.
 - Pare ao fim de cada etapa do SDD (persona, objetivos, spec, plano, tarefas, implementação, ATAM) e espere aprovação.
 - Se faltar informação ou houver ambiguidade, pergunte; não invente.
 
