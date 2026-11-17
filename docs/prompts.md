@@ -865,3 +865,4 @@ Comando de execução real (para a T-09): `PYTHONPATH=src .venv/bin/python -m co
 - `docs/prompts.md` (esta entrada)
 
 ### Decisão humana
+Plano aprovado, com testes extras de PTAX em formato inesperado, instante único em UTC, configuração ausente sem chamadas e recusa de --data. Sem trava de horário no código: a coleta depois das 20h UTC é garantida pelo agendamento e pela operação manual. Log JSON por fonte e resumo sem credenciais. Testes com HTTP, S3 e relógio falsos; falharam antes pelo motivo esperado e passaram depois.
