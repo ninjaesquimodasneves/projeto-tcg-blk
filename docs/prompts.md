@@ -632,3 +632,74 @@ Registre em docs/prompts.md o prompt completo, com esse trecho, e uma nota de qu
 
 ### Decisão humana
 Plano aprovado, com testes extras de full jitter e Retry-After em data HTTP. Repetição em módulo próprio, sem alterar o cliente HTTP; tasks.md atualizado. Base de espera de 1 s, teto de 60 s e 5 tentativas como hipóteses. Prompt chegou cortado e foi completado. Testes falharam antes pelo motivo esperado e passaram depois.
+## 2026-11-17 — Etapa: implementação da T-06 (gravador do raw com recusa de sobrescrita)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados Python que pratica desenvolvimento orientado a testes. Executa uma única tarefa, prova que ela funciona com a saída real do terminal e para.
+
+[R] Pedido
+Implemente somente a tarefa T-06 de specs/tasks.md. Siga esta ordem:
+1. mostre o plano: arquivos, funções e o comando de verificação; espere minha confirmação;
+2. escreva primeiro os testes da tarefa, rode e mostre que falham pelo motivo esperado (função ou módulo ainda inexistente, e não falta de dependência);
+3. implemente o mínimo para os testes passarem;
+4. rode a verificação da tarefa e o pytest inteiro e mostre a saída real;
+5. marque a T-06 como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit no formato tipo(T-xx): descrição [RF-yy].
+
+[E] Exemplos
+Casos que os testes precisam cobrir (cliente S3 falso em memória):
+  chave nova -> head devolve 404, put é chamado uma vez com os bytes exatos, resultado "gravado";
+  chave existente -> head encontra o objeto, nenhum put é chamado, resultado "ja_existia", sem exceção;
+  chave sem group_id=24325 -> recusada antes de qualquer chamada ao S3;
+  metadados do put: fonte-url, coletado-em (UTC, ISO 8601), sha256 dos bytes gravados, versao-coletor e group-id = 24325, todos em ASCII;
+  metadado com caractere não ASCII -> recusado antes do put;
+  erro do head diferente de 404 (por exemplo 403) -> vira erro, sem put.
+Commit proposto: feat(T-06): gravador do raw com recusa de sobrescrita [RF-05, RF-06, RF-07, RNF-04]
+
+[A] Ajustes
+- Faça só a T-06; a integração com MinIO em Testcontainers é a T-11, não adiante.
+- O gravador recebe o cliente S3 por parâmetro (injeção), para os testes usarem o falso.
+- Inclua uma função que cria o cliente boto3 real a partir da Config (endpoint, chaves, região us-east-1, addressing_style path), sem chamá-la nos testes de rede.
+- O sha256 é calculado sobre os mesmos bytes enviados no put; nada de decodificar ou reserializar.
+- O resultado de cada gravação traz chave, bytes, sha256 e status (gravado, ja_existia ou erro), para o log do RF-10.
+- Nenhum comando grava no bucket real nesta tarefa. Não leia nem imprima o .env.
+- Não rode git add, git commit nem git push.
+- Se a verificação falhar, tente corrigir no máximo duas vezes; depois disso, pare e explique.
+- Não declare sucesso sem mostrar a saída do comando.
+
+[T] Tipo de saída
+Os arquivos da tarefa, a saída do pytest antes e depois e um resumo de até cinco linhas com o que mudou e a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/plan.md, specs/tasks.md, src/coleta/config.py e src/coleta/urls.py antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2 (literal)
+
+```text
+Plano aprovado. Respostas:
+1. Sim: nos casos de erro, devolva status="erro" com a mensagem em erro, sem levantar exceção. O orquestrador da T-08 decide o código de saída a partir disso.
+2. Mantenha o padrão das tarefas anteriores. A saída dos testes de unidade é reproduzível com pytest e fica registrada no docs/prompts.md. A pasta docs/evidencias/ é para execuções reais contra o bucket e o GitHub Actions, a partir da T-09, como diz o specs/plan.md. Não crie evidência nesta tarefa.
+Pode seguir.
+```
+
+### Saída dos testes
+Antes da implementação (`.venv/bin/pytest tests/unidade/test_gravador.py -q`):
+
+```text
+E   ModuleNotFoundError: No module named 'coleta.gravador'
+1 error in 0.27s
+```
+
+Depois: `tests/unidade/test_gravador.py` com 11 passed in 0.38s; `.venv/bin/pytest -q` com 35 passed in 0.73s.
+
+### Arquivos gerados
+- `src/coleta/gravador.py`
+- `tests/unidade/test_gravador.py`
+- `specs/tasks.md` (T-06 marcada como concluída)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Plano aprovado. Gravador com cliente S3 injetado: recusa chave sem group_id=24325 (inclusive 243250) antes de chamar o S3, head antes do put, ja_existia sem erro, metadados ASCII com sha256 dos bytes gravados; erro do head diferente de 404 não grava. Erros devolvidos como status="erro", sem exceção. Evidência em docs/evidencias/ só para execuções reais (T-09 em diante). Testes com S3 falso, sem rede; falharam antes pelo motivo esperado e passaram depois.

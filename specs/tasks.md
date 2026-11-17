@@ -39,7 +39,7 @@ Comando base: `.venv/bin/pytest` com `pythonpath = src` no `pytest.ini`.
 - Comando: pytest tests/unidade/test_repeticao.py -q
 - Depende de: T-04
 
-## T-06 Gravador do raw com recusa de sobrescrita
+## T-06 Gravador do raw com recusa de sobrescrita — concluída (2026-11-17)
 - Requisitos: RF-05, RF-06, RF-07, RNF-04
 - Arquivos: `src/coleta/gravador.py`, `tests/unidade/test_gravador.py`
 - Teste: test_chave_existente_vira_ja_existia (cliente S3 falso: head encontra a chave, nenhum put é chamado); test_chave_nova_grava_bytes_sem_alteracao; test_metadados_ascii_com_sha256; test_chave_sem_group_id_24325_recusada_antes_do_head
