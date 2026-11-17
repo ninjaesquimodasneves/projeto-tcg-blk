@@ -46,7 +46,7 @@ Comando base: `.venv/bin/pytest` com `pythonpath = src` no `pytest.ini`.
 - Comando: pytest tests/unidade/test_gravador.py -q
 - Depende de: T-02, T-03
 
-## T-07 Classificação da PTAX
+## T-07 Classificação da PTAX — concluída (2026-11-17)
 - Requisitos: RF-08
 - Arquivos: `src/coleta/ptax.py`, `tests/unidade/test_ptax.py`
 - Teste: test_lista_vazia_em_sabado_so_sem_boletim (D = 2026-11-07); test_lista_vazia_em_quarta_gera_alerta_dia_util (D = 2026-11-11); test_com_boletins_sem_marca

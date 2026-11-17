@@ -726,3 +726,69 @@ O resto do plano da T-07 está aprovado, incluindo as datas parametrizadas.
 
 ### Decisão humana
 Plano aprovado. Classificação da PTAX como função pura: com boletim, sem boletim (fim de semana) e sem boletim com alerta de dia útil, nenhum contando como erro; corpo sem JSON ou sem "value" vira formato inesperado e conta como erro. Testes sem rede; falharam antes pelo motivo esperado e passaram depois.
+## 2026-11-17 — Etapa: implementação da T-07 (classificação da PTAX)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados Python que pratica desenvolvimento orientado a testes. Executa uma única tarefa, prova que ela funciona com a saída real do terminal e para.
+
+[R] Pedido
+Implemente somente a tarefa T-07 de specs/tasks.md. Siga esta ordem:
+1. mostre o plano: arquivos, funções e o comando de verificação; espere minha confirmação;
+2. escreva primeiro os testes da tarefa, rode e mostre que falham pelo motivo esperado (função ou módulo ainda inexistente, e não falta de dependência);
+3. implemente o mínimo para os testes passarem;
+4. rode a verificação da tarefa e o pytest inteiro e mostre a saída real;
+5. marque a T-07 como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit no formato tipo(T-xx): descrição [RF-yy].
+
+[E] Exemplos
+Casos que os testes precisam cobrir (função pura, recebe os bytes da resposta e a data D):
+  corpo com "value" contendo boletins -> "com boletim", sem alerta;
+  corpo com "value": [] e D = 2026-11-14 (sábado) -> "sem boletim", sem alerta;
+  corpo com "value": [] e D = 2026-11-17 (terça) -> "sem boletim" e "alerta: dia útil sem boletim";
+  corpo que não é JSON ou sem a chave "value" -> classificação "formato inesperado", tratada como erro da fonte.
+Commit proposto: feat(T-07): classificacao da ptax sem boletim [RF-08]
+
+[A] Ajustes
+- Faça só a T-07; o orquestrador é a T-08, não adiante.
+- Função pura: sem rede, sem relógio real, sem S3.
+- "sem boletim" e o alerta de dia útil não contam como erro (RF-08); só "formato inesperado" conta como erro.
+- A função não decide gravar ou não: a resposta é gravada em todos os casos pelo orquestrador.
+- Não leia nem imprima o .env.
+- Não rode git add, git commit nem git push.
+- Se a verificação falhar, tente corrigir no máximo duas vezes; depois disso, pare e explique.
+- Não declare sucesso sem mostrar a saída do comando.
+
+[T] Tipo de saída
+Os arquivos da tarefa, a saída do pytest antes e depois e um resumo de até cinco linhas com o que mudou e a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/plan.md e specs/tasks.md antes de começar. Pare ao final da tarefa.
+```
+
+Nota: entre o Prompt 1 e o Prompt 2, a spec foi ajustada (RF-08, formato inesperado) em etapa própria, registrada na entrada anterior.
+
+### Prompt 2 (literal)
+
+```text
+Spec commitada. Pode implementar a T-07 conforme o plano aprovado.
+```
+
+### Saída dos testes
+Antes da implementação (`.venv/bin/pytest tests/unidade/test_ptax.py -q`):
+
+```text
+E   ModuleNotFoundError: No module named 'coleta.ptax'
+1 error in 0.14s
+```
+
+Depois: `tests/unidade/test_ptax.py` com 13 passed in 0.02s; `.venv/bin/pytest -q` com 48 passed in 0.41s.
+
+### Arquivos gerados
+- `src/coleta/ptax.py`
+- `tests/unidade/test_ptax.py`
+- `specs/tasks.md` (T-07 marcada como concluída)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
