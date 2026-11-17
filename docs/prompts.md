@@ -703,3 +703,26 @@ Depois: `tests/unidade/test_gravador.py` com 11 passed in 0.38s; `.venv/bin/pyte
 
 ### Decisão humana
 Plano aprovado. Gravador com cliente S3 injetado: recusa chave sem group_id=24325 (inclusive 243250) antes de chamar o S3, head antes do put, ja_existia sem erro, metadados ASCII com sha256 dos bytes gravados; erro do head diferente de 404 não grava. Erros devolvidos como status="erro", sem exceção. Evidência em docs/evidencias/ só para execuções reais (T-09 em diante). Testes com S3 falso, sem rede; falharam antes pelo motivo esperado e passaram depois.
+## 2026-11-17 — Etapa: ajuste da spec antes da T-07 (RF-08, formato inesperado da PTAX)
+
+Contexto: ao planejar a T-07, o agente apontou que o caso "formato inesperado" (pedido no prompt da T-07) não estava coberto pela spec. Seguindo a ordem do método (spec antes do código), a aluna pediu primeiro a mudança da spec. O prompt da T-07 será registrado na entrada da implementação.
+
+### Prompt (literal)
+
+```text
+Nem (a) nem (b): vamos manter a ordem do método, com a spec antes do código.
+Primeiro, edite apenas specs/spec.md: acrescente ao RF-08 um segundo critério de aceite:
+- Dado que a resposta da PTAX não é JSON válido, não é um objeto ou não tem a chave "value" como lista
+- Quando o coletor classifica a resposta
+- Então ela é gravada mesmo assim (RF-05), o log registra "formato inesperado" e essa fonte conta como erro no RF-11
+Verificação: teste de unidade da classificação.
+Acrescente essa mudança em docs/prompts.md e pare, sem criar nenhum arquivo de código. Eu faço o commit da spec e depois peço a implementação.
+O resto do plano da T-07 está aprovado, incluindo as datas parametrizadas.
+```
+
+### Arquivos gerados
+- `specs/spec.md` (RF-08 com o segundo critério de aceite: formato inesperado conta como erro no RF-11)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Plano aprovado. Classificação da PTAX como função pura: com boletim, sem boletim (fim de semana) e sem boletim com alerta de dia útil, nenhum contando como erro; corpo sem JSON ou sem "value" vira formato inesperado e conta como erro. Testes sem rede; falharam antes pelo motivo esperado e passaram depois.

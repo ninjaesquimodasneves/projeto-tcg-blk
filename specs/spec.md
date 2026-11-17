@@ -62,6 +62,11 @@ Origem: OBJ-02, OBJ-03
 - E, se D cair de segunda a sexta, o log marca também "alerta: dia útil sem boletim" para conferência manual (pode ser feriado ou erro no formato da data), ainda sem contar como erro no RF-11
 Verificação: teste de contrato com cassete de um sábado (só "sem boletim"); teste de unidade com D numa quarta e lista vazia (com o alerta).
 
+- Dado que a resposta da PTAX não é JSON válido, não é um objeto ou não tem a chave "value" como lista
+- Quando o coletor classifica a resposta
+- Então ela é gravada mesmo assim (RF-05), o log registra "formato inesperado" e essa fonte conta como erro no RF-11
+Verificação: teste de unidade da classificação.
+
 ### RF-09 Repetição só para falhas transitórias
 Origem: OBJ-01
 - Dada uma chamada que termina em timeout, erro de conexão, 408, 429 ou 5xx
