@@ -1051,3 +1051,62 @@ Motivo (registre em docs/prompts.md): alinhar o AGENTS.md à decisão já regist
 
 ### Decisão humana
 Aprovado. AGENTS.md alinhado ao specs/plan.md: saída dos testes registrada em docs/prompts.md; docs/evidencias/ reservada a execuções reais, sem credenciais.
+## 2026-11-17 — Etapa: implementação da T-09 (primeira execução real e evidência)
+
+### Prompt (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados que opera o coletor com cuidado. Executa uma única tarefa, prova o resultado com a saída real do terminal e para.
+
+[R] Pedido
+Execute somente a tarefa T-09 de specs/tasks.md: a primeira execução real do coletor contra o bucket da turma. Eu autorizo explicitamente, nesta tarefa, os comandos que gravam no bucket via coletor. Siga esta ordem:
+1. confirme que o horário atual em UTC é posterior a 20h; se não for, pare e me avise;
+2. rode o coletor com PYTHONPATH=src .venv/bin/python -m coleta e mostre o log completo e o código de saída;
+3. rode o coletor uma segunda vez e mostre que as quatro fontes viram ja_existia e o código de saída é 0;
+4. liste, só lendo, as chaves gravadas em raw/*/group_id=24325/data=D/ com tamanho e metadados de uma delas;
+5. salve as saídas dos passos 2 a 4 em docs/evidencias/T-09_primeira_execucao.md, sem nenhum valor de credencial;
+6. marque a T-09 como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit.
+
+[E] Exemplos
+Resultado esperado:
+  1ª execução: products, prices, ptax e cdi com resultado "gravado", código 0
+  2ª execução: as quatro com "ja_existia", nenhum put, código 0
+  Listagem: 4 objetos em data=D, todos com group_id=24325
+Commit proposto: docs(T-09): primeira coleta real e evidencia [RF-05, RF-06, RF-10, RNF-01]
+
+[A] Ajustes
+- Não leia nem imprima o .env; o próprio coletor carrega as variáveis.
+- Não altere nenhum código; se algo falhar, pare, mostre o log e explique, sem tentar corrigir.
+- Nenhuma gravação fora de group_id=24325; nenhuma remoção de objeto.
+- Antes de salvar a evidência, confira que nenhum valor de credencial aparece nela.
+- Não rode git add, git commit nem git push.
+
+[T] Tipo de saída
+O arquivo de evidência, as saídas reais e um resumo de até cinco linhas com a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/plan.md e specs/tasks.md antes de começar. Pare ao final da tarefa.
+```
+
+### Saída da execução
+
+- `date -u`: `Tue Nov 17 20:39:19 UTC 2026` (depois das 20h UTC).
+- 1ª execução (20:39:28Z): 4 gravado, 0 ja_existia, 0 erro, código de saída 0.
+- 2ª execução (20:39:38Z): 0 gravado, 4 ja_existia, 0 erro, código de saída 0. O `LastModified` dos objetos (20:39:32 a 20:39:34) é anterior ao início da 2ª execução, então não houve sobrescrita.
+- Listagem somente leitura (`list_objects_v2` e `head_object`, script fora do repositório): 4 objetos em `data=2026-11-17`, todos com `group_id=24325`. Tamanhos iguais aos bytes do log; metadado `Sha256` de prices.json igual ao sha256 do log.
+- Log completo em `docs/evidencias/T-09_primeira_execucao.md`.
+
+Conferência de segredos na evidência:
+- `grep -inE "authorization|signature|x-amz-credential|akia|password|token|access_key"` encontra só a frase que descreve a conferência.
+- Comparação em Python com os valores carregados do ambiente, imprimindo só verdadeiro ou falso: `S3_ACCESS_KEY`, `S3_SECRET_KEY` e `S3_ENDPOINT_URL` não aparecem. `BUCKET` aparece só porque o nome público do bucket (`tcg`, já no AGENTS.md) é trecho de `tcgcsv.com` e `tcgplayer`.
+
+Pendência: `tests/unidade/test_evidencias.py` (test_evidencia_sem_segredos), citado na T-09, não existe no repositório. O prompt proibia alterar código, então o teste não foi criado nem executado. A conferência de segredos foi feita à mão, como descrito acima.
+
+### Arquivos gerados
+- `docs/evidencias/T-09_primeira_execucao.md`
+- `specs/tasks.md` (T-09 marcada como concluída)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Primeira coleta real aprovada: às 20:39 UTC de 17/11, as quatro fontes gravadas com código 0; a segunda execução deu ja_existia nas quatro, sem regravar. Listagem e sha256 conferidos; evidência salva sem credenciais. O teste test_evidencias.py citado no tasks.md não foi criado nesta tarefa (pedido sem alteração de código) e passa para a T-10. Registrado como melhoria futura que a reexecução busca as fontes antes de checar o bucket (8 chamadas no dia, dentro do limite).

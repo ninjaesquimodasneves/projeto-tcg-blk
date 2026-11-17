@@ -60,7 +60,7 @@ Comando base: `.venv/bin/pytest` com `pythonpath = src` no `pytest.ini`.
 - Comando: pytest tests/unidade/test_orquestrador.py -q && pytest -m "not integracao and not vcr" -q
 - Depende de: T-03, T-05, T-06, T-07
 
-## T-09 Primeira execução real e evidência
+## T-09 Primeira execução real e evidência — concluída (2026-11-17)
 - Requisitos: RF-05, RF-06, RF-10, RNF-01, RNF-03
 - Arquivos: `docs/evidencias/T-09_primeira_execucao.md`
 - Teste: test_evidencia_sem_segredos (`tests/unidade/test_evidencias.py` busca padrões de chave nos arquivos de `docs/evidencias/`). A evidência registra a 1ª execução com 4 gravado, a 2ª com 4 ja_existia e código 0, e a listagem das chaves de D.
