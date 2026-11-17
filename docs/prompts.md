@@ -866,3 +866,78 @@ Comando de execução real (para a T-09): `PYTHONPATH=src .venv/bin/python -m co
 
 ### Decisão humana
 Plano aprovado, com testes extras de PTAX em formato inesperado, instante único em UTC, configuração ausente sem chamadas e recusa de --data. Sem trava de horário no código: a coleta depois das 20h UTC é garantida pelo agendamento e pela operação manual. Log JSON por fonte e resumo sem credenciais. Testes com HTTP, S3 e relógio falsos; falharam antes pelo motivo esperado e passaram depois.
+
+## 2026-11-17 — Etapa: implementação da T-11 (integração do gravador com Testcontainers)
+
+Antecipação: a T-11 foi feita antes da T-09 (primeira execução real) e da T-10 (workflow), ao contrário da ordem registrada em `specs/plan.md` ("Decisão de ordem das tarefas"). Ela não depende dessas duas tarefas e não toca no bucket da turma: usa só um MinIO local em contêiner, com credenciais geradas no próprio teste. Com isso, o risco aceito no plano ("até a T-11, o comportamento contra um S3 real só é provado pela T-09") deixa de valer antes da primeira gravação real.
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados Python que pratica desenvolvimento orientado a testes. Executa uma única tarefa, prova que ela funciona com a saída real do terminal e para.
+
+[R] Pedido
+Implemente somente a tarefa de integração com Testcontainers de specs/tasks.md (a tarefa do gravador com MinIO). Ela está sendo feita antes da primeira execução real e do workflow porque não depende deles e não toca no bucket da turma; registre essa antecipação na entrada de docs/prompts.md. Siga esta ordem:
+1. confirme que o Docker responde (docker version) e mostre o plano: arquivos, fixtures, testes e comando de verificação; espere minha confirmação;
+2. escreva os testes e rode;
+3. ajuste o mínimo necessário (fixture, conftest) para os testes passarem; se algum teste revelar defeito no código de produção, pare e me mostre antes de corrigir;
+4. rode a verificação da tarefa e o pytest inteiro e mostre a saída real;
+5. marque a tarefa como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit.
+
+[E] Exemplos
+Casos que os testes precisam cobrir, contra um MinIO real em contêiner, com bucket tcg criado no próprio teste:
+  chave nova -> "gravado"; o objeto lido de volta tem o mesmo sha256 dos bytes enviados;
+  a mesma chave de novo -> "ja_existia"; o objeto continua igual (mesmo conteúdo e mesmo ETag);
+  metadados lidos com head_object: fonte-url, coletado-em, sha256, versao-coletor e group-id=24325;
+  chave sem group_id=24325 -> recusada, e a listagem do bucket não mostra nada fora de group_id=24325;
+  coleta completa duas vezes com o orquestrador (HTTP falso, MinIO real): 4 objetos depois da primeira, os mesmos 4 depois da segunda, código 0 nas duas.
+Commit proposto: test(T-11): integracao do gravador com minio em testcontainers [RF-05, RF-06, RF-07, RNF-04]
+
+[A] Ajustes
+- Imagem coollabsio/minio:RELEASE.2025-10-15T17-29-55Z, com MINIO_ROOT_USER e MINIO_ROOT_PASSWORD iguais ao access key e secret key do contêiner (origem: Aula 07).
+- Importe de testcontainers.community.minio se existir; senão, do caminho antigo.
+- Fixture de escopo session em tests/integracao/conftest.py; cada teste usa um prefixo ou bucket próprio para não interferir no outro.
+- Marque os testes com @pytest.mark.integracao e pule com motivo explícito se o Docker não responder.
+- Credenciais só do contêiner de teste; nada do .env e nada do bucket da turma.
+- Não rode o coletor real. Não leia nem imprima o .env.
+- Não rode git add, git commit nem git push.
+- Se a verificação falhar, tente corrigir no máximo duas vezes; depois disso, pare e explique.
+- Não declare sucesso sem mostrar a saída do comando.
+
+[T] Tipo de saída
+Os arquivos da tarefa, a saída do pytest e um resumo de até cinco linhas com o que mudou e a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/plan.md, specs/tasks.md e os módulos em src/coleta/ antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2 (literal)
+
+```text
+Pode seguir. Plano aprovado, incluindo o teste 5 da coleta completa.
+```
+
+### Saída dos testes
+`docker version`: cliente e servidor 29.9.2 (API 1.56).
+
+Verificação da tarefa (`.venv/bin/pytest -m integracao -q -rs`):
+
+```text
+.....                                                                    [100%]
+5 passed, 59 deselected in 13.12s
+```
+
+Sem Docker (`DOCKER_HOST` inválido), os 5 testes são pulados com motivo explícito: `Docker indisponivel (DockerException); testes de integracao pulados` (5 skipped).
+
+Suíte inteira (`.venv/bin/pytest -q`): 64 passed in 3.11s.
+
+Nenhum teste revelou defeito no código de produção; `src/` não foi alterado.
+
+### Arquivos gerados
+- `tests/integracao/conftest.py`
+- `tests/integracao/test_gravador_minio.py`
+- `specs/tasks.md` (T-11 marcada como concluída; teste da coleta completa na tarefa e na rastreabilidade do RF-06)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana

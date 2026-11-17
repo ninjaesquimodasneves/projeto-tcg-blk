@@ -74,12 +74,12 @@ Comando base: `.venv/bin/pytest` com `pythonpath = src` no `pytest.ini`.
 - Comando: pytest tests/unidade/test_workflow.py -q. Depois do push autorizado: `gh workflow run coleta.yml` e `gh run list --workflow coleta.yml`.
 - Depende de: T-09. Secrets cadastrados pela aluna no GitHub. A falha forçada do RF-11 usa um dispatch com uma variável obrigatória vazia, que falha antes de qualquer chamada HTTP ou S3.
 
-## T-11 Integração do gravador com Testcontainers
+## T-11 Integração do gravador com Testcontainers — concluída (2026-11-17)
 - Requisitos: RF-05, RF-06, RF-07, RNF-04
 - Arquivos: `tests/integracao/conftest.py`, `tests/integracao/test_gravador_minio.py`
-- Teste: test_sha256_do_objeto_igual_ao_do_corpo; test_segunda_gravacao_vira_ja_existia_sem_alterar_objeto; test_metadados_ascii_lidos_do_minio; test_chaves_listadas_contem_group_id_24325
+- Teste: test_sha256_do_objeto_igual_ao_do_corpo; test_segunda_gravacao_vira_ja_existia_sem_alterar_objeto; test_metadados_ascii_lidos_do_minio; test_chaves_listadas_contem_group_id_24325; test_coleta_completa_duas_vezes_com_minio (orquestrador com HTTP falso e MinIO real: 4 objetos, mesmos ETags e código 0 nas duas execuções)
 - Comando: pytest -m integracao -q
-- Depende de: T-06. Exige Docker.
+- Depende de: T-06. Exige Docker. Antecipada em relação à T-09 e à T-10 (não depende delas e não toca no bucket da turma).
 
 ## T-12 Testes de contrato com cassetes VCR
 - Requisitos: RF-01, RF-02, RF-03, RF-04, RF-08, RNF-03
@@ -96,7 +96,7 @@ Comando base: `.venv/bin/pytest` com `pythonpath = src` no `pytest.ini`.
 | RF-03 | T-03, T-08, T-12 | test_url_ptax_em_mm_dd_aaaa, test_contrato_ptax_dia_util |
 | RF-04 | T-03, T-08, T-12 | test_janela_cdi_d_menos_10_ate_d, test_contrato_cdi_janela |
 | RF-05 | T-03, T-06, T-09, T-11 | test_chave_nova_grava_bytes_sem_alteracao, test_sha256_do_objeto_igual_ao_do_corpo |
-| RF-06 | T-06, T-09, T-11 | test_chave_existente_vira_ja_existia, test_segunda_gravacao_vira_ja_existia_sem_alterar_objeto |
+| RF-06 | T-06, T-09, T-11 | test_chave_existente_vira_ja_existia, test_segunda_gravacao_vira_ja_existia_sem_alterar_objeto, test_coleta_completa_duas_vezes_com_minio |
 | RF-07 | T-02, T-06, T-11 | test_metadados_ascii_com_sha256, test_metadados_ascii_lidos_do_minio |
 | RF-08 | T-07, T-08, T-12 | test_lista_vazia_em_quarta_gera_alerta_dia_util, test_formato_inesperado_vira_erro, test_ptax_vazia_nao_conta_como_erro, test_contrato_ptax_sabado_sem_boletim |
 | RF-09 | T-05 | test_503_depois_200_tem_duas_tentativas, test_429_respeita_retry_after_com_teto_60s, test_404_nao_repete, test_cinco_falhas_viram_erro |
