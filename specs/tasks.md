@@ -53,7 +53,7 @@ Comando base: `.venv/bin/pytest` com `pythonpath = src` no `pytest.ini`.
 - Comando: pytest tests/unidade/test_ptax.py -q
 - Depende de: T-01
 
-## T-08 Orquestrador e CLI
+## T-08 Orquestrador e CLI — concluída (2026-11-17)
 - Requisitos: RF-01, RF-02, RF-03, RF-04, RF-08, RF-10, RF-11
 - Arquivos: `src/coleta/orquestrador.py`, `src/coleta/__main__.py`, `tests/unidade/test_orquestrador.py`
 - Teste: test_quatro_fontes_chamadas_e_gravadas; test_log_tem_campos_por_fonte (URL, status, tentativas, bytes, sha256, resultado); test_ptax_vazia_nao_conta_como_erro; test_saida_zero_com_gravado_ou_ja_existia; test_saida_diferente_de_zero_com_erro_em_uma_fonte; test_log_sem_credenciais
@@ -98,7 +98,7 @@ Comando base: `.venv/bin/pytest` com `pythonpath = src` no `pytest.ini`.
 | RF-05 | T-03, T-06, T-09, T-11 | test_chave_nova_grava_bytes_sem_alteracao, test_sha256_do_objeto_igual_ao_do_corpo |
 | RF-06 | T-06, T-09, T-11 | test_chave_existente_vira_ja_existia, test_segunda_gravacao_vira_ja_existia_sem_alterar_objeto |
 | RF-07 | T-02, T-06, T-11 | test_metadados_ascii_com_sha256, test_metadados_ascii_lidos_do_minio |
-| RF-08 | T-07, T-08, T-12 | test_lista_vazia_em_quarta_gera_alerta_dia_util, test_ptax_vazia_nao_conta_como_erro, test_contrato_ptax_sabado_sem_boletim |
+| RF-08 | T-07, T-08, T-12 | test_lista_vazia_em_quarta_gera_alerta_dia_util, test_formato_inesperado_vira_erro, test_ptax_vazia_nao_conta_como_erro, test_contrato_ptax_sabado_sem_boletim |
 | RF-09 | T-05 | test_503_depois_200_tem_duas_tentativas, test_429_respeita_retry_after_com_teto_60s, test_404_nao_repete, test_cinco_falhas_viram_erro |
 | RF-10 | T-08, T-09 | test_log_tem_campos_por_fonte, evidência da T-09 |
 | RF-11 | T-08, T-10 | test_saida_diferente_de_zero_com_erro_em_uma_fonte, falha forçada no Actions |

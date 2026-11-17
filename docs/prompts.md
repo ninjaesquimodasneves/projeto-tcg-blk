@@ -792,3 +792,76 @@ Depois: `tests/unidade/test_ptax.py` com 13 passed in 0.02s; `.venv/bin/pytest -
 - `docs/prompts.md` (esta entrada)
 
 ### Decisão humana
+Plano aprovado. Lacuna da spec (formato inesperado) resolvida atualizando o RF-08 em commit anterior ao código. Classificação da PTAX como função pura: com boletim, sem boletim e sem boletim com alerta de dia útil, sem erro; formato inesperado conta como erro. Testes falharam antes pelo motivo esperado e passaram depois.
+## 2026-11-17 — Etapa: implementação da T-08 (orquestrador e CLI)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados Python que pratica desenvolvimento orientado a testes. Executa uma única tarefa, prova que ela funciona com a saída real do terminal e para.
+
+[R] Pedido
+Implemente somente a tarefa T-08 de specs/tasks.md. Siga esta ordem:
+1. mostre o plano: arquivos, funções, o comando que roda o coletor de verdade e o comando de verificação; espere minha confirmação;
+2. escreva primeiro os testes da tarefa, rode e mostre que falham pelo motivo esperado (função ou módulo ainda inexistente, e não falta de dependência);
+3. implemente o mínimo para os testes passarem;
+4. rode a verificação da tarefa e o pytest inteiro e mostre a saída real;
+5. marque a T-08 como concluída em specs/tasks.md, acrescente na tabela de rastreabilidade do tasks.md o teste test_formato_inesperado_vira_erro na linha do RF-08, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit no formato tipo(T-xx): descrição [RF-yy].
+
+[E] Exemplos
+Casos que os testes precisam cobrir (cliente HTTP, S3 e relógio falsos):
+  as quatro fontes com 200 e chaves novas -> quatro "gravado", código de saída 0;
+  rodar de novo com as chaves já existentes -> quatro "ja_existia", nenhum put, código 0;
+  PTAX com lista vazia num sábado -> gravada, marca "sem boletim", código 0;
+  uma fonte com 404 -> nada gravado para ela, as outras seguem, código diferente de 0;
+  PTAX em formato inesperado -> gravada, marca "formato inesperado", código diferente de 0;
+  o log tem uma linha por fonte com URL, status HTTP, tentativas, bytes, sha256, resultado e marcas, mais uma linha de resumo, sem nenhum valor de credencial.
+Commit proposto: feat(T-08): orquestrador e cli da coleta [RF-01, RF-02, RF-03, RF-04, RF-08, RF-10, RF-11]
+
+[A] Ajustes
+- Faça só a T-08; a primeira execução real é a T-09, não rode o coletor contra o bucket.
+- O instante da coleta é lido uma única vez no início, em UTC, e passado adiante; nos testes ele é injetado.
+- Uma fonte que falha não impede as outras.
+- Resposta com erro HTTP não é gravada; PTAX vazia ou em formato inesperado é gravada.
+- Sem parâmetro de data na linha de comando (decisão registrada no plano).
+- O .env local só é carregado se existir; no GitHub Actions valem as variáveis de ambiente.
+- Diga no plano o comando exato para rodar o coletor de verdade (por exemplo com PYTHONPATH=src), que a T-09 vai usar.
+- Sem rede nos testes. Não leia nem imprima o .env.
+- Não rode git add, git commit nem git push.
+- Se a verificação falhar, tente corrigir no máximo duas vezes; depois disso, pare e explique.
+- Não declare sucesso sem mostrar a saída do comando.
+
+[T] Tipo de saída
+Os arquivos da tarefa, a saída do pytest antes e depois e um resumo de até cinco linhas com o que mudou, o comando de execução real e a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/plan.md, specs/tasks.md e os módulos em src/coleta/ antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2 (literal)
+
+```text
+Plano aprovado, incluindo os testes extras 5, 8, 9 e 10. Concordo em não colocar a trava das 20h UTC no orquestrador: o agendamento (RF-12) e a operação manual da T-09 garantem o horário. Pode seguir.
+```
+
+### Saída dos testes
+Antes da implementação (`.venv/bin/pytest tests/unidade/test_orquestrador.py -q`):
+
+```text
+E   ModuleNotFoundError: No module named 'coleta.orquestrador'
+1 error in 0.37s
+```
+
+Depois: `tests/unidade/test_orquestrador.py` com 11 passed in 0.40s; `pytest -m "not integracao and not vcr" -q` com 59 passed in 0.38s; `.venv/bin/pytest -q` com 59 passed in 0.40s. A CLI foi conferida só com `--help` (código 0) e `--data 2026-11-10` (recusado, código 2), sem executar a coleta.
+
+Comando de execução real (para a T-09): `PYTHONPATH=src .venv/bin/python -m coleta`
+
+### Arquivos gerados
+- `src/coleta/orquestrador.py`
+- `src/coleta/__main__.py`
+- `tests/unidade/test_orquestrador.py`
+- `specs/tasks.md` (T-08 marcada como concluída; `test_formato_inesperado_vira_erro` na linha do RF-08 da rastreabilidade)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
