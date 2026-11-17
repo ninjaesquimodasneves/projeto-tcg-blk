@@ -1,0 +1,47 @@
+interactions:
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate, zstd
+      Connection:
+      - keep-alive
+      User-Agent:
+      - colecao-blk/1.0
+    method: GET
+    uri: https://api.bcb.gov.br/dados/serie/bcdata.sgs.12/dados?formato=json&dataInicial=03/11/2026&dataFinal=13/11/2026
+  response:
+    body:
+      string: '[{"data":"03/11/2026","valor":"0.050788"},{"data":"04/11/2026","valor":"0.050788"},{"data":"05/11/2026","valor":"0.050788"},{"data":"06/11/2026","valor":"0.050788"},{"data":"09/11/2026","valor":"0.050788"},{"data":"10/11/2026","valor":"0.050788"},{"data":"11/11/2026","valor":"0.050788"},{"data":"12/11/2026","valor":"0.050788"},{"data":"13/11/2026","valor":"0.050788"}]'
+    headers:
+      Accept-Ranges:
+      - bytes
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '370'
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Tue, 17 Nov 2026 18:56:20 GMT
+      X-Cache:
+      - CONFIG_NOCACHE
+      access-control-allow-origin:
+      - '*'
+      cache-control:
+      - public, max-age=900
+      - private
+      correlation-id:
+      - 2bc12cd5-088e-42fa-b3b5-a3e34b53571e
+      etag:
+      - W/"172-90Xf5vgJzXnbnCHIqIxuh3SYTWc"
+      x-azure-ref:
+      - 20261117T185620Z-1588bbd57b4l4s5khC1BN129zc0000003zwg000000006a6x
+      x-content-type-options:
+      - nosniff
+    status:
+      code: 200
+      message: OK
+version: 1

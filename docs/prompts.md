@@ -941,3 +941,95 @@ Nenhum teste revelou defeito no código de produção; `src/` não foi alterado.
 - `docs/prompts.md` (esta entrada)
 
 ### Decisão humana
+Plano aprovado, com teste extra da coleta completa duas vezes via orquestrador e criar_cliente_s3 real. Tarefa de integração antecipada para antes da primeira execução real e do workflow, por não depender deles nem tocar no bucket da turma. Gravador testado contra MinIO real em Testcontainers: gravado, ja_existia sem alterar conteúdo nem ETag, metadados conferidos com head_object e nada fora de group_id=24325. Credenciais do contêiner geradas na hora; nenhum valor do .env usado.
+## 2026-11-17 — Etapa: implementação da T-12 (testes de contrato com cassetes VCR)
+
+Antecipação: a T-12 foi feita antes da T-09 (primeira execução real) e da T-10 (workflow), ao contrário da ordem registrada em `specs/plan.md` ("Decisão de ordem das tarefas"). Ela só lê das fontes públicas (5 GETs, gravados uma única vez) e não toca no bucket da turma; o coletor não foi executado.
+
+Filtro de Set-Cookie: o teste `test_cassetes_sem_authorization` falhou na gravação e revelou que o `filter_headers` do vcrpy só limpa cabeçalhos da requisição. Os cassetes da PTAX de dia útil e do CDI guardaram `Set-Cookie` do servidor do BCB nas respostas. A correção foi feita sem regravar: um `before_record_response` que remove `set-cookie` passou a valer para gravações futuras, e só esse cabeçalho foi retirado dos 2 cassetes já gravados (via `vcr.serialize`), com conferência de que corpo, status, demais cabeçalhos e URIs ficaram iguais.
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados Python que escreve testes de contrato com respostas HTTP gravadas. Executa uma única tarefa, prova que ela funciona com a saída real do terminal e para.
+
+[R] Pedido
+Implemente somente a T-12 de specs/tasks.md: testes de contrato com cassetes VCR das quatro fontes. Ela está sendo feita antes da primeira execução real e do workflow porque só lê das fontes públicas e não toca no bucket; registre isso na entrada de docs/prompts.md. Siga esta ordem:
+1. mostre o plano: arquivos, testes, configuração do VCR, datas escolhidas para a PTAX e o CDI e comandos; espere minha confirmação;
+2. escreva os testes;
+3. grave os cassetes uma única vez com pytest --record-mode=once (é a única etapa com rede);
+4. revise os cassetes gravados procurando qualquer credencial, cookie ou cabeçalho sensível e me mostre o resultado da busca;
+5. rode os testes de contrato sem rede (--block-network) e o pytest inteiro e mostre a saída real;
+6. marque a T-12 como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit.
+
+[E] Exemplos
+Casos que os testes precisam cobrir:
+  products da coleção 24325: a resposta é JSON e cada produto tem productId, name, imageUrl e url;
+  prices da coleção 24325: cada linha tem productId, subTypeName e marketPrice (que pode ser nulo);
+  PTAX de um dia útil passado (escolha uma data fixa): lista "value" com boletins e um tipoBoletim de fechamento; classificar_ptax devolve "com boletim";
+  PTAX de 2026-11-14 (sábado): lista vazia; classificar_ptax devolve "sem boletim" sem alerta;
+  CDI de uma janela fixa passada: lista de objetos com "data" e "valor";
+  teste que avisa se aparecer um campo novo nos produtos ou nos preços, sem quebrar a coleta.
+Commit proposto: test(T-12): contrato das quatro fontes com cassetes vcr [RF-01, RF-02, RF-03, RF-04, RF-08]
+
+[A] Ajustes
+- As chamadas usam o mesmo cliente HTTP do coletor (User-Agent, pausa, timeouts), com datas fixas passadas nas URLs do BCB.
+- Configuração do VCR: filter_headers para authorization, cookie e set-cookie; decode_compressed_response=True; cassetes em tests/contrato/cassettes/.
+- Marque os testes com @pytest.mark.vcr; depois de gravados, eles rodam com --block-network.
+- Antes de qualquer chamada de rede, mostre quantas requisições serão feitas.
+- Nada grava no bucket; não rode o coletor. Não leia nem imprima o .env.
+- Não rode git add, git commit nem git push.
+- Se a verificação falhar, tente corrigir no máximo duas vezes; depois disso, pare e explique.
+- Não declare sucesso sem mostrar a saída do comando.
+
+[T] Tipo de saída
+Os testes, os cassetes, a saída da busca por segredos e do pytest e um resumo de até cinco linhas com o que mudou e a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/plan.md, specs/tasks.md e os módulos em src/coleta/ antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2 (literal)
+
+```text
+Plano aprovado. Decisões:
+1. Use o sábado 2026-11-14 e corrija o tasks.md nesta tarefa.
+2. O User-Agent não é segredo: o valor colecao-blk/1.0 está no .env.example, que é público e você pode ler. Use esse valor na gravação e deixe o cabeçalho User-Agent como está no cassete, sem substituição. Continue filtrando authorization, cookie e set-cookie.
+Pode seguir.
+```
+
+### Prompt 3 (literal)
+
+```text
+Opção A aprovada: acrescente o before_record_response que remove set-cookie das respostas e retire só esse cabeçalho dos 2 cassetes já gravados, sem nova requisição de rede. Depois siga os passos 1 a 3 e mostre de novo a busca por segredos nos 5 cassetes, o --block-network e o pytest inteiro.
+Registre em docs/prompts.md que o filtro de set-cookie das respostas foi descoberto pelo teste test_cassetes_sem_authorization e corrigido sem regravar.
+```
+
+### Saída dos testes
+Gravação única (`.venv/bin/pytest tests/contrato -m vcr --record-mode=once -q`), 5 GETs:
+
+```text
+......F                                                                  [100%]
+>               assert "set-cookie" not in {h.lower() for h in resposta["headers"]}
+E               AssertionError: assert 'set-cookie' not in {'connection', 'content-language', 'content-type', 'date', 'expires', 'odata-version', ...}
+1 failed, 6 passed in 2.02s
+```
+
+Busca por segredos depois da correção (`grep -cinE "authorization|cookie|akia|secret|token|password"`): 0 ocorrências nos 5 cassetes. Restam só `X-Amz-Cf-Id`, `X-Amz-Cf-Pop` e `x-amz-server-side-encryption` nas respostas do TCGCSV, que são cabeçalhos do CDN da fonte, não credenciais. O User-Agent gravado é `colecao-blk/1.0` (valor público de `.env.example`).
+
+Contrato sem rede (`.venv/bin/pytest tests/contrato -m vcr --record-mode=none --block-network -q -rw`): 7 passed in 0.32s, sem aviso de campo novo.
+
+Suíte inteira (`.venv/bin/pytest -q`): 71 passed in 3.53s.
+
+Nenhum teste revelou defeito no código de produção; `src/` não foi alterado.
+
+### Arquivos gerados
+- `tests/contrato/conftest.py`
+- `tests/contrato/test_fontes.py`
+- `tests/contrato/cassettes/` (5 cassetes: products, prices, PTAX de 2026-11-13, PTAX de 2026-11-14 e CDI de 03/11 a 13/11/2026)
+- `specs/tasks.md` (T-12 marcada como concluída; sábado corrigido para 2026-11-14; teste de campos novos na tarefa e na rastreabilidade do RF-01 e do RF-02)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Plano aprovado. Tarefa antecipada para antes da primeira execução real e do workflow, por só ler das fontes públicas e não tocar no bucket. Cinco cassetes gravados uma única vez (products, prices, PTAX de 13/11, PTAX do sábado 14/11 e CDI de 03 a 13/11); sábado corrigido para 14/11 no tasks.md. O teste de segredos detectou Set-Cookie do BCB em duas respostas; escolhida a opção A: filtro before_record_response para gravações futuras e remoção só desse cabeçalho nos dois cassetes, sem regravar. User-Agent público do .env.example mantido. Testes de contrato rodam sem rede.

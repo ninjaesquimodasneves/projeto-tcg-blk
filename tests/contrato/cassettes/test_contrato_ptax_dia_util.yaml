@@ -1,0 +1,57 @@
+interactions:
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate, zstd
+      Connection:
+      - keep-alive
+      User-Agent:
+      - colecao-blk/1.0
+    method: GET
+    uri: https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoMoedaDia(moeda=@moeda,dataCotacao=@dataCotacao)?@moeda='USD'&@dataCotacao='11-13-2026'&$format=json
+  response:
+    body:
+      string: "{\"@odata.context\":\"https://was-p.bcnet.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata$metadata#_CotacaoMoedaDia\",\"value\":[{\"paridadeCompra\":1.00000,\"paridadeVenda\":1.00000,\"cotacaoCompra\":5.66430,\"cotacaoVenda\":5.66490,\"dataHoraCotacao\":\"2026-11-13
+        10:10:12.661677\",\"tipoBoletim\":\"Abertura\"},{\"paridadeCompra\":1.00000,\"paridadeVenda\":1.00000,\"cotacaoCompra\":5.66230,\"cotacaoVenda\":5.66290,\"dataHoraCotacao\":\"2026-11-13
+        11:10:14.144374\",\"tipoBoletim\":\"Intermedi\xE1rio\"},{\"paridadeCompra\":1.00000,\"paridadeVenda\":1.00000,\"cotacaoCompra\":5.64080,\"cotacaoVenda\":5.64140,\"dataHoraCotacao\":\"2026-11-13
+        12:06:13.256818\",\"tipoBoletim\":\"Intermedi\xE1rio\"},{\"paridadeCompra\":1.00000,\"paridadeVenda\":1.00000,\"cotacaoCompra\":5.63730,\"cotacaoVenda\":5.63790,\"dataHoraCotacao\":\"2026-11-13
+        13:03:27.267256\",\"tipoBoletim\":\"Intermedi\xE1rio\"},{\"paridadeCompra\":1.00000,\"paridadeVenda\":1.00000,\"cotacaoCompra\":5.65120,\"cotacaoVenda\":5.65180,\"dataHoraCotacao\":\"2026-11-13
+        13:03:27.375047\",\"tipoBoletim\":\"Fechamento PTAX\"}]}"
+    headers:
+      Connection:
+      - keep-alive
+      Content-Language:
+      - en-US
+      Content-Type:
+      - application/json;charset=UTF-8;odata.metadata=minimal
+      Date:
+      - Tue, 17 Nov 2026 18:56:19 GMT
+      Expires:
+      - '0'
+      OData-Version:
+      - '4.0'
+      Pragma:
+      - no-cache
+      Strict-Transport-Security:
+      - max-age=31536000 ; includeSubDomains
+      Transfer-Encoding:
+      - chunked
+      X-Application-Context:
+      - application
+      X-Cache:
+      - CONFIG_NOCACHE
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - DENY
+      X-XSS-Protection:
+      - 1; mode=block
+      x-azure-ref:
+      - 20261117T185619Z-1588bbd57b4jjzjzhC1BN19vk4000000420000000000fbf9
+    status:
+      code: 200
+      message: OK
+version: 1

@@ -1,0 +1,52 @@
+interactions:
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate, zstd
+      Connection:
+      - keep-alive
+      User-Agent:
+      - colecao-blk/1.0
+    method: GET
+    uri: https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoMoedaDia(moeda=@moeda,dataCotacao=@dataCotacao)?@moeda='USD'&@dataCotacao='11-14-2026'&$format=json
+  response:
+    body:
+      string: '{"@odata.context":"https://was-p.bcnet.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata$metadata#_CotacaoMoedaDia","value":[]}'
+    headers:
+      Connection:
+      - keep-alive
+      Content-Language:
+      - en-US
+      Content-Type:
+      - application/json;charset=UTF-8;odata.metadata=minimal
+      Date:
+      - Tue, 17 Nov 2026 18:56:20 GMT
+      Expires:
+      - '0'
+      OData-Version:
+      - '4.0'
+      Pragma:
+      - no-cache
+      Strict-Transport-Security:
+      - max-age=31536000 ; includeSubDomains
+      Transfer-Encoding:
+      - chunked
+      X-Application-Context:
+      - application
+      X-Cache:
+      - CONFIG_NOCACHE
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - DENY
+      X-XSS-Protection:
+      - 1; mode=block
+      x-azure-ref:
+      - 20261117T185619Z-1588bbd57b428z2whC1BN1xfbs0000003y0g000000001twk
+    status:
+      code: 200
+      message: OK
+version: 1

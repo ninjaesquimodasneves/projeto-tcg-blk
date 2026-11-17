@@ -81,18 +81,18 @@ Comando base: `.venv/bin/pytest` com `pythonpath = src` no `pytest.ini`.
 - Comando: pytest -m integracao -q
 - Depende de: T-06. Exige Docker. Antecipada em relação à T-09 e à T-10 (não depende delas e não toca no bucket da turma).
 
-## T-12 Testes de contrato com cassetes VCR
+## T-12 Testes de contrato com cassetes VCR — concluída (2026-11-17)
 - Requisitos: RF-01, RF-02, RF-03, RF-04, RF-08, RNF-03
 - Arquivos: `tests/contrato/test_fontes.py`, `tests/contrato/cassettes/`, `tests/contrato/conftest.py`
-- Teste: test_contrato_products; test_contrato_prices; test_contrato_ptax_dia_util; test_contrato_ptax_sabado_sem_boletim (D = 2026-11-07); test_contrato_cdi_janela; test_cassetes_sem_authorization
+- Teste: test_contrato_products; test_contrato_prices; test_contrato_ptax_dia_util (D = 2026-11-13); test_contrato_ptax_sabado_sem_boletim (D = 2026-11-14); test_contrato_cdi_janela (03/11 a 13/11/2026); test_campos_novos_geram_aviso (campo novo em products ou prices gera aviso, sem falhar); test_cassetes_sem_authorization (inclui Set-Cookie das respostas)
 - Comando: gravação única com `pytest -m vcr --record-mode=once` e revisão dos cassetes, depois `pytest -m vcr --record-mode=none -q`
-- Depende de: T-05, T-07, T-08
+- Depende de: T-05, T-07, T-08. Antecipada em relação à T-09 e à T-10 (só lê das fontes públicas e não toca no bucket).
 
 ## Rastreabilidade requisito → tarefa → teste
 | Requisito | Tarefa | Teste |
 |---|---|---|
-| RF-01 | T-03, T-08, T-12 | test_urls_tcgcsv_products_e_prices, test_quatro_fontes_chamadas_e_gravadas, test_contrato_products |
-| RF-02 | T-03, T-08, T-12 | test_urls_tcgcsv_products_e_prices, test_quatro_fontes_chamadas_e_gravadas, test_contrato_prices |
+| RF-01 | T-03, T-08, T-12 | test_urls_tcgcsv_products_e_prices, test_quatro_fontes_chamadas_e_gravadas, test_contrato_products, test_campos_novos_geram_aviso |
+| RF-02 | T-03, T-08, T-12 | test_urls_tcgcsv_products_e_prices, test_quatro_fontes_chamadas_e_gravadas, test_contrato_prices, test_campos_novos_geram_aviso |
 | RF-03 | T-03, T-08, T-12 | test_url_ptax_em_mm_dd_aaaa, test_contrato_ptax_dia_util |
 | RF-04 | T-03, T-08, T-12 | test_janela_cdi_d_menos_10_ate_d, test_contrato_cdi_janela |
 | RF-05 | T-03, T-06, T-09, T-11 | test_chave_nova_grava_bytes_sem_alteracao, test_sha256_do_objeto_igual_ao_do_corpo |
