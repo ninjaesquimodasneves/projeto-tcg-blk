@@ -144,6 +144,7 @@ Comando base da silver: `PYTHONPATH=src python -m silver`.
 - Teste: test_produto_do_cassete_uma_linha_por_product_id; test_versao_do_raw_mais_recente; test_produto_ausente_no_raw_recente_continua; test_tipo_produto_carta_selado_e_code_card; test_tipo_produto_indefinido_vai_para_quarentena; test_raridade_e_numero_nulos_quando_ausentes
 - Comando: pytest tests/unidade/test_silver_produto.py -q
 - Depende de: T-14, T-15
+- Nota (2026-11-18): correção posterior, em commit `fix` próprio. Um item de results que não é objeto vai para a quarentena com o motivo "formato inesperado" e o próprio item como entrada, conforme o RF-21 ajustado depois da tarefa. Teste: test_item_que_nao_e_objeto_vai_para_quarentena.
 
 ## T-17 Tabela preco_diario — concluída (2026-11-18)
 - Requisitos: RF-16, RF-19, RF-20, RF-21
@@ -151,6 +152,7 @@ Comando base da silver: `PYTHONPATH=src python -m silver`.
 - Teste: test_preco_do_cassete_uma_linha_por_produto_e_acabamento (moeda "USD", fonte "tcgcsv", chave_raw do prices do dia); test_preco_nulo_continua_nulo; test_direct_low_price_extra_nulo_quando_ausente; test_produto_desconhecido_vai_para_quarentena; test_duplicata_vai_para_quarentena; test_preco_negativo_vai_para_quarentena
 - Comando: pytest tests/unidade/test_silver_preco_diario.py -q
 - Depende de: T-14, T-16
+- Nota (2026-11-18): correção posterior, em commit `fix` próprio. Um item de results que não é objeto vai para a quarentena com o motivo "formato inesperado" e o próprio item como entrada, sem entrar na contagem de duplicata, conforme o RF-21 ajustado depois da tarefa. Teste: test_item_que_nao_e_objeto_vai_para_quarentena_sem_contar_duplicata.
 
 ## T-18 Tabela cambio_diario — concluída (2026-11-18)
 - Requisitos: RF-17, RF-20

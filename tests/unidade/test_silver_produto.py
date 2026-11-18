@@ -242,3 +242,16 @@ def test_conversao_explicita_de_product_id(product_id):
     else:
         assert resultado.validos == []
         assert resultado.rejeitados[0].motivo == "product_id: int_type"
+
+
+# --- Correcao: item de results que nao e objeto (RF-21) ---
+
+
+@pytest.mark.parametrize("estranho", [42, "texto", None, [1, 2]], ids=str)
+def test_item_que_nao_e_objeto_vai_para_quarentena(estranho):
+    resultado = transformar_produtos([raw(D1, [item(80), estranho, item(81)])])
+
+    assert sorted(por_id(resultado)) == [80, 81]
+    assert resultado.rejeitados == [
+        Rejeitado(tabela="produto", motivo="formato inesperado", chave_raw=chave(D1), entrada=estranho)
+    ]

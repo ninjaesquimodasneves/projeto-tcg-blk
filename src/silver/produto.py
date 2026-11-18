@@ -73,9 +73,13 @@ def transformar_produtos(objetos: list[ObjetoRaw]) -> Resultado:
             continue
         deste_raw: dict = {}
         for posicao, item in enumerate(itens):
-            pid = inteiro(item.get("productId")) if isinstance(item, dict) else None
+            ordem = (objeto.data, objeto.chave, posicao)
+            if not isinstance(item, dict):  # RF-21: item fora do formato, sem entrar na versao do produto
+                rejeitados.append((ordem, _rejeitado("formato inesperado", objeto.chave, item)))
+                continue
+            pid = inteiro(item.get("productId"))
             chave_pid = pid if pid is not None else (objeto.chave, posicao)  # sem id: validado sozinho
-            deste_raw.setdefault(chave_pid, []).append(((objeto.data, objeto.chave, posicao), objeto.chave, item))
+            deste_raw.setdefault(chave_pid, []).append((ordem, objeto.chave, item))
         mais_recente.update(deste_raw)  # o raw mais recente substitui as versoes anteriores (RF-14)
 
     validos = []
@@ -84,12 +88,11 @@ def transformar_produtos(objetos: list[ObjetoRaw]) -> Resultado:
             rejeitados += [(ordem, _rejeitado("duplicata", chave_raw, item)) for ordem, chave_raw, item in versoes]
             continue
         ((ordem, chave_raw, item),) = versoes
-        dados = item if isinstance(item, dict) else {}
-        tipo = tipo_produto(dados.get("extendedData"))
+        tipo = tipo_produto(item.get("extendedData"))
         if tipo is None:
             rejeitados.append((ordem, _rejeitado("tipo_produto indefinido", chave_raw, item)))
             continue
-        registro = validar(TABELA, _linha(dados, tipo), entrada=item, chave_raw=chave_raw)
+        registro = validar(TABELA, _linha(item, tipo), entrada=item, chave_raw=chave_raw)
         if isinstance(registro, Rejeitado):
             rejeitados.append((ordem, registro))
         else:

@@ -292,3 +292,17 @@ def test_rejeitado_guarda_entrada_motivo_e_chave_raw():
     assert rejeitado.motivo == "acabamento: string_type"
     assert rejeitado.chave_raw == chave_prices(D1)
     assert rejeitado.entrada == entrada
+
+
+# --- Correcao: item de results que nao e objeto (RF-21) ---
+
+
+@pytest.mark.parametrize("estranho", [42, "texto", None, [1, 2]], ids=str)
+def test_item_que_nao_e_objeto_vai_para_quarentena_sem_contar_duplicata(estranho):
+    resultado = transformar_precos([raw_prices(D1, [estranho, estranho, preco(1)])], CONHECIDOS)
+
+    assert list(linhas(resultado)) == [(D1, 1, "Normal")]
+    assert resultado.rejeitados == [
+        Rejeitado(tabela="preco_diario", motivo="formato inesperado", chave_raw=chave_prices(D1), entrada=estranho),
+        Rejeitado(tabela="preco_diario", motivo="formato inesperado", chave_raw=chave_prices(D1), entrada=estranho),
+    ]

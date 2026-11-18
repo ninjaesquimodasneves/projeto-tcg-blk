@@ -47,8 +47,10 @@ def transformar_precos(objetos: list[ObjetoRaw], produtos: list[Produto]) -> Res
             continue
         vistos = set()  # pares do dia; o primeiro conta mesmo se for invalido (RF-16)
         for item in itens:
-            dados = item if isinstance(item, dict) else {}
-            linha = _linha(dados, objeto)
+            if not isinstance(item, dict):  # RF-21: item fora do formato, fora da contagem de duplicata
+                rejeitados.append(_rejeitado("formato inesperado", objeto.chave, item))
+                continue
+            linha = _linha(item, objeto)
             par = (linha["product_id"], linha["acabamento"])
             if par in vistos:
                 rejeitados.append(_rejeitado("duplicata", objeto.chave, item))
