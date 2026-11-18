@@ -1257,3 +1257,55 @@ Pode escrever as seções novas e alteradas.
 
 ### Decisão humana
 Aprovada a spec v2 da silver (RF-13 a RF-24, RNF-05 e RNF-06). Produto: versão mais recente de cada product_id, mantendo os que sumiram; preço sem produto, duplicata, tipo_produto indefinido e preço negativo vão para a quarentena; CDI repetido usa o raw mais recente, com alerta se divergir; boletim aceita "Fechamento PTAX" e "Fechamento" e grava "Fechamento"; regra de tipo_produto e rótulo fonte = "tcgcsv" como hipóteses; directLowPrice como coluna extra opcional. Reprocessamento reconstrói silver e quarentena, verificando o contrato antes de qualquer remoção.
+## 2026-11-18 — Etapa: adendo da spec (proteção contra atraso do agendador: RF-12 alterado, RF-25, RF-26 e T-13)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de requisitos de dados. Escreve requisitos verificáveis com critério Dado/Quando/Então. Não escreve código.
+
+[R] Pedido
+Atualize specs/spec.md e specs/tasks.md para proteger a coleta contra atrasos do agendador.
+Fato (origem: aba Actions do repositório): a execução agendada de 17/11, marcada para 21:17 UTC, começou às 02:54 UTC de 18/11 (23:54 em São Paulo), com quase 6 horas de atraso. Se o atraso passar da meia-noite de São Paulo, a coleta grava os preços do dia anterior com a data D seguinte, e a execução correta da noite encontra a chave ocupada.
+1. Altere o RF-12: o agendamento roda em vários horários na mesma noite, todos entre 20h e 3h UTC (proposta: 21:17, 22:47, 00:17 e 01:47 UTC); a primeira execução grava e as seguintes registram ja_existia.
+2. Crie o RF-25 Janela de coleta: o coletor só busca e grava se o instante da coleta estiver entre 20:00 UTC e 02:59 UTC (17h às 23h59 em São Paulo, depois da atualização do TCGCSV e antes da virada de D); fora da janela, não faz nenhuma chamada HTTP nem S3, registra "fora da janela" no log e sai com código 0. Inclua no RF-25 que a execução manual também respeita a janela.
+3. Em specs/tasks.md, acrescente a T-13 (implementação do RF-25 no orquestrador, com testes de unidade nas bordas da janela, e os novos horários no workflow), registrando o motivo.
+4. Atualize a rastreabilidade e a seção "Fatos, lacunas e suposições" (o atraso observado entra como fato; a escolha dos horários, como hipótese, validação pendente).
+
+[E] Exemplos
+Casos de borda que o RF-25 precisa citar:
+  19:59 UTC -> fora da janela; 20:00 UTC -> dentro;
+  02:59 UTC -> dentro (ainda 23:59 em São Paulo); 03:00 UTC -> fora (já é o dia seguinte em São Paulo).
+
+[A] Ajustes
+- Não altere os demais requisitos.
+- Não escreva código nem altere o workflow nesta etapa.
+- Não rode git add, git commit nem git push.
+
+[T] Tipo de saída
+Somente specs/spec.md e specs/tasks.md. Mostre as seções alteradas e novas antes de gravar e espere minha confirmação.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/plan.md, specs/tasks.md e .github/workflows/coleta.yml. Ao gravar, acrescente o prompt em docs/prompts.md. Pare ao final.
+```
+
+### Prompt 2 (literal)
+
+```text
+Respostas:
+1. Aceito o RF-26: dentro da janela, o coletor faz o head da chave de cada fonte antes do GET; se a chave existe, não faz a chamada HTTP e registra ja_existia, com status, bytes e sha256 vazios no log. A implementação entra na T-13. Acrescente o RF-26 à spec, à rastreabilidade e aos testes da T-13 (por exemplo: test_chave_existente_nao_faz_get).
+2. Confirmo a cláusula da configuração antes da janela no RF-25.
+3. Atualize também o specs/plan.md agora (horários do cron, janela e head antes do GET), para os documentos não se contradizerem antes do código.
+4. Mantenha o título do tasks.md e só acrescente a T-13.
+Pode gravar spec.md, tasks.md e plan.md, acrescentar o prompt em docs/prompts.md e parar. Não rode git add, git commit nem git push.
+```
+
+### Arquivos gerados
+- `specs/spec.md` (RF-12 alterado; RF-25 e RF-26 novos; rastreabilidade; fatos e hipótese dos horários; a suposição da v1 sobre D no mesmo dia civil em UTC foi substituída por fato)
+- `specs/tasks.md` (T-13 com motivo; rastreabilidade do RF-12, RF-25 e RF-26)
+- `specs/plan.md` (diagramas, quatro crons, janela no orquestrador, head antes do GET, notas)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Aprovados o RF-12 alterado (quatro horários entre 20h e 3h UTC), o RF-25 (janela de coleta de 20:00 a 02:59 UTC, com a configuração lida antes da janela) e o novo RF-26 (head da chave antes do GET, sem chamada HTTP quando a chave existe). Motivo: atraso de quase 6 h na execução agendada de 17/11. Plano atualizado junto, antes do código; implementação na T-13.

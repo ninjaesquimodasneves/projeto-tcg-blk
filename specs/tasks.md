@@ -89,6 +89,14 @@ Comando base: `.venv/bin/pytest` com `pythonpath = src` no `pytest.ini`.
 - Comando: gravação única com `pytest -m vcr --record-mode=once` e revisão dos cassetes, depois `pytest -m vcr --record-mode=none -q`
 - Depende de: T-05, T-07, T-08. Antecipada em relação à T-09 e à T-10 (só lê das fontes públicas e não toca no bucket).
 
+## T-13 Janela de coleta, consulta da chave antes do GET e horários múltiplos do agendador
+- Requisitos: RF-25, RF-26, RF-12
+- Motivo: a execução agendada de 17/11/2026, marcada para 21:17 UTC, começou às 02:54 UTC de 18/11, com quase 6 h de atraso (origem: aba Actions). Um atraso que passe da meia-noite de São Paulo grava preços com a D errada e ocupa a chave da noite seguinte (RF-06). Vários horários na noite (RF-12) dão novas chances, a janela (RF-25) impede a gravação com D errada e a consulta da chave antes do GET (RF-26) evita baixar o TCGCSV mais de uma vez por dia.
+- Arquivos: `src/coleta/orquestrador.py`, `src/coleta/gravador.py` (consulta da chave reaproveitável pelo orquestrador), `tests/unidade/test_orquestrador.py`, `tests/unidade/test_gravador.py`, `.github/workflows/coleta.yml`, `tests/unidade/test_workflow.py`
+- Teste: test_19h59_utc_fora_da_janela_sem_http_nem_s3; test_20h00_utc_dentro_da_janela; test_02h59_utc_dentro_da_janela_com_d_do_dia_anterior_em_utc; test_03h00_utc_fora_da_janela_sem_http_nem_s3; test_fora_da_janela_loga_e_sai_com_zero; test_config_invalida_fora_da_janela_sai_com_erro; test_chave_existente_nao_faz_get; test_chave_ausente_faz_get_e_grava; test_falha_no_head_vira_erro_sem_get; test_workflow_tem_quatro_crons_entre_20h_e_3h_utc (substitui test_workflow_tem_cron_17_21_e_dispatch)
+- Comando: pytest tests/unidade/test_orquestrador.py tests/unidade/test_gravador.py tests/unidade/test_workflow.py -q && pytest -m "not integracao and not vcr" -q && pytest -m integracao -q (test_coleta_completa_duas_vezes_com_minio continua passando)
+- Depende de: T-08, T-10
+
 ## Rastreabilidade requisito → tarefa → teste
 | Requisito | Tarefa | Teste |
 |---|---|---|
@@ -103,7 +111,9 @@ Comando base: `.venv/bin/pytest` com `pythonpath = src` no `pytest.ini`.
 | RF-09 | T-05 | test_503_depois_200_tem_duas_tentativas, test_429_respeita_retry_after_com_teto_60s, test_404_nao_repete, test_cinco_falhas_viram_erro |
 | RF-10 | T-08, T-09 | test_log_tem_campos_por_fonte, evidência da T-09 |
 | RF-11 | T-08, T-10 | test_saida_diferente_de_zero_com_erro_em_uma_fonte, test_workflow_falha_quando_o_coletor_falha, falha forçada no Actions |
-| RF-12 | T-10 | test_workflow_tem_cron_17_21_e_dispatch, histórico do Actions |
+| RF-12 | T-10, T-13 | test_workflow_tem_quatro_crons_entre_20h_e_3h_utc (substitui test_workflow_tem_cron_17_21_e_dispatch), histórico do Actions |
+| RF-25 | T-13 | test_19h59_utc_fora_da_janela_sem_http_nem_s3, test_20h00_utc_dentro_da_janela, test_02h59_utc_dentro_da_janela_com_d_do_dia_anterior_em_utc, test_03h00_utc_fora_da_janela_sem_http_nem_s3, test_fora_da_janela_loga_e_sai_com_zero, test_config_invalida_fora_da_janela_sai_com_erro |
+| RF-26 | T-13 | test_chave_existente_nao_faz_get, test_chave_ausente_faz_get_e_grava, test_falha_no_head_vira_erro_sem_get, histórico do Actions |
 | RNF-01 | T-04, T-09 | test_user_agent_do_ambiente_em_toda_chamada, test_pausa_minima_de_100ms_no_tcgcsv |
 | RNF-02 | T-04 | test_timeout_10_30_repassado_a_sessao, test_timeout_vira_falha_transitoria |
 | RNF-03 | T-02, T-08, T-09, T-10, T-12 | test_variavel_ausente_falha_sem_mostrar_valores, test_log_sem_credenciais, test_evidencia_sem_segredos, test_workflow_usa_secrets_e_nenhum_valor_literal, test_cassetes_sem_authorization |

@@ -1,6 +1,6 @@
 # Spec — Coleta diária, camada bruta e camada silver (versão 2)
 
-Escopo da v1 (RF-01 a RF-12, RNF-01 a RNF-04): coleta diária das fontes e gravação da resposta original em raw/. Escopo acrescentado na v2 (RF-13 a RF-24, RNF-05 e RNF-06): camada silver em Parquet, derivada só do raw, validada e publicada no contrato comum da turma (origem: enunciado do projeto), com quarentena e reprocessamento. Origem dos IDs: personas P-xx em `docs/00_persona.md`, objetivos OBJ-xx em `docs/01_objetivos_negocio.md`, restrições em `docs/01_objetivos_negocio.md` e `AGENTS.md`.
+Escopo da v1 (RF-01 a RF-12, RNF-01 a RNF-04): coleta diária das fontes e gravação da resposta original em raw/. Escopo acrescentado na v2 (RF-13 a RF-24, RNF-05 e RNF-06): camada silver em Parquet, derivada só do raw, validada e publicada no contrato comum da turma (origem: enunciado do projeto), com quarentena e reprocessamento. Adendo de 2026-11-18 (RF-12 alterado, RF-25 e RF-26): proteção da coleta contra atrasos do agendador. Origem dos IDs: personas P-xx em `docs/00_persona.md`, objetivos OBJ-xx em `docs/01_objetivos_negocio.md`, restrições em `docs/01_objetivos_negocio.md` e `AGENTS.md`.
 Convenções: D = data da coleta no fuso America/Sao_Paulo (AAAA-MM-DD); na silver, D é a data da partição `data=D` do raw de origem. Bucket `tcg`. Valores marcados "hipótese, validação pendente" têm valor inicial sugerido.
 Convenções da silver (v2): "colunas mínimas" são as colunas do contrato listadas em cada tabela, com nome e tipo fixos; colunas extras são permitidas. Os tipos são os do DuckDB (INTEGER, VARCHAR, DOUBLE, DATE, TIMESTAMP). "Publicar" é gravar o Parquet na chave final da silver.
 
@@ -92,9 +92,10 @@ Verificação: teste de unidade dos dois casos; execução com falha forçada mo
 ### RF-12 Execução agendada e manual
 Origem: OBJ-01, restrição "agendamento no GitHub Actions ou Railway"
 - Dado o repositório no GitHub
-- Quando chega o horário agendado (uma vez por dia, depois das 20h UTC) ou alguém dispara à mão
-- Então o coletor roda com as credenciais vindas de variáveis de ambiente do agendador
-Verificação: definição do agendamento no repositório; histórico de execuções agendadas e manuais no GitHub Actions.
+- Quando chega um dos horários agendados da noite, todos entre 20h e 3h UTC (21:17, 22:47, 00:17 e 01:47 UTC; hipótese, validação pendente), ou alguém dispara à mão
+- Então o coletor roda com as credenciais vindas de variáveis de ambiente do agendador, sujeito à janela do RF-25
+- E, na mesma noite, a primeira execução dentro da janela grava cada fonte e as seguintes registram ja_existia (RF-06, RF-26); uma fonte que terminou em erro numa execução é gravada pela execução seguinte da mesma noite
+Verificação: definição dos horários no repositório; histórico do GitHub Actions com uma noite em que a primeira execução grava e as seguintes registram ja_existia.
 
 ## Requisitos funcionais — camada silver (v2)
 
@@ -202,6 +203,27 @@ Origem: OBJ-02, OBJ-06, restrição "raw/ guarda a resposta original e nunca é 
 - E nenhum objeto de raw/ é escrito ou apagado
 Verificação: teste de integração com MinIO em Testcontainers rodando o comando duas vezes e comparando as linhas de cada tabela e as chaves e sha256 do raw antes e depois; execução real registrada em `docs/evidencias/`.
 
+## Requisitos funcionais — proteção contra atraso do agendador (adendo de 2026-11-18)
+
+### RF-25 Janela de coleta
+Origem: OBJ-01, OBJ-02, restrição "coleta do TCGCSV depois das 20h UTC", restrição "raw/ nunca sobrescrito"
+- Dado o instante da coleta em UTC
+- Quando o coletor roda, por agendamento ou por disparo manual
+- Então só busca e grava se o instante estiver entre 20:00:00 e 02:59:59 UTC (17h às 23h59 em São Paulo: depois da atualização do TCGCSV e antes da virada de D)
+- E fora da janela não faz nenhuma chamada HTTP nem S3, registra "fora da janela" no log com o instante UTC e a D correspondente, e sai com código 0
+- E a leitura da configuração vem antes da checagem da janela, de modo que uma configuração inválida (inclusive a falha forçada do RF-11) sai com código diferente de zero em qualquer horário, sem chamada HTTP nem S3
+- Casos de borda: 19:59 UTC → fora; 20:00 UTC → dentro; 02:59 UTC → dentro (ainda 23:59 em São Paulo); 03:00 UTC → fora (já é o dia seguinte em São Paulo)
+Verificação: testes de unidade com relógio falso nos quatro instantes de borda, conferindo as chamadas HTTP e S3 (nenhuma fora da janela), o log e o código de saída; teste de unidade com configuração inválida fora da janela (código diferente de zero).
+
+### RF-26 Consulta da chave antes da busca
+Origem: OBJ-01, RNF-01, restrição "no máximo uma coleta por dia no TCGCSV" (`AGENTS.md`)
+- Dada uma execução dentro da janela do RF-25 e a chave raw de uma fonte para D
+- Quando o coletor vai buscar essa fonte
+- Então primeiro consulta (head) se a chave existe no bucket; se existe, não faz a chamada HTTP dessa fonte, registra ja_existia e deixa status HTTP, bytes e sha256 vazios no log (RF-10), com tentativas 0
+- E, se a chave não existe, segue o RF-01 a RF-05; a recusa de sobrescrita do RF-06 continua valendo se a chave aparecer entre a consulta e a gravação
+- E, se a consulta falha, a fonte termina em erro sem chamada HTTP e conta como erro no RF-11
+Verificação: testes de unidade com cliente S3 e sessão HTTP falsos: test_chave_existente_nao_faz_get, test_chave_ausente_faz_get_e_grava, test_falha_no_head_vira_erro_sem_get; histórico do GitHub Actions com as execuções seguintes da noite sem chamadas HTTP.
+
 ## Requisitos não funcionais
 
 ### RNF-01 Coleta educada no TCGCSV
@@ -281,6 +303,8 @@ Verificação: teste de integração com MinIO contendo silver sintética de out
 | RF-24 | OBJ-02, OBJ-06 (e restrição do raw imutável) |
 | RNF-05 | OBJ-06 (e restrições do lake e do raw) |
 | RNF-06 | OBJ-05, OBJ-06 (e restrição do lake) |
+| RF-25 | OBJ-01, OBJ-02 (e restrições da coleta do TCGCSV depois das 20h UTC e do raw) |
+| RF-26 | OBJ-01 (e RNF-01 e restrição de uma coleta por dia no TCGCSV) |
 
 ## Fatos, lacunas e suposições
 - **Fato:** a PTAX só existe em dia útil; o preço do dia D usa a PTAX de D ou do dia útil anterior mais próximo, nunca uma posterior. Origem: enunciado (via `docs/01_objetivos_negocio.md`).
@@ -299,7 +323,10 @@ Verificação: teste de integração com MinIO contendo silver sintética de out
 - **Hipótese, validação pendente:** regra do tipo_produto do RF-15 (carta se tem Rarity; selado se não tem Rarity nem Number), a conferir nos dados reais.
 - **Hipótese, validação pendente:** no CDI repetido entre raw, chave_raw do raw mais recente e alerta quando o valor diverge (RF-18).
 - **Hipótese, validação pendente:** rótulo fonte = "tcgcsv" na preco_diario, a confirmar com o contrato da turma.
-- **Suposição:** 20h UTC equivale a 17h em São Paulo, então D (fuso de São Paulo) é o mesmo dia civil em UTC no horário agendado.
+- **Fato:** a execução agendada de 17/11/2026, marcada para 21:17 UTC, começou às 02:54 UTC de 18/11 (23:54 em São Paulo), com quase 6 horas de atraso. Um atraso que passe da meia-noite de São Paulo grava os preços do dia anterior com a D seguinte, e a execução correta da noite encontra a chave ocupada. Origem: aba Actions do repositório.
+- **Fato:** São Paulo não tem horário de verão desde 2019, então a janela de 20:00 a 02:59 UTC do RF-25 corresponde sempre a 17:00 a 23:59 em São Paulo; entre 00:00 e 02:59 UTC, D é o dia civil anterior ao de UTC. Origem: Decreto nº 9.772/2019. (Substitui a suposição da v1 de que D é o mesmo dia civil em UTC no horário agendado, que deixa de valer para os horários depois da meia-noite UTC.)
+- **Fato:** o TCGCSV deve ser coletado no máximo uma vez por dia; com vários horários na noite, o RF-26 evita baixar de novo uma fonte já gravada. Origem: `AGENTS.md`.
+- **Hipótese, validação pendente:** horários 21:17, 22:47, 00:17 e 01:47 UTC (RF-12), escolhidos fora da hora cheia e espaçados em 1h30 para que o atraso de uma execução não impeça as outras.
 - **Suposição:** a data da cambio_diario é a data civil de dataHoraCotacao, que a fonte publica no horário de Brasília.
 - **Lacuna:** formato do log (arquivo, saída padrão ou ambos) e onde ele fica guardado; fica para o plano.
 - **Lacuna:** nome e formato dos arquivos dentro de quarentena/<tabela>/group_id=24325/data=D/; fica para o plano.

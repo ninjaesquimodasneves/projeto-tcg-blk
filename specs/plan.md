@@ -1,6 +1,6 @@
 # Plano — Coleta diária e camada bruta (versão 1)
 
-Cobre só `specs/spec.md` v1 (RF-01 a RF-12, RNF-01 a RNF-04). Tarefas em `specs/tasks.md`. Personas em `docs/00_persona.md`.
+Cobre `specs/spec.md` v1 (RF-01 a RF-12, RNF-01 a RNF-04) e o adendo de 2026-11-18 (RF-12 alterado, RF-25 e RF-26: proteção contra atraso do agendador). Tarefas em `specs/tasks.md`. Personas em `docs/00_persona.md`.
 
 ## Diagrama C4 de contexto
 
@@ -19,7 +19,7 @@ C4Context
   System_Ext(rustfs, "RustFS da turma", "Bucket tcg compatível com S3")
   System_Ext(colegas, "Colegas da turma", "Sistemas externos que leem o lake")
   Rel(operadora, actions, "Dispara à mão e lê o log")
-  Rel(actions, coletor, "Executa às 21h17 UTC ou à mão")
+  Rel(actions, coletor, "Executa às 21h17, 22h47, 00h17 e 01h47 UTC ou à mão")
   Rel(coletor, tcgcsv, "GET products e prices", "HTTPS")
   Rel(coletor, ptax, "GET CotacaoMoedaDia", "HTTPS")
   Rel(coletor, cdi, "GET bcdata.sgs.12", "HTTPS")
@@ -38,10 +38,10 @@ C4Component
   System_Ext(fontes, "TCGCSV e APIs do Banco Central", "Fontes HTTP")
   System_Ext(rustfs, "RustFS da turma", "Bucket tcg")
   Container_Boundary(gha, "GitHub Actions") {
-    Component(workflow, "Workflow coleta.yml", ".github/workflows", "Cron 17 21 e workflow_dispatch com secrets")
+    Component(workflow, "Workflow coleta.yml", ".github/workflows", "Quatro crons entre 21h17 e 01h47 UTC e workflow_dispatch com secrets")
   }
   Container_Boundary(pacote, "Pacote src/coleta") {
-    Component(cli, "Orquestrador e CLI", "__main__.py e orquestrador.py", "Chama as quatro fontes, loga e define o código de saída")
+    Component(cli, "Orquestrador e CLI", "__main__.py e orquestrador.py", "Checa a janela, consulta as chaves, chama as fontes, loga e define o código de saída")
     Component(config, "Config", "config.py", "Lê as variáveis do .env.example via os.environ")
     Component(urls, "URLs chaves e datas", "urls.py", "D em America/Sao_Paulo, PTAX MM-DD-AAAA, janela do CDI")
     Component(cliente, "Cliente HTTP", "cliente_http.py e repeticao.py", "User-Agent, pausa, timeouts e repetição")
@@ -53,7 +53,7 @@ C4Component
   Rel(cli, urls, "Monta URLs e chaves")
   Rel(cli, cliente, "Busca cada fonte")
   Rel(cli, classif, "Classifica a resposta da PTAX")
-  Rel(cli, gravador, "Grava o corpo")
+  Rel(cli, gravador, "Consulta a chave (head) antes do GET e grava o corpo")
   Rel(cliente, fontes, "GET", "HTTPS")
   Rel(gravador, rustfs, "head_object e put_object", "S3")
 ```
@@ -78,13 +78,16 @@ C4Component
 | vcrpy com pytest-recording, `filter_headers` de Authorization, `record_mode=none` na execução normal | Biblioteca responses ou chamadas reais nos testes | RF-01 a RF-04, RF-08, RNF-03 |
 | Testcontainers com MinIO `coollabsio/minio:RELEASE.2025-10-15T17-29-55Z` | moto (não exercita um servidor S3 real) | RF-05, RF-06, RF-07, RNF-04 |
 | `logging` da stdlib na saída padrão, uma linha JSON por fonte mais um resumo | Arquivo de log no runner (descartado no fim do job) | RF-10 |
-| GitHub Actions com cron `17 21 * * *`, `workflow_dispatch`, secrets e `concurrency` | Railway | RF-12, RNF-03, RF-06 |
+| GitHub Actions com crons `17 21 * * *`, `47 22 * * *`, `17 0 * * *` e `47 1 * * *`, `workflow_dispatch`, secrets e `concurrency` | Railway; um único cron (o atraso de 17/11 mostrou que uma execução só não basta) | RF-12, RNF-03, RF-06 |
+| Checagem da janela de 20:00 a 02:59 UTC no orquestrador, com o relógio injetado, depois de carregar a config e antes de criar os clientes HTTP e S3 | Condição `if` de horário no workflow (não cobre o disparo manual nem o atraso do runner depois do início do job) | RF-25, RF-11 |
+| `head_object` da chave de cada fonte antes do GET; GET só quando a chave não existe. O gravador mantém o próprio head antes do put | Baixar sempre e checar só antes do put (até quatro downloads do TCGCSV por noite) | RF-26, RF-06, RNF-01 |
 
 Notas:
-- O minuto 17 evita o atraso do GitHub em hora cheia. 21h17 UTC equivale a 18h17 em São Paulo, então D é o mesmo dia civil (suposição da spec mantida).
+- Os minutos 17 e 47 evitam o atraso do GitHub em hora cheia. Os quatro horários equivalem a 18h17, 19h47, 21h17 e 22h47 em São Paulo, todos dentro da janela do RF-25. Depois da meia-noite UTC, D (São Paulo) é o dia civil anterior ao de UTC; a D sai sempre de `data_coleta` em America/Sao_Paulo.
+- Uma execução atrasada que comece depois das 02:59 UTC sai com código 0 e "fora da janela", sem tocar no bucket; a noite seguinte segue normal.
 - O `concurrency` impede duas execuções simultâneas entre o head e o put, que é a janela de corrida do RF-06.
 - Testes de unidade não usam rede nem Docker. Cliente S3, sessão HTTP, relógio, `sleep` e gerador aleatório são injetados como dependências falsas. O "servidor simulado lento" do RNF-02 é uma sessão falsa que lança timeout.
-- Cada execução faz 4 chamadas, ou até 20 com 5 tentativas cada. Isso fica muito abaixo das 10.000 por dia do RNF-01.
+- A primeira execução da noite faz 4 chamadas HTTP, ou até 20 com 5 tentativas cada; as seguintes só fazem as 4 consultas de chave no S3 e nenhuma chamada HTTP para as fontes já gravadas (RF-26). Isso fica muito abaixo das 10.000 por dia do RNF-01.
 
 ## Onde o log fica
 
