@@ -1737,3 +1737,65 @@ Com o cassete de products como entrada: 358 produtos, 331 cartas (7 delas Code C
 
 ### Decisão humana
 Plano aprovado. Tabela produto como função pura sobre o raw: versão mais recente de cada product_id, mantendo os que sumiram, sem voltar para versão antiga se a mais recente for inválida; tipo_produto "carta" com Rarity e "selado" sem Rarity nem Number (hipótese); Number sem Rarity, duplicata e formato inesperado vão para rejeitados. Cassete: 331 cartas (7 Code Cards) e 27 selados. Testes falharam antes pelo motivo esperado e passaram depois.
+## 2026-11-18 — Etapa: ajuste da spec antes da T-17 (formato inesperado geral, precedência dos motivos e contagem de duplicata)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados Python que pratica desenvolvimento orientado a testes. Executa uma única tarefa, prova que ela funciona com a saída real do terminal e para.
+
+[R] Pedido
+Implemente somente a tarefa T-17 de specs/tasks.md. Siga esta ordem:
+1. mostre o plano: arquivos, funções, como cada campo do prices.json vira coluna da preco_diario e o comando de verificação. Se o plano precisar de alguma regra que ainda não está escrita na spec (por exemplo, raw de prices em formato inesperado), liste essas regras numa seção separada "Regras fora da spec" e espere minha decisão, sem implementá-las; espere minha confirmação;
+2. escreva primeiro os testes da tarefa, rode e mostre que falham pelo motivo esperado (função ou módulo ainda inexistente, e não falta de dependência);
+3. implemente o mínimo para os testes passarem;
+4. rode a verificação da tarefa e o pytest inteiro e mostre a saída real;
+5. marque a T-17 como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit.
+
+[E] Exemplos
+Casos que os testes precisam cobrir:
+  com os cassetes de products e prices como entrada: uma linha por product_id e acabamento, data = D do raw, moeda "USD", fonte "tcgcsv", chave_raw = chave do prices.json do dia;
+  marketPrice, lowPrice, midPrice, highPrice e directLowPrice nulos ou ausentes continuam nulos, nunca zero (RF-19);
+  preço inteiro na fonte vira float explicitamente antes do modelo;
+  preço de product_id que não existe na tabela produto -> rejeitado com o motivo "produto desconhecido";
+  segundo registro com o mesmo product_id e acabamento no mesmo D -> rejeitado com o motivo "duplicata", conforme o RF-16;
+  preço negativo -> rejeitado pelo modelo;
+  raw de dois dias diferentes geram linhas separadas por D;
+  saída ordenada por data, product_id e acabamento.
+Commit proposto: feat(T-17): tabela preco_diario [RF-16, RF-19, RF-21]
+
+[A] Ajustes
+- Faça só a T-17; a gravação da quarentena é da T-21 e a escrita do Parquet é da T-22.
+- Função pura sobre os objetos do raw (T-15) e os produtos válidos (T-16), sem S3.
+- Siga o RF-16 ao pé da letra; regras novas só depois da minha decisão.
+- Sem rede nos testes. Não leia nem imprima o .env.
+- Não rode git add, git commit nem git push.
+- Se a verificação falhar, tente corrigir no máximo duas vezes; depois disso, pare e explique.
+- Não declare sucesso sem mostrar a saída do comando.
+
+[T] Tipo de saída
+Os arquivos da tarefa, a saída do pytest antes e depois e um resumo de até cinco linhas com o que mudou, quantas linhas de preço e quantos rejeitados saíram do cassete e a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/plan.md, specs/tasks.md e src/silver/ antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2 (literal)
+
+```text
+Plano da T-17 aprovado. As três regras fora da spec também estão aprovadas. Antes do código, edite apenas specs/spec.md:
+- No RF-21, acrescente uma regra geral: qualquer raw da coleção (products, prices, PTAX ou CDI) que não seja JSON válido ou não tenha a estrutura esperada (results como lista no TCGCSV, value como lista na PTAX, lista de objetos no CDI) vira um único registro na quarentena com o motivo "formato inesperado", com o corpo do raw como entrada, e os demais raw seguem normalmente. Ajuste o RF-14 para citar essa regra geral, em vez de repeti-la.
+- No RF-21, acrescente a precedência dos motivos quando houver mais de um: primeiro "duplicata", depois "produto desconhecido", depois as recusas do modelo (RF-20).
+- No RF-16, acrescente que, na contagem de duplicata, o primeiro registro do par (product_id, acabamento) no dia conta mesmo que seja inválido; o segundo e os seguintes são "duplicata".
+Acrescente esta mudança em docs/prompts.md e pare, sem criar código. Não rode git add, git commit nem git push.
+```
+
+### Arquivos gerados
+- `specs/spec.md` (RF-14 cita a regra geral; RF-16 com a contagem de duplicata; RF-21 com a regra geral de formato inesperado, a precedência dos motivos e a verificação ampliada)
+- `docs/prompts.md` (esta entrada)
+
+A implementação da T-17 fica para depois do commit da spec; o plano já mostrado continua valendo, com as regras 1 a 3 agora na spec.
+
+### Decisão humana
+Regras encontradas no plano da T-17 escritas na spec antes do código: formato inesperado como regra geral do RF-21 para as quatro fontes (já cobrindo câmbio e CDI), precedência dos motivos (duplicata, produto desconhecido, modelo) e contagem de duplicata a partir do primeiro registro, mesmo inválido.

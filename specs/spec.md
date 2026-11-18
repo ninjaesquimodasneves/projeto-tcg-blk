@@ -116,7 +116,7 @@ Origem: OBJ-04, OBJ-06, restrição "silver no contrato comum da turma"
 - E nome, image_url e url vêm de name, imageUrl e url; raridade e numero vêm dos itens Rarity e Number de extendedData e ficam nulos quando o item não existe; tipo_produto segue o RF-15
 - E produtos com raridade "Code Card" ficam na tabela (a exclusão deles das perguntas fica para a v3)
 - E um productId que aparece duas vezes no mesmo raw tem as duas ocorrências enviadas para a quarentena (RF-21) com o motivo "duplicata"
-- E um raw de products que não é JSON válido ou não tem "results" como lista vira um único registro na quarentena com o motivo "formato inesperado", com o corpo do raw como entrada
+- E um raw de products em formato inesperado segue a regra geral do RF-21 (um único registro na quarentena com o motivo "formato inesperado")
 - E, se a versão mais recente de um produto for inválida, ela vai para a quarentena e não se volta para uma versão de raw anterior; os preços desse produto seguem a regra "produto desconhecido" do RF-16
 Verificação: teste de unidade da transformação com o cassete de products; teste de unidade com dois raw sintéticos de datas diferentes (produto alterado fica com a versão mais recente; produto ausente no raw mais recente continua na tabela; versão mais recente inválida vai para a quarentena sem volta à versão anterior); testes de unidade com productId repetido no mesmo raw e com raw em formato inesperado; DESCRIBE no Parquet gerado comparado com o contrato.
 
@@ -137,6 +137,7 @@ Origem: OBJ-01, OBJ-03, OBJ-06, restrição "silver no contrato comum da turma"
 - E market_price, low_price, mid_price e high_price vêm de marketPrice, lowPrice, midPrice e highPrice; directLowPrice pode entrar como coluna extra opcional direct_low_price DOUBLE, nula quando ausente
 - E um preço cujo product_id não existe na tabela produto (RF-14) vai para a quarentena com o motivo "produto desconhecido"
 - E um segundo registro com o mesmo product_id e acabamento no mesmo D vai para a quarentena com o motivo "duplicata"
+- E, na contagem de duplicata, o primeiro registro do par (product_id, acabamento) no dia conta mesmo que seja inválido; o segundo e os seguintes são "duplicata"
 Verificação: teste de unidade da transformação com o cassete de prices; testes de unidade com produto desconhecido e com duplicata; DESCRIBE no Parquet gerado comparado com o contrato.
 
 ### RF-17 Tabela cambio_diario só com o boletim de fechamento
@@ -179,7 +180,9 @@ Origem: OBJ-02, OBJ-06
 - Quando a silver é gerada
 - Então ele é gravado em quarentena/<tabela>/group_id=24325/data=D/ com a entrada original como veio do raw, o motivo, a chave do raw de origem e a data da geração, e não entra na tabela publicada
 - E a execução continua com os demais registros; registro em quarentena sozinho não torna o código de saída diferente de zero
-Verificação: teste de integração com MinIO em Testcontainers gravando um registro inválido e lendo a quarentena (entrada original idêntica, motivo presente); teste de unidade da contagem.
+- E qualquer raw da coleção (products, prices, PTAX ou CDI) que não seja JSON válido ou não tenha a estrutura esperada (results como lista no TCGCSV, value como lista na PTAX, lista de objetos no CDI) vira um único registro na quarentena com o motivo "formato inesperado", com o corpo do raw como entrada, e os demais raw seguem normalmente
+- E, quando mais de um motivo se aplica ao mesmo registro, vale o primeiro desta ordem: "duplicata", depois "produto desconhecido", depois as recusas do modelo (RF-20)
+Verificação: teste de integração com MinIO em Testcontainers gravando um registro inválido e lendo a quarentena (entrada original idêntica, motivo presente); teste de unidade da contagem; testes de unidade de cada transformação com raw em formato inesperado e da precedência dos motivos.
 
 ### RF-22 Log da geração da silver
 Origem: OBJ-01, OBJ-02, OBJ-06
