@@ -131,7 +131,7 @@ Comando base da silver: `PYTHONPATH=src python -m silver`.
 - Comando: .venv/bin/pip install -r requirements.txt && pytest tests/unidade/test_silver_modelos.py -q
 - Depende de: T-13. Sem transformação nenhuma nesta tarefa.
 
-## T-15 Leitura do raw da coleção (só leitura)
+## T-15 Leitura do raw da coleção (só leitura) — concluída (2026-11-18)
 - Requisitos: RNF-06, RF-14, RF-17, RF-18
 - Arquivos: `src/silver/raw.py`, `tests/unidade/cassetes.py` (helper que devolve o corpo original de um cassete), `tests/unidade/test_silver_raw.py`
 - Teste: test_lista_so_prefixos_da_colecao (cada list usa `raw/<fonte>/group_id=24325/`); test_le_bytes_e_data_da_particao; test_leitor_so_faz_list_e_get (o S3 falso registra put e delete e espera nenhum); test_raw_ilegivel_vira_erro_com_chave; test_cassete_devolve_corpo_original

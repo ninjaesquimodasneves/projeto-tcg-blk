@@ -1553,3 +1553,81 @@ Busca por API v1 do Pydantic (`parse_obj`, `@validator`, `.dict(`) em `src/silve
 
 ### Decisão humana
 Plano aprovado. pydantic==2.14.3 e duckdb==1.5.6 (a 2.0.0 não tem wheel para Python 3.14). Contrato da turma num dicionário único com as cinco tabelas, colunas extras e chaves; um modelo Pydantic v2 por tabela com strict=True e extra="forbid", cobrindo as regras do RF-20; image_url e url anuláveis; preço nulo aceito. Registro rejeitado com entrada original, motivo determinístico e chave do raw. Testes falharam antes pelo motivo esperado e passaram depois.
+## 2026-11-18 — Etapa: implementação da T-15 (leitura do raw da coleção, só leitura)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados Python que pratica desenvolvimento orientado a testes. Executa uma única tarefa, prova que ela funciona com a saída real do terminal e para.
+
+[R] Pedido
+Implemente somente a tarefa T-15 de specs/tasks.md. Siga esta ordem:
+1. mostre o plano: arquivos, funções, o helper que lê o corpo dos cassetes para os testes e o comando de verificação; espere minha confirmação;
+2. escreva primeiro os testes da tarefa, rode e mostre que falham pelo motivo esperado (função ou módulo ainda inexistente, e não falta de dependência);
+3. implemente o mínimo para os testes passarem;
+4. rode a verificação da tarefa e o pytest inteiro e mostre a saída real;
+5. marque a T-15 como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit.
+
+[E] Exemplos
+Casos que os testes precisam cobrir (S3 falso em memória):
+  com raw de 17/11 e 18/11 para as quatro fontes, a leitura devolve, por fonte, a lista de (D, chave, bytes) em ordem de data;
+  objetos de outro group_id (por exemplo raw/tcgplayer/group_id=24269/...) nunca são listados nem baixados;
+  nenhuma chamada de put, delete ou copy é feita pela leitura;
+  listagem com mais de uma página (continuation token) é lida por inteiro;
+  chave fora do padrão data=AAAA-MM-DD é ignorada e aparece no log como aviso;
+  o helper dos testes devolve o corpo dos cassetes de products, prices, PTAX e CDI como bytes, sem rede.
+Commit proposto: feat(T-15): leitura do raw da colecao [RNF-06, RF-14, RF-17, RF-18]
+
+[A] Ajustes
+- Faça só a T-15; nenhuma transformação de dados.
+- A leitura usa só os prefixos raw/<fonte>/group_id=24325/ e reaproveita carregar_config e criar_cliente_s3 do pacote coleta.
+- Bytes lidos sem decodificar.
+- Sem rede nos testes. Não leia nem imprima o .env. Não acesse o bucket real.
+- Não rode git add, git commit nem git push.
+- Se a verificação falhar, tente corrigir no máximo duas vezes; depois disso, pare e explique.
+- Não declare sucesso sem mostrar a saída do comando.
+
+[T] Tipo de saída
+Os arquivos da tarefa, a saída do pytest antes e depois e um resumo de até cinco linhas com o que mudou e a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/plan.md, specs/tasks.md, src/coleta/ e src/silver/ antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2 (literal)
+
+```text
+Plano aprovado. Pode seguir.
+```
+
+### Saída dos testes
+
+Antes da implementação (`.venv/bin/pytest tests/unidade/test_silver_raw.py -q`):
+
+```text
+tests/unidade/test_silver_raw.py:14: in <module>
+    from silver.raw import ErroLeituraRaw, ObjetoRaw, cliente_de_leitura, ler_colecao, ler_fonte, listar_chaves
+E   ModuleNotFoundError: No module named 'silver.raw'
+ERROR tests/unidade/test_silver_raw.py
+1 error in 0.20s
+```
+
+Depois da implementação:
+
+```text
+.venv/bin/pytest tests/unidade/test_silver_raw.py -q
+10 passed in 1.09s
+.venv/bin/pytest -q
+149 passed in 4.83s
+```
+
+### Arquivos gerados
+- `src/silver/raw.py` (ObjetoRaw, ErroLeituraRaw, prefixo_raw, listar_chaves, ler_fonte, ler_colecao, cliente_de_leitura)
+- `tests/unidade/cassetes.py` (helper corpo_do_cassete, sem rede)
+- `tests/unidade/test_silver_raw.py`
+- `specs/tasks.md` (T-15 concluída)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Plano aprovado. Leitura do raw só nos prefixos raw/<fonte>/group_id=24325/, com paginação completa, bytes sem decodificar e nenhuma escrita; objetos de outros group_id nunca listados nem baixados; chaves fora do padrão ignoradas com aviso. Helper de testes lê os corpos dos cassetes sem rede. Testes falharam antes pelo motivo esperado e passaram depois.
