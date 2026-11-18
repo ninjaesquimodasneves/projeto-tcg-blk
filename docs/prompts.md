@@ -1399,3 +1399,74 @@ O teste de integração test_coleta_completa_duas_vezes_com_minio usa 21:17 UTC,
 
 ### Decisão humana
 Plano aprovado em modo plan e executado com aprovação manual. Janela de 20:00 a 02:59 UTC no orquestrador, com configuração lida antes; consultar_chave reaproveitada pelo gravador; head antes do GET sem chamada HTTP quando a chave existe, mantendo o head antes do put (proteção dupla); quatro crons no workflow. Testes novos falharam antes pelo motivo esperado e passaram depois; integração e suíte inteira passando.
+## 2026-11-18 — Etapa: plano e tarefas da camada silver (T-14 a T-27)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é arquiteto de software de dados e líder técnico. Justifica cada escolha técnica com um requisito e quebra o trabalho em tarefas pequenas, cada uma provada por um teste. Não escreve código nesta etapa.
+
+[R] Pedido
+Atualize specs/plan.md e specs/tasks.md para cobrir a camada silver da spec v2 (RF-13 a RF-24, RNF-05 e RNF-06), sem alterar o que já existe da coleta.
+1. No specs/plan.md, acrescente:
+   - diagrama C4 de contêineres e componentes em Mermaid da silver: leitura do raw (só leitura), transformações por tabela, validação Pydantic, quarentena, escrita do Parquet, verificação do contrato, publicação e CLI;
+   - tabela de escolhas técnicas (escolha, alternativa descartada, requisito). Escolhas já decididas: Pydantic v2 para os modelos; DuckDB para escrever o Parquet localmente e ler o esquema com DESCRIBE (o mesmo motor da gold, Aula 04); boto3 para ler o raw e para publicar, de modo que a guarda de chaves do RNF-05 roda antes de cada put ou delete; arquivos da quarentena em JSON Lines com nome determinístico por tabela e data, para o reprocessamento sobrescrever sem duplicar;
+   - onde a silver roda: comando próprio (por exemplo, python -m silver), separado do coletor, e um passo no workflow depois da coleta, que não pode fazer a coleta falhar nem gravar no raw (a decisão de rodar no workflow é uma tarefa própria no fim);
+   - resposta às lacunas da spec v2 (nome e formato dos arquivos da quarentena; silver junto ou separada da coleta).
+2. No specs/tasks.md, acrescente as tarefas da silver a partir da T-14, em ordem, cada uma com requisitos, arquivos, teste que a prova, comando e dependências. Sugestão de sequência:
+   T-14 dependências novas (pydantic, duckdb) e modelos Pydantic das cinco tabelas;
+   T-15 leitura do raw da coleção (listar e baixar, só leitura);
+   T-16 tabela produto e regra de tipo_produto;
+   T-17 tabela preco_diario, com preço nulo e quarentena de produto desconhecido e duplicata;
+   T-18 tabela cambio_diario;
+   T-19 tabela cdi_diario, com alerta de divergência;
+   T-20 tabela colecao;
+   T-21 quarentena em JSON Lines;
+   T-22 escrita do Parquet e verificação do contrato;
+   T-23 publicação com guarda do RNF-05 e reprocessamento completo;
+   T-24 CLI e log da silver;
+   T-25 integração com Testcontainers (idempotência e silver de outro group_id intocada);
+   T-26 primeira geração real, conferência manual dos selados e evidência;
+   T-27 passo da silver no workflow.
+   Ajuste a sequência se encontrar motivo, explicando.
+
+[E] Exemplos
+## T-17 Tabela preco_diario
+- Requisitos: RF-16, RF-19, RF-21
+- Arquivos: src/silver/preco_diario.py, tests/unidade/test_silver_preco_diario.py
+- Teste: test_preco_nulo_continua_nulo; test_produto_desconhecido_vai_para_quarentena; test_duplicata_vai_para_quarentena
+- Comando: pytest tests/unidade/test_silver_preco_diario.py -q
+- Depende de: T-14, T-16
+
+[A] Ajustes
+- Toda escolha do plano aponta para um RF ou RNF existente; nada sem requisito.
+- Testes de unidade sem rede e sem Docker; os cassetes de products, prices, PTAX e CDI podem servir de entrada.
+- Cada tarefa cabe em cerca de 30 minutos; cada requisito da v2 aparece em pelo menos uma tarefa (tabela final requisito → tarefa → teste).
+- Os nomes dos diagramas são os mesmos do texto; Mermaid sem ponto e vírgula nos rótulos.
+- Não escreva código.
+- Não rode git add, git commit nem git push.
+
+[T] Tipo de saída
+Somente specs/plan.md e specs/tasks.md. Mostre primeiro a lista de tarefas (títulos e requisitos) e a tabela de escolhas, espere minha confirmação, depois grave.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/plan.md, specs/tasks.md, requirements.txt e os cassetes em tests/contrato/cassettes/. Ao gravar, acrescente o prompt em docs/prompts.md. Pare ao final.
+```
+
+### Prompt 2 (literal)
+
+```text
+Lista e tabela aprovadas, incluindo os ajustes na T-14 e o uso dos cassetes como entrada dos testes.
+Conflito RF-21 x RF-24: aprovada a sua proposta. gerado_em continua sendo a data real da geração, e a comparação de idempotência considera todos os campos da quarentena, exceto gerado_em. Registre essa regra no plano, no teste da T-25 e acrescente uma nota no RF-24 de specs/spec.md esclarecendo isso, para a spec não contradizer o teste.
+Pode gravar specs/plan.md, specs/tasks.md e a nota em specs/spec.md, acrescentar o prompt em docs/prompts.md e parar. Não rode git add, git commit nem git push.
+```
+
+### Arquivos gerados
+- `specs/plan.md` (seção "Camada silver (spec v2)": diagrama C4, escolhas técnicas, onde a silver roda, lacunas e ordem das tarefas)
+- `specs/tasks.md` (T-14 a T-27 e rastreabilidade da silver)
+- `specs/spec.md` (nota no RF-24 sobre gerado_em na comparação de idempotência)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Aprovados o plano e as tarefas da silver (T-14 a T-27). Contrato num dicionário único usado na criação e na verificação; DuckDB grava o Parquet localmente; boto3 lê o raw e publica, com a guarda do RNF-05 antes de cada put e delete; quarentena em registros.jsonl por tabela e data; gerar e verificar tudo antes de apagar; job silver separado no workflow. Conflito RF-21 x RF-24 resolvido: gerado_em é a data real da geração e fica fora da comparação de idempotência, com nota no RF-24.

@@ -200,6 +200,7 @@ Origem: OBJ-02, OBJ-06, restrição "raw/ guarda a resposta original e nunca é 
 - Quando um único comando de reprocessamento roda
 - Então ele reconstrói a partir do raw todas as tabelas da silver (RF-13 a RF-18) e a quarentena da coleção, apagando antes os objetos de silver/*/group_id=24325/ e quarentena/*/group_id=24325/ que não forem regravados, e só depois da verificação do RF-23
 - E rodar o comando duas vezes seguidas sobre o mesmo raw produz as mesmas linhas em cada tabela e na quarentena, sem duplicata
+- Nota: na quarentena, "mesmas linhas" considera todos os campos exceto gerado_em, que é a data real da geração exigida pelo RF-21 e muda a cada execução; nas tabelas da silver, a comparação considera todos os campos
 - E nenhum objeto de raw/ é escrito ou apagado
 Verificação: teste de integração com MinIO em Testcontainers rodando o comando duas vezes e comparando as linhas de cada tabela e as chaves e sha256 do raw antes e depois; execução real registrada em `docs/evidencias/`.
 

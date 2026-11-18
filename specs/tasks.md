@@ -118,3 +118,124 @@ Comando base: `.venv/bin/pytest` com `pythonpath = src` no `pytest.ini`.
 | RNF-02 | T-04 | test_timeout_10_30_repassado_a_sessao, test_timeout_vira_falha_transitoria |
 | RNF-03 | T-02, T-08, T-09, T-10, T-12 | test_variavel_ausente_falha_sem_mostrar_valores, test_log_sem_credenciais, test_evidencia_sem_segredos, test_workflow_usa_secrets_e_nenhum_valor_literal, test_cassetes_sem_authorization |
 | RNF-04 | T-02, T-03, T-06, T-11 | test_chave_sem_group_id_24325_recusada_antes_do_head, test_chaves_listadas_contem_group_id_24325 |
+
+# Camada silver (spec v2)
+
+Origem: `specs/spec.md` v2 (RF-13 a RF-24, RNF-05, RNF-06) e a seção "Camada silver (spec v2)" de `specs/plan.md`. Mesmas regras de cima: uma tarefa por vez, cerca de 30 minutos, testes de unidade sem rede e sem Docker. Os testes de unidade usam o corpo dos cassetes de `tests/contrato/cassettes/` como entrada (helper da T-15) e um S3 falso em memória.
+Comando base da silver: `PYTHONPATH=src python -m silver`.
+
+## T-14 Dependências novas, contrato e modelos Pydantic das cinco tabelas
+- Requisitos: RF-20, RF-23 (contrato), RF-13 a RF-18 (colunas mínimas)
+- Arquivos: `requirements.txt` (pydantic e duckdb com versões fixadas e wheel para Python 3.14), `src/silver/__init__.py`, `src/silver/contrato.py`, `src/silver/modelos.py`, `tests/unidade/test_silver_modelos.py`
+- Teste: test_contrato_tem_as_cinco_tabelas_com_colunas_minimas; test_modelo_valido_por_tabela; test_group_id_diferente_de_24325_recusado; test_moeda_diferente_de_usd_recusada; test_boletim_diferente_de_fechamento_recusado; test_tipo_produto_fora_de_carta_e_selado_recusado; test_preco_negativo_recusado; test_preco_nulo_aceito; test_chave_obrigatoria_nula_recusada; test_rejeitado_guarda_entrada_motivo_e_chave_raw
+- Comando: .venv/bin/pip install -r requirements.txt && pytest tests/unidade/test_silver_modelos.py -q
+- Depende de: T-13. Sem transformação nenhuma nesta tarefa.
+
+## T-15 Leitura do raw da coleção (só leitura)
+- Requisitos: RNF-06, RF-14, RF-17, RF-18
+- Arquivos: `src/silver/raw.py`, `tests/unidade/cassetes.py` (helper que devolve o corpo original de um cassete), `tests/unidade/test_silver_raw.py`
+- Teste: test_lista_so_prefixos_da_colecao (cada list usa `raw/<fonte>/group_id=24325/`); test_le_bytes_e_data_da_particao; test_leitor_so_faz_list_e_get (o S3 falso registra put e delete e espera nenhum); test_raw_ilegivel_vira_erro_com_chave; test_cassete_devolve_corpo_original
+- Comando: pytest tests/unidade/test_silver_raw.py -q
+- Depende de: T-14
+
+## T-16 Tabela produto e regra de tipo_produto
+- Requisitos: RF-14, RF-15, RF-20, RF-21
+- Arquivos: `src/silver/produto.py`, `tests/unidade/test_silver_produto.py`
+- Teste: test_produto_do_cassete_uma_linha_por_product_id; test_versao_do_raw_mais_recente; test_produto_ausente_no_raw_recente_continua; test_tipo_produto_carta_selado_e_code_card; test_tipo_produto_indefinido_vai_para_quarentena; test_raridade_e_numero_nulos_quando_ausentes
+- Comando: pytest tests/unidade/test_silver_produto.py -q
+- Depende de: T-14, T-15
+
+## T-17 Tabela preco_diario
+- Requisitos: RF-16, RF-19, RF-20, RF-21
+- Arquivos: `src/silver/preco_diario.py`, `tests/unidade/test_silver_preco_diario.py`
+- Teste: test_preco_do_cassete_uma_linha_por_produto_e_acabamento (moeda "USD", fonte "tcgcsv", chave_raw do prices do dia); test_preco_nulo_continua_nulo; test_direct_low_price_extra_nulo_quando_ausente; test_produto_desconhecido_vai_para_quarentena; test_duplicata_vai_para_quarentena; test_preco_negativo_vai_para_quarentena
+- Comando: pytest tests/unidade/test_silver_preco_diario.py -q
+- Depende de: T-14, T-16
+
+## T-18 Tabela cambio_diario
+- Requisitos: RF-17, RF-20
+- Arquivos: `src/silver/cambio_diario.py`, `tests/unidade/test_silver_cambio_diario.py`
+- Teste: test_dia_util_uma_linha_com_boletim_fechamento (cassete de dia útil); test_sabado_sem_linha (cassete de sábado); test_rotulo_fechamento_aceito; test_boletins_que_nao_sao_de_fechamento_descartados_e_contados; test_sem_duplicata_de_data
+- Comando: pytest tests/unidade/test_silver_cambio_diario.py -q
+- Depende de: T-14, T-15
+
+## T-19 Tabela cdi_diario com alerta de divergência
+- Requisitos: RF-18, RF-20, RF-21
+- Arquivos: `src/silver/cdi_diario.py`, `tests/unidade/test_silver_cdi_diario.py`
+- Teste: test_cassete_converte_data_e_valor; test_janelas_sobrepostas_sem_duplicata_com_chave_raw_mais_recente; test_valor_divergente_gera_alerta; test_valor_nao_numerico_vai_para_quarentena
+- Comando: pytest tests/unidade/test_silver_cdi_diario.py -q
+- Depende de: T-14, T-15
+
+## T-20 Tabela colecao
+- Requisitos: RF-13, RF-20
+- Arquivos: `src/silver/colecao.py`, `tests/unidade/test_silver_colecao.py`
+- Teste: test_colecao_uma_linha_com_os_valores_do_contrato
+- Comando: pytest tests/unidade/test_silver_colecao.py -q
+- Depende de: T-14
+
+## T-21 Quarentena em JSON Lines
+- Requisitos: RF-21, RF-22 (contagem por motivo)
+- Arquivos: `src/silver/quarentena.py`, `tests/unidade/test_silver_quarentena.py`
+- Teste: test_chave_deterministica_por_tabela_e_data; test_linha_tem_motivo_chave_raw_gerado_em_e_entrada_original; test_ordem_deterministica_entre_execucoes; test_contagem_por_motivo
+- Comando: pytest tests/unidade/test_silver_quarentena.py -q
+- Depende de: T-14
+
+## T-22 Escrita do Parquet e verificação do contrato
+- Requisitos: RF-23, RF-13 a RF-18
+- Arquivos: `src/silver/parquet.py`, `tests/unidade/test_silver_parquet.py` (DuckDB local em `tmp_path`, sem rede e sem Docker)
+- Teste: test_parquet_tem_os_tipos_do_contrato (as cinco tabelas, via DESCRIBE); test_coluna_extra_aceita; test_coluna_faltando_reprovada; test_tipo_diferente_reprovado; test_linhas_ordenadas_pelas_chaves
+- Comando: pytest tests/unidade/test_silver_parquet.py -q
+- Depende de: T-14
+
+## T-23 Publicação com a guarda do RNF-05 e reprocessamento completo
+- Requisitos: RF-23, RF-24, RNF-05, RNF-06
+- Arquivos: `src/silver/publicador.py`, `src/silver/reprocessamento.py`, `tests/unidade/test_silver_publicador.py`
+- Teste: test_chave_em_raw_recusada_antes_do_put; test_chave_de_outro_group_id_recusada_antes_do_put_e_do_delete; test_chave_sem_group_id_recusada; test_apaga_so_objetos_antigos_nao_regravados; test_contrato_divergente_nada_publicado_nem_apagado; test_ordem_verifica_publica_e_depois_apaga
+- Comando: pytest tests/unidade/test_silver_publicador.py -q
+- Depende de: T-15 a T-22
+
+## T-24 CLI e log da silver
+- Requisitos: RF-22, RF-24
+- Arquivos: `src/silver/__main__.py`, `src/silver/reprocessamento.py`, `tests/unidade/test_silver_cli.py`
+- Teste: test_log_por_tabela_com_lidos_publicados_descartados_e_quarentena; test_contagem_da_quarentena_por_motivo_no_log; test_alerta_cdi_divergente_no_log; test_saida_zero_com_registros_em_quarentena; test_saida_diferente_de_zero_com_contrato_divergente; test_saida_diferente_de_zero_com_raw_ilegivel; test_log_sem_credenciais; test_cli_sem_parametro_de_data
+- Comando: pytest tests/unidade/test_silver_cli.py -q && pytest -m "not integracao and not vcr" -q
+- Depende de: T-23
+
+## T-25 Integração da silver com Testcontainers
+- Requisitos: RF-21, RF-23, RF-24, RNF-05, RNF-06
+- Arquivos: `tests/integracao/test_silver_minio.py` (reaproveita as fixtures de `tests/integracao/conftest.py`)
+- Teste: test_reprocessamento_duas_vezes_mesmas_linhas (tabelas comparadas com todos os campos; quarentena comparada com todos os campos exceto gerado_em, nota do RF-24; chaves, ETag e sha256 do raw iguais antes e depois); test_quarentena_lida_do_minio_com_entrada_original_e_motivo; test_silver_de_outro_group_id_intocada (chaves e sha256 antes e depois); test_contrato_divergente_nao_altera_a_silver_publicada
+- Comando: pytest -m integracao -q
+- Depende de: T-24. Exige Docker.
+
+## T-26 Primeira geração real, conferência dos selados e evidência
+- Requisitos: RF-15, RF-22, RF-24
+- Arquivos: `docs/evidencias/T-26_primeira_silver.md`
+- Teste: test_evidencia_sem_segredos (`tests/unidade/test_evidencias.py`). A evidência registra o log das duas execuções (mesmas contagens), a listagem das chaves de silver/ e quarentena/ com group_id=24325, o DESCRIBE de cada tabela e a lista dos produtos classificados como selado, conferida à mão (RF-15).
+- Comando: PYTHONPATH=src .venv/bin/python -m silver (duas vezes) && pytest tests/unidade/test_evidencias.py -q
+- Depende de: T-25. Exige autorização explícita para gravar em silver/ e quarentena/ no bucket.
+
+## T-27 Job da silver no workflow
+- Requisitos: RF-22, RF-24, RNF-05
+- Arquivos: `.github/workflows/coleta.yml`, `tests/unidade/test_workflow.py`
+- Teste: test_job_silver_depois_da_coleta_mesmo_com_falha (`needs: coleta` e `if: always()`); test_job_silver_usa_secrets_e_nenhum_valor_literal; test_job_silver_roda_python_m_silver; os testes atuais do workflow da coleta continuam passando sem mudança
+- Comando: pytest tests/unidade/test_workflow.py -q. Depois do push autorizado: `gh workflow run coleta.yml` e `gh run list --workflow coleta.yml`.
+- Depende de: T-26
+
+## Rastreabilidade da silver: requisito → tarefa → teste
+| Requisito | Tarefa | Teste |
+|---|---|---|
+| RF-13 | T-14, T-20, T-22 | test_contrato_tem_as_cinco_tabelas_com_colunas_minimas, test_colecao_uma_linha_com_os_valores_do_contrato, test_parquet_tem_os_tipos_do_contrato |
+| RF-14 | T-15, T-16, T-22 | test_produto_do_cassete_uma_linha_por_product_id, test_versao_do_raw_mais_recente, test_produto_ausente_no_raw_recente_continua |
+| RF-15 | T-16, T-26 | test_tipo_produto_carta_selado_e_code_card, test_tipo_produto_indefinido_vai_para_quarentena, conferência manual da T-26 |
+| RF-16 | T-17, T-22 | test_preco_do_cassete_uma_linha_por_produto_e_acabamento, test_produto_desconhecido_vai_para_quarentena, test_duplicata_vai_para_quarentena |
+| RF-17 | T-15, T-18, T-22 | test_dia_util_uma_linha_com_boletim_fechamento, test_sabado_sem_linha, test_rotulo_fechamento_aceito |
+| RF-18 | T-15, T-19, T-22, T-24 | test_janelas_sobrepostas_sem_duplicata_com_chave_raw_mais_recente, test_valor_divergente_gera_alerta, test_alerta_cdi_divergente_no_log |
+| RF-19 | T-17 | test_preco_nulo_continua_nulo, test_direct_low_price_extra_nulo_quando_ausente |
+| RF-20 | T-14, T-16 a T-20 | test_modelo_valido_por_tabela, test_preco_negativo_recusado, test_chave_obrigatoria_nula_recusada |
+| RF-21 | T-14, T-16, T-17, T-19, T-21, T-25 | test_rejeitado_guarda_entrada_motivo_e_chave_raw, test_linha_tem_motivo_chave_raw_gerado_em_e_entrada_original, test_quarentena_lida_do_minio_com_entrada_original_e_motivo |
+| RF-22 | T-21, T-24, T-26, T-27 | test_contagem_por_motivo, test_log_por_tabela_com_lidos_publicados_descartados_e_quarentena, test_saida_diferente_de_zero_com_raw_ilegivel, evidência da T-26 |
+| RF-23 | T-14, T-22, T-23, T-25 | test_coluna_faltando_reprovada, test_tipo_diferente_reprovado, test_contrato_divergente_nada_publicado_nem_apagado, test_contrato_divergente_nao_altera_a_silver_publicada |
+| RF-24 | T-23, T-24, T-25, T-26, T-27 | test_apaga_so_objetos_antigos_nao_regravados, test_ordem_verifica_publica_e_depois_apaga, test_reprocessamento_duas_vezes_mesmas_linhas, evidência da T-26 |
+| RNF-05 | T-23, T-25, T-27 | test_chave_em_raw_recusada_antes_do_put, test_chave_sem_group_id_recusada, test_job_silver_usa_secrets_e_nenhum_valor_literal |
+| RNF-06 | T-15, T-23, T-25 | test_lista_so_prefixos_da_colecao, test_leitor_so_faz_list_e_get, test_chave_de_outro_group_id_recusada_antes_do_put_e_do_delete, test_silver_de_outro_group_id_intocada |

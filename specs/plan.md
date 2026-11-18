@@ -1,6 +1,6 @@
 # Plano — Coleta diária e camada bruta (versão 1)
 
-Cobre `specs/spec.md` v1 (RF-01 a RF-12, RNF-01 a RNF-04) e o adendo de 2026-11-18 (RF-12 alterado, RF-25 e RF-26: proteção contra atraso do agendador). Tarefas em `specs/tasks.md`. Personas em `docs/00_persona.md`.
+Cobre `specs/spec.md` v1 (RF-01 a RF-12, RNF-01 a RNF-04) e o adendo de 2026-11-18 (RF-12 alterado, RF-25 e RF-26: proteção contra atraso do agendador). A camada silver da spec v2 (RF-13 a RF-24, RNF-05 e RNF-06) está na seção "Camada silver (spec v2)", no fim deste arquivo. Tarefas em `specs/tasks.md`. Personas em `docs/00_persona.md`.
 
 ## Diagrama C4 de contexto
 
@@ -101,3 +101,81 @@ Notas:
 **Motivo:** a fonte só devolve o preço do dia, e a série começa no primeiro dia coletado (fato da spec). Hoje é 11/11/2026 e a entrega é 12/12/2026, então cada dia sem coletar é perdido. Antecipar a coleta agendada vale mais que antecipar essas duas camadas de teste.
 **Mitigação:** cada tarefa de T-01 a T-10 tem o seu teste de unidade. A T-09 só roda com autorização explícita para gravar no bucket. A recusa de sobrescrita é conferida no bucket real na T-09 (duas execuções) antes de existir o teste com MinIO.
 **Risco aceito:** até a T-11, o comportamento contra um S3 real só é provado pela T-09 e pelas execuções agendadas.
+
+# Camada silver (spec v2)
+
+Cobre RF-13 a RF-24, RNF-05 e RNF-06 de `specs/spec.md` v2. Tarefas T-14 a T-27 em `specs/tasks.md`. Nada do que está acima (coleta) muda.
+
+## Diagrama C4 de contêineres e componentes da silver
+
+Nomes usados no texto: Job silver, Comando silver, Leitor do raw, Contrato e modelos, Transformações por tabela, Quarentena, Escritor do Parquet, Verificador do contrato, Publicador, RustFS da turma.
+
+```mermaid
+C4Component
+  title Contêineres e componentes da silver
+  System_Ext(rustfs, "RustFS da turma", "Bucket tcg com raw, silver e quarentena")
+  Container_Boundary(gha, "GitHub Actions") {
+    Component(job, "Job silver", ".github/workflows/coleta.yml", "Roda depois do job da coleta, mesmo se ela falhar")
+  }
+  Container_Boundary(pacote, "Pacote src/silver") {
+    Component(cli, "Comando silver", "__main__.py e reprocessamento.py", "Reconstrói toda a silver, loga e define o código de saída")
+    Component(leitor, "Leitor do raw", "raw.py", "Lista e baixa raw com group_id=24325, só leitura")
+    Component(contrato, "Contrato e modelos", "contrato.py e modelos.py", "Colunas mínimas e tipos, um modelo Pydantic v2 por tabela")
+    Component(transf, "Transformações por tabela", "colecao.py, produto.py, preco_diario.py, cambio_diario.py e cdi_diario.py", "Raw para linhas válidas e rejeitados")
+    Component(quar, "Quarentena", "quarentena.py", "JSON Lines por tabela e data")
+    Component(escritor, "Escritor do Parquet", "parquet.py", "DuckDB com CREATE TABLE nos tipos do contrato e COPY TO local")
+    Component(verif, "Verificador do contrato", "parquet.py", "DESCRIBE do Parquet comparado com o contrato")
+    Component(pub, "Publicador", "publicador.py", "Guarda de chaves antes de cada put e delete")
+  }
+  Rel(job, cli, "python -m silver")
+  Rel(cli, leitor, "Pede os raw da coleção")
+  Rel(leitor, rustfs, "list_objects_v2 e get_object", "S3")
+  Rel(cli, transf, "Entrega os raw")
+  Rel(transf, contrato, "Valida cada registro")
+  Rel(cli, quar, "Grava os rejeitados localmente")
+  Rel(cli, escritor, "Grava cada tabela localmente")
+  Rel(cli, verif, "Confere cada Parquet antes de publicar")
+  Rel(cli, pub, "Publica e apaga os antigos")
+  Rel(pub, rustfs, "put_object e delete_object só em silver e quarentena com group_id=24325", "S3")
+```
+
+## Escolhas técnicas da silver
+
+| Escolha | Alternativa descartada | Requisito |
+|---|---|---|
+| Pydantic v2: um `BaseModel` por tabela, com `field_validator`, `model_validate` e `model_dump` | dataclasses com validação manual | RF-20 |
+| Contrato num dicionário único (tabela → colunas mínimas e tipos DuckDB), fonte do `CREATE TABLE` e da verificação | Tipos derivados dos modelos Pydantic (DATE e TIMESTAMP não mapeiam um para um) | RF-13 a RF-18, RF-23 |
+| DuckDB grava o Parquet localmente: `CREATE TABLE` nos tipos do contrato e `COPY TO` (mesmo motor da gold, Aula 04) | pyarrow ou pandas (inferem tipos, outra pilha) | RF-13 a RF-18 |
+| `DESCRIBE SELECT * FROM read_parquet(...)` no arquivo gerado, comparado com o contrato, com colunas extras aceitas | Confiar no esquema da tabela em memória | RF-23 |
+| boto3 para ler o raw e publicar, reaproveitando `carregar_config` e `criar_cliente_s3` do pacote coleta | DuckDB httpfs com `s3://` direto (contornaria a guarda) | RNF-05, RNF-06 |
+| Leitura só nos prefixos `raw/<fonte>/group_id=24325/`, com `list_objects_v2` e `get_object` | Listar o bucket inteiro | RNF-06, RF-14, RF-17, RF-18 |
+| Guarda `chave_silver_permitida` (prefixo `silver/` ou `quarentena/`, um segmento `group_id=24325`, nunca `raw/`), reaproveitando `chave_permitida` e chamada dentro das únicas funções de put e delete | Confiar na montagem das chaves | RNF-05, RNF-06 |
+| Quarentena em JSON Lines em `quarentena/<tabela>/group_id=24325/data=D/registros.jsonl`, com uma linha `{motivo, chave_raw, gerado_em, entrada}` em ordem determinística | Parquet (a entrada original é heterogênea) ou um arquivo por registro | RF-21, RF-24 |
+| Ordem fixa: gerar tudo num diretório temporário, verificar todas as tabelas, publicar com put e depois apagar os objetos antigos não regravados | Apagar antes de gerar | RF-23, RF-24 |
+| Linhas ordenadas pelas chaves de cada tabela antes do `COPY` e registros da quarentena ordenados por chave_raw e posição no raw | Ordem de leitura do raw | RF-24 |
+| `python -m silver` (pacote `src/silver`), sem parâmetro: a geração diária e o reprocessamento são o mesmo comando, que reconstrói tudo | Comando incremental por D | RF-24 |
+| Log JSON na saída padrão: uma linha por tabela e um resumo, como o coletor | Arquivo de log no runner | RF-22 |
+| Job `silver` separado no workflow, com `needs: coleta` e `if: always()`: se falhar, fica vermelho sem marcar a coleta como falha | Passo no mesmo job da coleta | RF-22, RNF-05 (RF-11 da coleta preservado) |
+| Testes de unidade com S3 falso em memória e corpo dos cassetes como entrada; integração com MinIO | Bucket real | RNF-06, verificação dos RF |
+
+Notas:
+- As versões de pydantic e duckdb são fixadas no `requirements.txt` na T-14, com wheel para Python 3.14.
+- **Idempotência (RF-21 x RF-24):** `gerado_em` é a data real da geração e muda a cada execução. A comparação de "mesmas linhas" da quarentena considera todos os campos exceto `gerado_em`. As tabelas da silver são comparadas linha a linha, com todos os campos.
+- D da quarentena é a data da partição `data=D` do raw de origem. A colecao não vem do raw e não tem quarentena.
+- A silver nunca escreve em `raw/`. O Leitor do raw não recebe funções de escrita, e o Publicador recusa qualquer chave fora de `silver/` e `quarentena/` com `group_id=24325`.
+- Com os quatro horários da coleta (RF-12), o job silver roda até quatro vezes por noite. Como o reprocessamento é idempotente, as execuções seguintes publicam as mesmas linhas.
+
+## Onde a silver roda
+- **Comando próprio:** `PYTHONPATH=src python -m silver`, separado do coletor (`python -m coleta`). A silver não altera nada no pacote coleta além de reaproveitar `carregar_config`, `criar_cliente_s3` e `chave_permitida`.
+- **No workflow:** um job `silver` depois do job da coleta (`needs: coleta`, `if: always()`), com os mesmos secrets. Uma falha da silver deixa só esse job vermelho. A coleta e o seu código de saída (RF-11) não mudam, e a silver não grava no raw (RNF-05). Essa decisão vira a última tarefa (T-27), depois da primeira geração real (T-26).
+
+## Respostas às lacunas da spec v2
+- **Nome e formato da quarentena:** um arquivo `registros.jsonl` por tabela e por D, em `quarentena/<tabela>/group_id=24325/data=D/`. Cada linha é um objeto JSON com `motivo`, `chave_raw`, `gerado_em` (UTC, ISO 8601) e `entrada` (o registro como veio do raw).
+- **Silver junto ou separada da coleta:** separada, em comando e job próprios, como descrito acima.
+- **Formato do log da silver:** saída padrão, igual ao coletor.
+
+## Decisão de ordem das tarefas da silver
+- A T-14 define o contrato, os modelos e a estrutura do registro rejeitado. Por isso as transformações (T-16 a T-19) não dependem da T-21, que só grava o JSON Lines.
+- As transformações vêm antes da escrita do Parquet (T-22), porque são funções puras testáveis com os cassetes.
+- A publicação (T-23) é a primeira tarefa que escreve no S3 e só entra depois da verificação do contrato (T-22).
+- A primeira geração real (T-26) vem antes do job no workflow (T-27), para conferir os selados (RF-15) e o log antes de agendar.
