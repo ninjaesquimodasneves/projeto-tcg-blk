@@ -1694,3 +1694,46 @@ Atualize também a lista de motivos do RF-21. Acrescente esta mudança em docs/p
 A implementação da T-16 fica para depois do commit da spec; o plano da T-16 já mostrado continua valendo, com as decisões 1 e 3 aprovadas e a 2 coberta pelo novo critério do RF-14.
 
 ### Decisão humana
+Regras novas encontradas no plano da T-16 (duplicata no mesmo raw, raw com formato inesperado e versão mais recente inválida) acrescentadas ao RF-14 e ao RF-21 antes do código, mantendo a ordem spec antes de implementação.
+## 2026-11-18 — Etapa: implementação da T-16 (tabela produto e regra de tipo_produto)
+
+O prompt 1 desta etapa está registrado na entrada anterior ("ajuste da spec antes da T-16").
+
+### Prompt 3 (literal)
+
+```text
+Spec commitada. Pode implementar a T-16 conforme o plano aprovado, com as três regras novas do RF-14.
+```
+
+### Saída dos testes
+
+Antes da implementação (`.venv/bin/pytest tests/unidade/test_silver_produto.py -q`):
+
+```text
+tests/unidade/test_silver_produto.py:13: in <module>
+    from silver.modelos import Produto, Rejeitado, Resultado
+E   ImportError: cannot import name 'Resultado' from 'silver.modelos'
+ERROR tests/unidade/test_silver_produto.py
+1 error in 0.31s
+```
+
+Depois da implementação:
+
+```text
+.venv/bin/pytest tests/unidade/test_silver_produto.py -q
+27 passed in 1.22s
+.venv/bin/pytest -q
+176 passed in 5.86s
+```
+
+Com o cassete de products como entrada: 358 produtos, 331 cartas (7 delas Code Cards, com numero nulo), 27 selados e nenhum rejeitado.
+
+### Arquivos gerados
+- `src/silver/produto.py` (tipo_produto, transformar_produtos)
+- `src/silver/modelos.py` (dataclass Resultado)
+- `tests/unidade/test_silver_produto.py`
+- `specs/tasks.md` (T-16 concluída)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Plano aprovado. Tabela produto como função pura sobre o raw: versão mais recente de cada product_id, mantendo os que sumiram, sem voltar para versão antiga se a mais recente for inválida; tipo_produto "carta" com Rarity e "selado" sem Rarity nem Number (hipótese); Number sem Rarity, duplicata e formato inesperado vão para rejeitados. Cassete: 331 cartas (7 Code Cards) e 27 selados. Testes falharam antes pelo motivo esperado e passaram depois.

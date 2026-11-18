@@ -138,7 +138,7 @@ Comando base da silver: `PYTHONPATH=src python -m silver`.
 - Comando: pytest tests/unidade/test_silver_raw.py -q
 - Depende de: T-14
 
-## T-16 Tabela produto e regra de tipo_produto
+## T-16 Tabela produto e regra de tipo_produto — concluída (2026-11-18)
 - Requisitos: RF-14, RF-15, RF-20, RF-21
 - Arquivos: `src/silver/produto.py`, `tests/unidade/test_silver_produto.py`
 - Teste: test_produto_do_cassete_uma_linha_por_product_id; test_versao_do_raw_mais_recente; test_produto_ausente_no_raw_recente_continua; test_tipo_produto_carta_selado_e_code_card; test_tipo_produto_indefinido_vai_para_quarentena; test_raridade_e_numero_nulos_quando_ausentes

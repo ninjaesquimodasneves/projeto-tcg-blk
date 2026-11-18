@@ -96,6 +96,14 @@ class Rejeitado:
     entrada: Any
 
 
+@dataclass(frozen=True)
+class Resultado:
+    """Saida de uma transformacao: registros validos (ordenados pela chave) e rejeitados."""
+
+    validos: list[ModeloSilver]
+    rejeitados: list[Rejeitado]
+
+
 def _motivo(erro: ValidationError) -> str:
     """Texto deterministico: "<campo>: <tipo do erro>", ordenado, sem valores da entrada."""
     partes = {f"{'.'.join(str(p) for p in e['loc'])}: {e['type']}" for e in erro.errors()}
