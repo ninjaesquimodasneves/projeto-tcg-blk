@@ -1,7 +1,8 @@
-# Spec — Coleta diária e camada bruta (versão 1)
+# Spec — Coleta diária, camada bruta e camada silver (versão 2)
 
-Escopo da v1: coleta diária das fontes e gravação da resposta original em raw/. Origem dos IDs: personas P-xx em `docs/00_persona.md`, objetivos OBJ-xx em `docs/01_objetivos_negocio.md`, restrições em `docs/01_objetivos_negocio.md` e `AGENTS.md`.
-Convenções: D = data da coleta no fuso America/Sao_Paulo (AAAA-MM-DD). Bucket `tcg`. Valores marcados "hipótese, validação pendente" têm valor inicial sugerido.
+Escopo da v1 (RF-01 a RF-12, RNF-01 a RNF-04): coleta diária das fontes e gravação da resposta original em raw/. Escopo acrescentado na v2 (RF-13 a RF-24, RNF-05 e RNF-06): camada silver em Parquet, derivada só do raw, validada e publicada no contrato comum da turma (origem: enunciado do projeto), com quarentena e reprocessamento. Origem dos IDs: personas P-xx em `docs/00_persona.md`, objetivos OBJ-xx em `docs/01_objetivos_negocio.md`, restrições em `docs/01_objetivos_negocio.md` e `AGENTS.md`.
+Convenções: D = data da coleta no fuso America/Sao_Paulo (AAAA-MM-DD); na silver, D é a data da partição `data=D` do raw de origem. Bucket `tcg`. Valores marcados "hipótese, validação pendente" têm valor inicial sugerido.
+Convenções da silver (v2): "colunas mínimas" são as colunas do contrato listadas em cada tabela, com nome e tipo fixos; colunas extras são permitidas. Os tipos são os do DuckDB (INTEGER, VARCHAR, DOUBLE, DATE, TIMESTAMP). "Publicar" é gravar o Parquet na chave final da silver.
 
 ## Requisitos funcionais
 
@@ -95,6 +96,112 @@ Origem: OBJ-01, restrição "agendamento no GitHub Actions ou Railway"
 - Então o coletor roda com as credenciais vindas de variáveis de ambiente do agendador
 Verificação: definição do agendamento no repositório; histórico de execuções agendadas e manuais no GitHub Actions.
 
+## Requisitos funcionais — camada silver (v2)
+
+### RF-13 Tabela colecao no contrato comum
+Origem: OBJ-05, OBJ-06, restrição "silver no contrato comum da turma"
+- Dada a coleção de groupId 24325
+- Quando a silver é gerada
+- Então existe silver/colecao/group_id=24325/colecao.parquet com exatamente uma linha e as colunas mínimas group_id INTEGER, nome VARCHAR, sigla VARCHAR, data_lancamento DATE e responsavel VARCHAR, com os valores 24325, "SV: Black Bolt", "BLK", 2025-07-18 e "Gabriel_Cabral"
+Verificação: teste de unidade da linha gerada; DESCRIBE no Parquet gerado comparado com o contrato (RF-23).
+
+### RF-14 Tabela produto no contrato comum
+Origem: OBJ-04, OBJ-06, restrição "silver no contrato comum da turma"
+- Dados todos os raw/tcgplayer/group_id=24325/data=*/products.json existentes
+- Quando a silver é gerada
+- Então existe silver/produto/group_id=24325/produto.parquet com as colunas mínimas product_id INTEGER, group_id INTEGER, nome VARCHAR, tipo_produto VARCHAR, raridade VARCHAR, numero VARCHAR, image_url VARCHAR e url VARCHAR, e uma linha por product_id
+- E cada product_id usa a versão do raw de data mais recente em que ele aparece
+- E um product_id que deixou de aparecer nos raw mais recentes continua na tabela com a versão do último raw em que apareceu
+- E nome, image_url e url vêm de name, imageUrl e url; raridade e numero vêm dos itens Rarity e Number de extendedData e ficam nulos quando o item não existe; tipo_produto segue o RF-15
+- E produtos com raridade "Code Card" ficam na tabela (a exclusão deles das perguntas fica para a v3)
+Verificação: teste de unidade da transformação com o cassete de products; teste de unidade com dois raw sintéticos de datas diferentes (produto alterado fica com a versão mais recente; produto ausente no raw mais recente continua na tabela); DESCRIBE no Parquet gerado comparado com o contrato.
+
+### RF-15 Classificação de tipo_produto em carta ou selado
+Origem: OBJ-04
+- Dado um produto do products.json
+- Quando tipo_produto é atribuído
+- Então é "carta" se extendedData tem o item Rarity (o que inclui os Code Cards, que têm Rarity e não têm Number) e "selado" se extendedData não tem nem Rarity nem Number (hipótese, validação pendente: regra proposta a partir dos campos de extendedData do cassete, a conferir nos dados reais)
+- E um produto que não se encaixa em nenhum dos dois casos (por exemplo, com Number e sem Rarity) vai para a quarentena (RF-21) com o motivo "tipo_produto indefinido"
+Verificação: teste de unidade com os três formatos de extendedData observados no cassete e com o caso indefinido; conferência manual da lista de selados na primeira geração com dados reais, registrada em `docs/evidencias/`.
+
+### RF-16 Tabela preco_diario no contrato comum
+Origem: OBJ-01, OBJ-03, OBJ-06, restrição "silver no contrato comum da turma"
+- Dado o raw de products.json e prices.json de D = 2026-11-17
+- Quando a silver é gerada
+- Então existe silver/preco_diario/group_id=24325/data=2026-11-17/preco.parquet com as colunas mínimas data DATE, product_id INTEGER, group_id INTEGER, acabamento VARCHAR, market_price DOUBLE, low_price DOUBLE, mid_price DOUBLE, high_price DOUBLE, moeda VARCHAR, fonte VARCHAR e chave_raw VARCHAR, nos tipos do contrato
+- E há uma linha por product_id e acabamento, com acabamento = subTypeName, data = D, moeda "USD", fonte "tcgcsv" (rótulo: hipótese, validação pendente com o contrato da turma) e chave_raw = raw/tcgplayer/group_id=24325/data=2026-11-17/prices.json
+- E market_price, low_price, mid_price e high_price vêm de marketPrice, lowPrice, midPrice e highPrice; directLowPrice pode entrar como coluna extra opcional direct_low_price DOUBLE, nula quando ausente
+- E um preço cujo product_id não existe na tabela produto (RF-14) vai para a quarentena com o motivo "produto desconhecido"
+- E um segundo registro com o mesmo product_id e acabamento no mesmo D vai para a quarentena com o motivo "duplicata"
+Verificação: teste de unidade da transformação com o cassete de prices; testes de unidade com produto desconhecido e com duplicata; DESCRIBE no Parquet gerado comparado com o contrato.
+
+### RF-17 Tabela cambio_diario só com o boletim de fechamento
+Origem: OBJ-03, OBJ-07, restrição "PTAX e CDI das APIs públicas do Banco Central"
+- Dados todos os raw/bcb_ptax/group_id=24325/data=*/cotacao.json existentes
+- Quando a silver é gerada
+- Então existe silver/cambio_diario/group_id=24325/cambio.parquet com as colunas mínimas data DATE, cotacao_compra DOUBLE, cotacao_venda DOUBLE, data_hora_cotacao TIMESTAMP, boletim VARCHAR e chave_raw VARCHAR
+- E entram só os boletins com tipoBoletim igual a "Fechamento PTAX" ou "Fechamento"; os demais (abertura, intermediários) são descartados sem ir para a quarentena
+- E boletim é gravado sempre como "Fechamento"; cotacao_compra, cotacao_venda e data_hora_cotacao vêm de cotacaoCompra, cotacaoVenda e dataHoraCotacao; data é a data de dataHoraCotacao; chave_raw é a chave do cotacao.json de origem
+- E há uma linha por dia útil com boletim de fechamento, sem duplicata de data; um raw com lista vazia (RF-08) não gera linha
+Verificação: teste de unidade com o cassete de dia útil (uma linha, boletim "Fechamento") e com o de sábado (nenhuma linha); teste de unidade com o rótulo "Fechamento"; DESCRIBE no Parquet gerado comparado com o contrato.
+
+### RF-18 Tabela cdi_diario sem duplicata entre janelas
+Origem: OBJ-07, restrição "PTAX e CDI das APIs públicas do Banco Central"
+- Dados todos os raw/bcb_cdi/group_id=24325/data=*/cdi.json existentes, com janelas que se sobrepõem (RF-04)
+- Quando a silver é gerada
+- Então existe silver/cdi_diario/group_id=24325/cdi.parquet com as colunas mínimas data DATE, taxa_dia DOUBLE e chave_raw VARCHAR, uma linha por dia útil publicado e nenhuma data repetida
+- E data vem de data (DD/MM/AAAA na fonte) e taxa_dia vem de valor (texto na fonte), convertido para número sem mudança de unidade (% ao dia, como publicada)
+- E, quando a mesma data aparece em vários raw, chave_raw aponta para o raw de data mais recente e, se o valor divergir entre os raw, o log registra "alerta: cdi divergente" com a data (regra: hipótese, validação pendente)
+Verificação: teste de unidade com dois raw sintéticos de janelas sobrepostas (sem duplicata, chave_raw do mais recente) e com valor divergente (alerta no log); teste de unidade com o cassete do CDI; DESCRIBE no Parquet gerado comparado com o contrato.
+
+### RF-19 Preço ausente fica nulo, nunca zero
+Origem: OBJ-02, OBJ-03, restrição "dia sem coleta fica como lacuna, nunca preenchido com dado inventado"
+- Dado um registro de prices.json com marketPrice, lowPrice, midPrice, highPrice ou directLowPrice nulo ou ausente
+- Quando a linha da preco_diario é gerada
+- Então a coluna correspondente fica nula, nunca zero nem outro valor de preenchimento, e a linha não vai para a quarentena só por isso
+Verificação: teste de unidade com preços nulos e ausentes; consulta no Parquet gerado contando zeros onde a fonte trouxe nulo (resultado esperado: zero linhas).
+
+### RF-20 Validação de cada registro por modelo Pydantic v2
+Origem: OBJ-06
+- Dado um registro candidato de qualquer tabela da silver
+- Quando ele é validado
+- Então passa por um modelo Pydantic v2 próprio da tabela, que confere as colunas mínimas, os tipos, os campos obrigatórios não nulos (as chaves de cada tabela: data, product_id, acabamento, group_id), group_id = 24325, moeda = "USD", boletim = "Fechamento", tipo_produto em {"carta", "selado"} e preços não negativos quando não nulos
+- E só registros válidos seguem para a publicação; os inválidos seguem o RF-21
+Verificação: testes de unidade de cada modelo com um registro válido e um inválido para cada regra.
+
+### RF-21 Quarentena dos registros inválidos
+Origem: OBJ-02, OBJ-06
+- Dado um registro reprovado pelo RF-20 ou pelas regras de "produto desconhecido", "duplicata" ou "tipo_produto indefinido" (RF-15, RF-16), vindo de um raw de data D
+- Quando a silver é gerada
+- Então ele é gravado em quarentena/<tabela>/group_id=24325/data=D/ com a entrada original como veio do raw, o motivo, a chave do raw de origem e a data da geração, e não entra na tabela publicada
+- E a execução continua com os demais registros; registro em quarentena sozinho não torna o código de saída diferente de zero
+Verificação: teste de integração com MinIO em Testcontainers gravando um registro inválido e lendo a quarentena (entrada original idêntica, motivo presente); teste de unidade da contagem.
+
+### RF-22 Log da geração da silver
+Origem: OBJ-01, OBJ-02, OBJ-06
+- Dada uma execução da geração da silver
+- Quando ela termina
+- Então o log traz, por tabela: raw lidos, registros lidos, publicados, descartados por regra (boletins que não são de fechamento) e em quarentena, com a contagem por motivo, mais os alertas do RF-18 e o resultado da verificação do RF-23
+- E o código de saída é diferente de zero se a verificação do RF-23 falhar ou se um raw não puder ser lido; caso contrário é 0
+Verificação: teste de unidade do conteúdo do log e dos códigos de saída; log da primeira geração real anexado em `docs/evidencias/`.
+
+### RF-23 Verificação do contrato antes de publicar
+Origem: OBJ-06, restrição "silver no contrato comum da turma"
+- Dado o Parquet gerado de uma tabela, ainda não publicado
+- Quando o esquema é lido do próprio arquivo (por exemplo, com DESCRIBE no DuckDB) e comparado com o contrato
+- Então, se todas as colunas mínimas existem com nome e tipo exatos (colunas extras são aceitas), a tabela pode ser publicada
+- E, se alguma coluna mínima faltar ou tiver tipo diferente, nenhuma tabela da execução é publicada, a silver já publicada permanece como estava, o log registra a tabela e a coluna divergentes e o código de saída é diferente de zero
+Verificação: teste de unidade da comparação (esquema igual, coluna extra, coluna faltando, tipo diferente); teste de integração com MinIO mostrando que, com esquema divergente, nenhum objeto da silver é alterado.
+
+### RF-24 Reprocessamento completo e idempotente
+Origem: OBJ-02, OBJ-06, restrição "raw/ guarda a resposta original e nunca é sobrescrito"
+- Dado o raw da coleção no bucket
+- Quando um único comando de reprocessamento roda
+- Então ele reconstrói a partir do raw todas as tabelas da silver (RF-13 a RF-18) e a quarentena da coleção, apagando antes os objetos de silver/*/group_id=24325/ e quarentena/*/group_id=24325/ que não forem regravados, e só depois da verificação do RF-23
+- E rodar o comando duas vezes seguidas sobre o mesmo raw produz as mesmas linhas em cada tabela e na quarentena, sem duplicata
+- E nenhum objeto de raw/ é escrito ou apagado
+Verificação: teste de integração com MinIO em Testcontainers rodando o comando duas vezes e comparando as linhas de cada tabela e as chaves e sha256 do raw antes e depois; execução real registrada em `docs/evidencias/`.
+
 ## Requisitos não funcionais
 
 ### RNF-01 Coleta educada no TCGCSV
@@ -125,13 +232,26 @@ Origem: OBJ-06, restrição "lake no RustFS da turma, escrita só nos prefixos c
 - Então ela contém group_id=24325; uma chave sem esse prefixo é recusada antes do put
 Verificação: teste de unidade da recusa; teste de integração listando as chaves gravadas no MinIO.
 
+### RNF-05 Escrita da silver só nos prefixos da coleção e nunca em raw/
+Origem: OBJ-06, restrição "lake no RustFS da turma, escrita só nos prefixos com group_id=24325", restrição "raw/ nunca sobrescrito nem apagado"
+- Dada qualquer gravação ou remoção feita pela geração ou pelo reprocessamento da silver
+- Quando a chave é montada
+- Então ela começa com silver/ ou quarentena/ e contém group_id=24325; uma chave fora disso, inclusive qualquer chave em raw/, é recusada antes do put ou do delete
+Verificação: teste de unidade da recusa (chave em raw/, chave de outro group_id, chave sem group_id); teste de integração listando as chaves alteradas no MinIO.
+
+### RNF-06 Silver dos colegas só lida
+Origem: OBJ-05, OBJ-06, persona P-03, restrição "lake no RustFS da turma, escrita só nos prefixos com group_id=24325"
+- Dados os objetos da silver de outros group_id no bucket
+- Quando qualquer componente desta coleção os acessa
+- Então faz só leitura; nenhuma chave de outro group_id é escrita, sobrescrita ou apagada, nem pelo reprocessamento do RF-24
+Verificação: teste de integração com MinIO contendo silver sintética de outro group_id, comparando chaves e sha256 antes e depois da geração e do reprocessamento.
+
 ## Próximas versões
-- Silver em Parquet validada no contrato comum da turma, com quarentena.
-- Gold em esquema estrela.
-- Conversão para reais pela PTAX.
-- Dashboard.
-- Carteira de R$ 1.000.
-- Testes de integração das camadas seguintes.
+- v3: gold em esquema estrela no DuckDB.
+- v3: conversão para reais pela PTAX (fechamento de D ou do dia útil anterior mais próximo).
+- v3: dashboard com as perguntas P1 a P5, incluindo a decisão sobre excluir os Code Cards das perguntas.
+- v3: carteira de R$ 1.000 em gold_turma/carteira/group_id=24325/carteira.parquet.
+- v3: testes de integração das camadas gold e dashboard.
 
 ## Rastreabilidade
 | Requisito | OBJ |
@@ -147,6 +267,20 @@ Verificação: teste de unidade da recusa; teste de integração listando as cha
 | RF-10, RF-11 | OBJ-01, OBJ-02 |
 | RNF-04 | OBJ-06 (e restrição do lake) |
 | RNF-01, RNF-03 | restrições (sem OBJ direto) |
+| RF-13 | OBJ-05, OBJ-06 |
+| RF-14 | OBJ-04, OBJ-06 |
+| RF-15 | OBJ-04 |
+| RF-16 | OBJ-01, OBJ-03, OBJ-06 |
+| RF-17 | OBJ-03, OBJ-07 |
+| RF-18 | OBJ-07 |
+| RF-19 | OBJ-02, OBJ-03 |
+| RF-20 | OBJ-06 |
+| RF-21 | OBJ-02, OBJ-06 |
+| RF-22 | OBJ-01, OBJ-02, OBJ-06 |
+| RF-23 | OBJ-06 |
+| RF-24 | OBJ-02, OBJ-06 (e restrição do raw imutável) |
+| RNF-05 | OBJ-06 (e restrições do lake e do raw) |
+| RNF-06 | OBJ-05, OBJ-06 (e restrição do lake) |
 
 ## Fatos, lacunas e suposições
 - **Fato:** a PTAX só existe em dia útil; o preço do dia D usa a PTAX de D ou do dia útil anterior mais próximo, nunca uma posterior. Origem: enunciado (via `docs/01_objetivos_negocio.md`).
@@ -155,6 +289,18 @@ Verificação: teste de unidade da recusa; teste de integração listando as cha
 - **Fato:** a taxa do CDI de um dia útil só aparece na manhã seguinte; por isso a coleta usa uma janela. Origem: enunciado.
 - **Fato:** a fonte devolve só o preço do dia; dia não coletado não se recupera. Origem: enunciado.
 - **Fato:** a coleta pode rodar de novo no mesmo dia, sem sobrescrever. Origem: `AGENTS.md`.
+- **Fato:** a silver segue um contrato comum da turma e é lida pelos colegas; a silver pode ser sobrescrita, o raw nunca. Origem: enunciado e `AGENTS.md`.
+- **Fato:** caminhos, colunas mínimas, tipos e os valores da linha da colecao (24325, "SV: Black Bolt", "BLK", 2025-07-18, "Gabriel_Cabral") são os do contrato comum da turma. Origem: enunciado, conforme o pedido da spec v2 (`docs/prompts.md`).
+- **Fato:** o rótulo do boletim de fechamento muda conforme o recurso da API da PTAX ("Fechamento PTAX" ou "Fechamento"); por isso o RF-17 aceita os dois e grava sempre "Fechamento". Origem: Aula 03 e cassete `test_contrato_ptax_dia_util.yaml`.
+- **Fato:** no cassete do products, extendedData aparece em três formatos: com Number, Rarity e Card Type; só com Rarity (todos "Code Card"); e sem nenhum desses itens. Origem: `tests/contrato/cassettes/test_contrato_products.yaml`.
+- **Fato:** no cassete do prices, os campos são productId, lowPrice, midPrice, highPrice, marketPrice, directLowPrice e subTypeName; directLowPrice vem nulo em parte dos registros. Origem: `tests/contrato/cassettes/test_contrato_prices.yaml`.
+- **Fato:** no cassete do CDI, data vem como DD/MM/AAAA e valor vem como texto. Origem: `tests/contrato/cassettes/test_contrato_cdi_janela.yaml`.
 - **Hipótese, validação pendente:** janela do CDI de 10 dias corridos; 5 tentativas; timeout de conexão de 10 s e de leitura de 30 s; teto de espera de 60 s.
+- **Hipótese, validação pendente:** regra do tipo_produto do RF-15 (carta se tem Rarity; selado se não tem Rarity nem Number), a conferir nos dados reais.
+- **Hipótese, validação pendente:** no CDI repetido entre raw, chave_raw do raw mais recente e alerta quando o valor diverge (RF-18).
+- **Hipótese, validação pendente:** rótulo fonte = "tcgcsv" na preco_diario, a confirmar com o contrato da turma.
 - **Suposição:** 20h UTC equivale a 17h em São Paulo, então D (fuso de São Paulo) é o mesmo dia civil em UTC no horário agendado.
+- **Suposição:** a data da cambio_diario é a data civil de dataHoraCotacao, que a fonte publica no horário de Brasília.
 - **Lacuna:** formato do log (arquivo, saída padrão ou ambos) e onde ele fica guardado; fica para o plano.
+- **Lacuna:** nome e formato dos arquivos dentro de quarentena/<tabela>/group_id=24325/data=D/; fica para o plano.
+- **Lacuna:** se a geração da silver roda junto com a coleta diária ou em passo separado do agendador; fica para o plano.

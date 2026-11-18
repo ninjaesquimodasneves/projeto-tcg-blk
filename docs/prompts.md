@@ -1192,3 +1192,68 @@ Não houve execução do coletor contra o bucket nem disparo do workflow nesta e
 
 ### Decisão humana
 Plano aprovado. Workflow com cron 17 21 * * *, workflow_dispatch com opção forcar_falha (esvazia SIGLA, valor público) para provar o RF-11, concurrency sem cancelamento, permissions contents read e Python 3.14. Credenciais só via secrets; valores públicos do .env.example no próprio workflow. Incluído o test_evidencias.py pendente da T-09. Evidência das execuções reais do Actions fica para um commit seguinte, depois dos disparos.
+## 2026-11-18 — Etapa: spec v2 (camada silver)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de requisitos de dados. Escreve requisitos verificáveis, cada um com critério de aceite Dado/Quando/Então que um teste ou comando confirma. Não escreve código.
+
+[R] Pedido
+Atualize specs/spec.md para a versão 2, acrescentando a camada silver sem alterar os requisitos da v1 (preserve RF-01 a RF-12 e RNF-01 a RNF-04; continue a numeração). Atualize também a seção "Próximas versões" (gold, conversão para reais, dashboard, carteira ficam para a v3).
+A silver é derivada do raw, segue o contrato comum da turma (origem: enunciado do projeto) e é lida pelos colegas. Cubra no mínimo:
+- tabela colecao, em silver/colecao/group_id=24325/colecao.parquet: group_id INTEGER, nome VARCHAR, sigla VARCHAR, data_lancamento DATE, responsavel VARCHAR; valores: 24325, "SV: Black Bolt", "BLK", 2025-07-18, "Gabriel_Cabral";
+- tabela produto, em silver/produto/group_id=24325/produto.parquet: product_id INTEGER, group_id INTEGER, nome VARCHAR, tipo_produto VARCHAR ("carta" ou "selado"), raridade VARCHAR, numero VARCHAR, image_url VARCHAR, url VARCHAR;
+- tabela preco_diario, em silver/preco_diario/group_id=24325/data=D/preco.parquet: data DATE, product_id INTEGER, group_id INTEGER, acabamento VARCHAR, market_price DOUBLE, low_price DOUBLE, mid_price DOUBLE, high_price DOUBLE, moeda VARCHAR ("USD"), fonte VARCHAR, chave_raw VARCHAR; um registro por produto e acabamento (subTypeName do TCGCSV) por dia;
+- tabela cambio_diario, em silver/cambio_diario/group_id=24325/cambio.parquet: data DATE, cotacao_compra DOUBLE, cotacao_venda DOUBLE, data_hora_cotacao TIMESTAMP, boletim VARCHAR ("Fechamento"), chave_raw VARCHAR; uma linha por dia útil com boletim de fechamento, montada a partir de todos os raw da PTAX;
+- tabela cdi_diario, em silver/cdi_diario/group_id=24325/cdi.parquet: data DATE, taxa_dia DOUBLE (% ao dia, como publicada), chave_raw VARCHAR; uma linha por dia útil, sem duplicata entre as janelas sobrepostas dos raw do CDI;
+- nomes e tipos das colunas mínimas são fixos; colunas extras são permitidas;
+- preço ausente fica nulo, nunca zero;
+- validação de cada registro por um modelo Pydantic v2 por tabela;
+- registros inválidos vão para quarentena/<tabela>/group_id=24325/data=D/ com a entrada original e o motivo, e a contagem aparece no log;
+- reprocessamento: um único comando apaga e reconstrói toda a silver da coleção a partir do raw; rodar duas vezes produz as mesmas linhas, sem duplicata (a silver pode ser sobrescrita; o raw nunca);
+- verificação do contrato: antes de publicar, o esquema lido do Parquet (por exemplo com DESCRIBE no DuckDB) é comparado com o contrato e, se divergir, nada é publicado;
+- a silver dos colegas é só lida, nunca escrita.
+
+[E] Exemplos
+### RF-13 Tabela preco_diario no contrato comum
+Origem: OBJ-01, OBJ-03, OBJ-06, restrição "silver no contrato comum da turma"
+- Dado o raw de products.json e prices.json de D = 2026-11-17
+- Quando a silver é gerada
+- Então existe silver/preco_diario/group_id=24325/data=2026-11-17/preco.parquet com exatamente as colunas mínimas do contrato, nos tipos do contrato, uma linha por product_id e acabamento, moeda "USD" e chave_raw apontando para o arquivo de prices do dia
+Verificação: teste de unidade da transformação com o cassete de prices; DESCRIBE no Parquet gerado comparado com o contrato.
+
+[A] Ajustes
+- Numere a partir de RF-13 e RNF-05; cada requisito tem origem (OBJ-xx ou restrição).
+- A regra para tipo_produto (carta ou selado) entra como "hipótese, validação pendente", com uma proposta inicial baseada nos campos de extendedData, a ser conferida nos dados reais.
+- Produtos com raridade "Code Card" ficam na silver; a exclusão deles das perguntas é assunto da v3.
+- Não escolha bibliotecas nem descreva módulos; isso é do plano.
+- Atualize a tabela de rastreabilidade e a seção "Fatos, lacunas e suposições".
+
+[T] Tipo de saída
+Somente specs/spec.md. Mostre primeiro a lista dos novos requisitos (só títulos), espere minha confirmação, depois o arquivo completo das seções novas e alteradas.
+
+[E] Extras
+Leia AGENTS.md, docs/00_persona.md, docs/01_objetivos_negocio.md, specs/spec.md e os cassetes em tests/contrato/cassettes/ (para conhecer os campos reais de products e prices, sem copiar valores). Ao gravar, acrescente o prompt em docs/prompts.md. Pare ao final.
+```
+
+### Prompt 2 (literal)
+
+```text
+Lista aprovada. Decisões:
+a) Tabela produto: junte todos os products.json do raw e fique com a versão do raw mais recente de cada product_id, mantendo também produtos que deixaram de aparecer nos dias mais recentes (a série de preços antigos precisa encontrar o produto).
+b) Preço sem produto correspondente vai para a quarentena com o motivo "produto desconhecido". Aprovado.
+c) CDI repetido em vários raw: chave_raw do raw mais recente e alerta no log se o valor divergir, como hipótese. Aprovado.
+d) Mantenha a sua numeração (preco_diario = RF-16).
+Sobre o boletim: aceite tanto "Fechamento PTAX" quanto "Fechamento" no filtro (a Aula 03 mostrou que o rótulo muda conforme o recurso da API) e grave sempre "Fechamento".
+Regra de tipo_produto como você propôs, marcada como hipótese, validação pendente. directLowPrice pode entrar como coluna extra opcional, nula quando ausente.
+Pode escrever as seções novas e alteradas.
+```
+
+### Arquivos gerados
+- `specs/spec.md` (versão 2: RF-13 a RF-24, RNF-05 e RNF-06; cabeçalho, "Próximas versões", rastreabilidade e "Fatos, lacunas e suposições" atualizados; RF-01 a RF-12 e RNF-01 a RNF-04 sem alteração)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Aprovada a spec v2 da silver (RF-13 a RF-24, RNF-05 e RNF-06). Produto: versão mais recente de cada product_id, mantendo os que sumiram; preço sem produto vai para a quarentena; CDI repetido usa o raw mais recente, com alerta se divergir; boletim aceita "Fechamento PTAX" e "Fechamento" e grava "Fechamento"; regra de tipo_produto como hipótese; directLowPrice como coluna extra opcional.
