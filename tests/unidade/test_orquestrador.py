@@ -1,4 +1,4 @@
-"""T-08: orquestrador e CLI [RF-01 a RF-04, RF-08, RF-10, RF-11].
+"""T-08 e T-13: orquestrador e CLI [RF-01 a RF-04, RF-08, RF-10, RF-11, RF-25, RF-26].
 
 Cliente HTTP, S3 e relogio falsos; repeticao real com dormir falso. Sem rede e sem .env.
 """
@@ -89,14 +89,17 @@ def erro_s3(status, codigo, operacao):
 
 
 class S3Falso:
-    def __init__(self, objetos=None, erro_put=None):
+    def __init__(self, objetos=None, erro_put=None, erro_head=None):
         self.objetos = dict(objetos or {})
         self.erro_put = erro_put
+        self.erro_head = erro_head
         self.heads = []
         self.puts = []
 
     def head_object(self, *, Bucket, Key):
         self.heads.append(Key)
+        if self.erro_head is not None:
+            raise self.erro_head
         if (Bucket, Key) not in self.objetos:
             raise erro_s3(404, "404", "HeadObject")
         return {}
@@ -177,7 +180,7 @@ def test_saida_diferente_de_zero_com_erro_em_uma_fonte(caplog):
 
     chaves = chaves_do_dia(TERCA)
     assert chaves["prices"] not in [p["Key"] for p in s3.puts]
-    assert chaves["prices"] not in s3.heads
+    assert s3.heads.count(chaves["prices"]) == 1  # so a consulta do RF-26, antes do GET
     assert len(s3.puts) == 3
     prices = por_fonte["prices"]
     assert prices["resultado"] == "erro"
@@ -290,3 +293,133 @@ def test_cli_recusa_parametro_de_data(caplog):
         rodar(caplog, HTTPFalso(TERCA), S3Falso(), argv=["--data", "2026-11-10"])
 
     assert saida.value.code == 2
+
+
+# --- T-13: janela de coleta [RF-25] e consulta da chave antes do GET [RF-26] ---
+
+ANTES_DA_JANELA = datetime(2026, 11, 17, 19, 59, 0, tzinfo=timezone.utc)
+INICIO_DA_JANELA = datetime(2026, 11, 17, 20, 0, 0, tzinfo=timezone.utc)
+FIM_DA_JANELA = datetime(2026, 11, 18, 2, 59, 59, tzinfo=timezone.utc)  # 23:59:59 de 17/11 em SP
+DEPOIS_DA_JANELA = datetime(2026, 11, 18, 3, 0, 0, tzinfo=timezone.utc)  # 00:00 de 18/11 em SP
+TARDE = datetime(2026, 11, 17, 15, 0, 0, tzinfo=timezone.utc)
+
+
+def test_19h59_utc_fora_da_janela_sem_http_nem_s3(caplog):
+    http, s3 = HTTPFalso(ANTES_DA_JANELA), S3Falso()
+
+    codigo, por_fonte, _ = rodar(caplog, http, s3, instante=ANTES_DA_JANELA)
+
+    assert http.urls == []
+    assert s3.heads == [] and s3.puts == []
+    assert por_fonte == {}
+    assert codigo == 0
+
+
+def test_20h00_utc_dentro_da_janela(caplog):
+    http, s3 = HTTPFalso(INICIO_DA_JANELA), S3Falso()
+
+    codigo, por_fonte, _ = rodar(caplog, http, s3, instante=INICIO_DA_JANELA)
+
+    assert len(http.urls) == 4
+    assert [p["Key"] for p in s3.puts] == [chaves_do_dia(INICIO_DA_JANELA)[f] for f in FONTES]
+    assert all("data=2026-11-17" in p["Key"] for p in s3.puts)
+    assert codigo == 0
+
+
+def test_02h59_utc_dentro_da_janela_com_d_do_dia_anterior_em_utc(caplog):
+    http, s3 = HTTPFalso(FIM_DA_JANELA), S3Falso()
+
+    codigo, por_fonte, resumo = rodar(caplog, http, s3, instante=FIM_DA_JANELA)
+
+    assert len(http.urls) == 4
+    assert len(s3.puts) == 4
+    assert all("data=2026-11-17" in p["Key"] for p in s3.puts)
+    assert resumo[0]["data"] == "2026-11-17"
+    assert codigo == 0
+
+
+def test_03h00_utc_fora_da_janela_sem_http_nem_s3(caplog):
+    http, s3 = HTTPFalso(DEPOIS_DA_JANELA), S3Falso()
+
+    codigo, por_fonte, _ = rodar(caplog, http, s3, instante=DEPOIS_DA_JANELA)
+
+    assert http.urls == []
+    assert s3.heads == [] and s3.puts == []
+    assert por_fonte == {}
+    assert codigo == 0
+
+
+def test_fora_da_janela_loga_e_sai_com_zero(caplog):
+    codigo, por_fonte, resumo = rodar(
+        caplog, HTTPFalso(DEPOIS_DA_JANELA), S3Falso(), instante=DEPOIS_DA_JANELA
+    )
+
+    assert resumo == [
+        {
+            "tipo": "resumo",
+            "resultado": "fora da janela",
+            "data": "2026-11-18",
+            "coletado_em": "2026-11-18T03:00:00+00:00",
+            "codigo_saida": 0,
+        }
+    ]
+    assert codigo == 0
+
+
+def test_config_invalida_fora_da_janela_sai_com_erro(caplog):
+    http, s3 = HTTPFalso(TARDE), S3Falso()
+    ambiente = {**AMBIENTE, "SIGLA": ""}  # mesma falha forcada do RF-11 no workflow
+
+    codigo, por_fonte, resumo = rodar(caplog, http, s3, instante=TARDE, ambiente=ambiente)
+
+    assert http.urls == []
+    assert s3.heads == [] and s3.puts == []
+    assert "SIGLA" in resumo[0]["erro_configuracao"]
+    assert codigo != 0
+
+
+def test_chave_existente_nao_faz_get(caplog):
+    chaves = chaves_do_dia(TERCA)
+    http = HTTPFalso(TERCA)
+    s3 = S3Falso(objetos={("tcg", chaves[f]): b"anterior" for f in FONTES})
+
+    codigo, por_fonte, resumo = rodar(caplog, http, s3)
+
+    assert http.urls == []
+    assert s3.heads == [chaves[f] for f in FONTES]
+    assert s3.puts == []
+    for fonte in FONTES:
+        linha = por_fonte[fonte]
+        assert linha["resultado"] == "ja_existia"
+        assert linha["status_http"] is None
+        assert linha["bytes"] is None and linha["sha256"] is None
+        assert linha["tentativas"] == 0
+    assert resumo[0]["ja_existia"] == 4
+    assert codigo == 0
+
+
+def test_chave_ausente_faz_get_e_grava(caplog):
+    http, s3 = HTTPFalso(TERCA), S3Falso()
+
+    codigo, por_fonte, _ = rodar(caplog, http, s3)
+
+    chaves = chaves_do_dia(TERCA)
+    # consulta do RF-26 antes do GET e head do gravador antes do put (protecao dupla, RF-06)
+    assert s3.heads == [c for f in FONTES for c in (chaves[f], chaves[f])]
+    assert len(http.urls) == 4
+    assert [por_fonte[f]["resultado"] for f in FONTES] == ["gravado"] * 4
+    assert codigo == 0
+
+
+def test_falha_no_head_vira_erro_sem_get(caplog):
+    http = HTTPFalso(TERCA)
+    s3 = S3Falso(erro_head=erro_s3(403, "AccessDenied", "HeadObject"))
+
+    codigo, por_fonte, resumo = rodar(caplog, http, s3)
+
+    assert http.urls == []
+    assert s3.puts == []
+    assert [por_fonte[f]["resultado"] for f in FONTES] == ["erro"] * 4
+    assert all("head_object falhou" in por_fonte[f]["erro"] for f in FONTES)
+    assert resumo[0]["fontes_com_erro"] == list(FONTES)
+    assert codigo != 0

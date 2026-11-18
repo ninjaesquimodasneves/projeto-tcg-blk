@@ -1,4 +1,4 @@
-"""Gravador do raw: head antes do put, metadados ASCII e sha256 [RF-05, RF-06, RF-07, RNF-04].
+"""Gravador do raw: head antes do put, metadados ASCII e sha256 [RF-05, RF-06, RF-07, RNF-04, RF-26].
 
 O cliente S3 e injetado por parametro. Erros viram status "erro" no resultado, sem
 excecao, para o orquestrador montar o log (RF-10) e o codigo de saida (RF-11).
@@ -63,6 +63,19 @@ def _objeto_ausente(erro: ClientError) -> bool:
     return codigo in CODIGOS_AUSENTE or status == 404
 
 
+def consultar_chave(s3, bucket: str, chave: str) -> tuple[str, str | None]:
+    """Head da chave: ("existe", None), ("ausente", None) ou ("erro", motivo). So leitura."""
+    try:
+        s3.head_object(Bucket=bucket, Key=chave)
+        return "existe", None
+    except ClientError as erro:
+        if _objeto_ausente(erro):
+            return "ausente", None
+        return "erro", f"head_object falhou: {erro}"
+    except BotoCoreError as erro:
+        return "erro", f"head_object falhou: {erro}"
+
+
 def gravar_raw(
     s3,
     bucket: str,
@@ -86,14 +99,11 @@ def gravar_raw(
     except ErroGravacao as erro:
         return resultado("erro", str(erro))
 
-    try:
-        s3.head_object(Bucket=bucket, Key=chave)
+    situacao, motivo = consultar_chave(s3, bucket, chave)
+    if situacao == "existe":
         return resultado("ja_existia")
-    except ClientError as erro:
-        if not _objeto_ausente(erro):
-            return resultado("erro", f"head_object falhou: {erro}")
-    except BotoCoreError as erro:
-        return resultado("erro", f"head_object falhou: {erro}")
+    if situacao == "erro":
+        return resultado("erro", motivo)
 
     try:
         s3.put_object(Bucket=bucket, Key=chave, Body=corpo, Metadata=metadados)

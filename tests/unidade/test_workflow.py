@@ -1,4 +1,4 @@
-"""T-10: workflow do GitHub Actions [RF-11, RF-12, RNF-03].
+"""T-10 e T-13: workflow do GitHub Actions [RF-11, RF-12, RF-25, RNF-03].
 
 Le o YAML como texto (sem dependencia nova). Sem rede e sem .env.
 """
@@ -17,8 +17,14 @@ def _env_example() -> dict[str, str]:
     return dict(l.split("=", 1) for l in linhas if "=" in l and not l.startswith("#"))
 
 
-def test_workflow_tem_cron_17_21_e_dispatch():
-    assert re.search(r'^\s*-\s*cron:\s*"17 21 \* \* \*"', WORKFLOW, re.M)
+def test_workflow_tem_quatro_crons_entre_20h_e_3h_utc():
+    """RF-12 e RF-25: quatro horarios na noite, todos dentro da janela de 20:00 a 02:59 UTC."""
+    crons = re.findall(r'^\s*-\s*cron:\s*"([^"]+)"', WORKFLOW, re.M)
+    assert sorted(crons) == sorted(["17 21 * * *", "47 22 * * *", "17 0 * * *", "47 1 * * *"])
+    for cron in crons:
+        minuto, hora, *resto = cron.split()
+        assert resto == ["*", "*", "*"], cron
+        assert int(hora) >= 20 or int(hora) < 3, cron
     assert re.search(r"^\s*workflow_dispatch:", WORKFLOW, re.M)
     assert "PYTHONPATH=src python -m coleta" in WORKFLOW
 

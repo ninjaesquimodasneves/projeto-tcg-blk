@@ -1,10 +1,15 @@
-# Coleta diaria do raw BLK (groupId 24325) [RF-11, RF-12, RNF-03].
+# Coleta diaria do raw BLK (groupId 24325) [RF-11, RF-12, RF-25, RNF-03].
 # Credenciais so via secrets; os demais valores sao os publicos do .env.example.
 name: coleta
 
 on:
   schedule:
-    - cron: "17 21 * * *"   # 21h17 UTC = 18h17 em Sao Paulo, depois da atualizacao do TCGCSV
+    # RF-12: quatro horarios na noite, todos na janela de 20:00 a 02:59 UTC do RF-25.
+    # A primeira execucao grava; as seguintes registram ja_existia sem GET (RF-26).
+    - cron: "17 21 * * *"   # 18h17 em Sao Paulo
+    - cron: "47 22 * * *"   # 19h47 em Sao Paulo
+    - cron: "17 0 * * *"    # 21h17 em Sao Paulo
+    - cron: "47 1 * * *"    # 22h47 em Sao Paulo
   workflow_dispatch:
     inputs:
       forcar_falha:

@@ -1309,3 +1309,93 @@ Pode gravar spec.md, tasks.md e plan.md, acrescentar o prompt em docs/prompts.md
 
 ### Decisão humana
 Aprovados o RF-12 alterado (quatro horários entre 20h e 3h UTC), o RF-25 (janela de coleta de 20:00 a 02:59 UTC, com a configuração lida antes da janela) e o novo RF-26 (head da chave antes do GET, sem chamada HTTP quando a chave existe). Motivo: atraso de quase 6 h na execução agendada de 17/11. Plano atualizado junto, antes do código; implementação na T-13.
+## 2026-11-18 — Etapa: implementação da T-13 (janela de coleta, head antes do GET e horários múltiplos)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados Python que pratica desenvolvimento orientado a testes. Executa uma única tarefa, prova que ela funciona com a saída real do terminal e para.
+
+[R] Pedido
+Implemente somente a tarefa T-13 de specs/tasks.md (RF-12, RF-25, RF-26). Siga esta ordem:
+1. mostre o plano: arquivos, mudanças no orquestrador e no workflow, testes novos e alterados e comandos de verificação; espere minha confirmação;
+2. escreva primeiro os testes novos, rode e mostre que falham pelo motivo esperado (comportamento ainda inexistente, e não falta de dependência);
+3. implemente o mínimo para os testes passarem, sem quebrar os testes existentes;
+4. rode a verificação da tarefa, os testes de integração e o pytest inteiro e mostre a saída real;
+5. marque a T-13 como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit.
+
+[E] Exemplos
+Comportamento esperado:
+  instante 19:59 UTC -> "fora da janela", nenhuma chamada HTTP nem S3, código 0;
+  instante 20:00 UTC e 02:59 UTC -> coleta normal, com D no fuso de São Paulo;
+  instante 03:00 UTC -> "fora da janela", código 0;
+  configuração inválida às 15:00 UTC -> código diferente de zero, sem chamadas (a falha forçada do RF-11 continua funcionando a qualquer hora);
+  chave já existente dentro da janela -> head encontra a chave, nenhum GET, resultado ja_existia;
+  workflow com os quatro crons 17 21, 47 22, 17 0 e 47 1, todos em UTC, mais workflow_dispatch.
+Commit proposto: feat(T-13): janela de coleta, head antes do get e horarios multiplos [RF-12, RF-25, RF-26]
+
+[A] Ajustes
+- Faça só a T-13.
+- O head do gravador antes do put continua existindo (proteção dupla contra sobrescrita).
+- Os testes de integração com Testcontainers precisam continuar passando; ajuste o relógio dos testes existentes para dentro da janela, se for preciso.
+- Não rode o coletor contra o bucket e não dispare o workflow.
+- Não leia nem imprima o .env.
+- Não rode git add, git commit nem git push.
+- Se a verificação falhar, tente corrigir no máximo duas vezes; depois disso, pare e explique.
+- Não declare sucesso sem mostrar a saída do comando.
+
+[T] Tipo de saída
+Os arquivos alterados, a saída do pytest antes e depois e um resumo de até cinco linhas com o que mudou e a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/plan.md, specs/tasks.md, .github/workflows/coleta.yml, os módulos em src/coleta/ e os testes em tests/ antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2
+
+Aprovação do plano pela interface do modo de plano, sem texto adicional.
+
+### Saída dos testes
+
+Antes da implementação (`.venv/bin/pytest tests/unidade/test_orquestrador.py tests/unidade/test_workflow.py -q --tb=line`): 8 failed, 16 passed in 0.27s. Todas as falhas são de asserção sobre comportamento ausente (nenhum ImportError):
+
+```text
+FAILED tests/unidade/test_orquestrador.py::test_saida_diferente_de_zero_com_erro_em_uma_fonte   (0 heads de prices; esperado 1)
+FAILED tests/unidade/test_orquestrador.py::test_19h59_utc_fora_da_janela_sem_http_nem_s3        (4 GETs; esperado nenhum)
+FAILED tests/unidade/test_orquestrador.py::test_03h00_utc_fora_da_janela_sem_http_nem_s3        (4 GETs; esperado nenhum)
+FAILED tests/unidade/test_orquestrador.py::test_fora_da_janela_loga_e_sai_com_zero              (resumo de coleta; esperado "fora da janela")
+FAILED tests/unidade/test_orquestrador.py::test_chave_existente_nao_faz_get                     (4 GETs; esperado nenhum)
+FAILED tests/unidade/test_orquestrador.py::test_chave_ausente_faz_get_e_grava                   (1 head por fonte; esperado 2)
+FAILED tests/unidade/test_orquestrador.py::test_falha_no_head_vira_erro_sem_get                 (4 GETs; esperado nenhum)
+FAILED tests/unidade/test_workflow.py::test_workflow_tem_quatro_crons_entre_20h_e_3h_utc        (só o cron 17 21)
+```
+
+Os testes test_20h00_utc_dentro_da_janela, test_02h59_utc_dentro_da_janela_com_d_do_dia_anterior_em_utc e test_config_invalida_fora_da_janela_sai_com_erro já passavam antes: são testes de regressão do comportamento que precisa continuar valendo.
+
+Depois da implementação:
+
+```text
+pytest tests/unidade/test_orquestrador.py tests/unidade/test_gravador.py tests/unidade/test_workflow.py -q
+35 passed in 0.56s
+pytest -m "not integracao and not vcr" -q
+87 passed, 12 deselected in 1.26s
+pytest -m integracao -q
+5 passed, 94 deselected in 10.34s
+pytest -q
+99 passed in 3.46s
+```
+
+O teste de integração test_coleta_completa_duas_vezes_com_minio usa 21:17 UTC, já dentro da janela, e passou sem ajuste de relógio; na segunda execução não há GET e as 4 fontes ficam ja_existia.
+
+### Arquivos gerados
+- `src/coleta/gravador.py` (`consultar_chave`, reaproveitada no head antes do put)
+- `src/coleta/orquestrador.py` (`dentro_da_janela`, checagem da janela depois da config e antes de criar clientes, head antes do GET)
+- `.github/workflows/coleta.yml` (quatro crons: 17 21, 47 22, 17 0 e 47 1 UTC)
+- `tests/unidade/test_orquestrador.py` (9 testes novos, `erro_head` no S3Falso, ajuste em test_saida_diferente_de_zero_com_erro_em_uma_fonte)
+- `tests/unidade/test_workflow.py` (test_workflow_tem_quatro_crons_entre_20h_e_3h_utc no lugar de test_workflow_tem_cron_17_21_e_dispatch)
+- `specs/tasks.md` (T-13 concluída)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Plano aprovado em modo plan e executado com aprovação manual. Janela de 20:00 a 02:59 UTC no orquestrador, com configuração lida antes; consultar_chave reaproveitada pelo gravador; head antes do GET sem chamada HTTP quando a chave existe, mantendo o head antes do put (proteção dupla); quatro crons no workflow. Testes novos falharam antes pelo motivo esperado e passaram depois; integração e suíte inteira passando.

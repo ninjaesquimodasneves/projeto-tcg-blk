@@ -89,7 +89,7 @@ Comando base: `.venv/bin/pytest` com `pythonpath = src` no `pytest.ini`.
 - Comando: gravação única com `pytest -m vcr --record-mode=once` e revisão dos cassetes, depois `pytest -m vcr --record-mode=none -q`
 - Depende de: T-05, T-07, T-08. Antecipada em relação à T-09 e à T-10 (só lê das fontes públicas e não toca no bucket).
 
-## T-13 Janela de coleta, consulta da chave antes do GET e horários múltiplos do agendador
+## T-13 Janela de coleta, consulta da chave antes do GET e horários múltiplos do agendador — concluída (2026-11-18)
 - Requisitos: RF-25, RF-26, RF-12
 - Motivo: a execução agendada de 17/11/2026, marcada para 21:17 UTC, começou às 02:54 UTC de 18/11, com quase 6 h de atraso (origem: aba Actions). Um atraso que passe da meia-noite de São Paulo grava preços com a D errada e ocupa a chave da noite seguinte (RF-06). Vários horários na noite (RF-12) dão novas chances, a janela (RF-25) impede a gravação com D errada e a consulta da chave antes do GET (RF-26) evita baixar o TCGCSV mais de uma vez por dia.
 - Arquivos: `src/coleta/orquestrador.py`, `src/coleta/gravador.py` (consulta da chave reaproveitável pelo orquestrador), `tests/unidade/test_orquestrador.py`, `tests/unidade/test_gravador.py`, `.github/workflows/coleta.yml`, `tests/unidade/test_workflow.py`
