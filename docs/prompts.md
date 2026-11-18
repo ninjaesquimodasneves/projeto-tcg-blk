@@ -1799,3 +1799,48 @@ A implementação da T-17 fica para depois do commit da spec; o plano já mostra
 
 ### Decisão humana
 Regras encontradas no plano da T-17 escritas na spec antes do código: formato inesperado como regra geral do RF-21 para as quatro fontes (já cobrindo câmbio e CDI), precedência dos motivos (duplicata, produto desconhecido, modelo) e contagem de duplicata a partir do primeiro registro, mesmo inválido.
+## 2026-11-18 — Etapa: implementação da T-17 (tabela preco_diario)
+
+Os prompts 1 e 2 desta etapa estão registrados na entrada anterior ("ajuste da spec antes da T-17").
+
+### Prompt 3 (literal)
+
+```text
+Spec commitada. Pode implementar a T-17 conforme o plano aprovado, incluindo as três regras agora escritas na spec.
+```
+
+### Saída dos testes
+
+Antes da implementação (`.venv/bin/pytest tests/unidade/test_silver_preco_diario.py -q`):
+
+```text
+tests/unidade/test_silver_preco_diario.py:13: in <module>
+    from silver.preco_diario import transformar_precos
+E   ModuleNotFoundError: No module named 'silver.preco_diario'
+ERROR tests/unidade/test_silver_preco_diario.py
+1 error in 0.34s
+```
+
+Depois da implementação:
+
+```text
+.venv/bin/pytest tests/unidade/test_silver_preco_diario.py tests/unidade/test_silver_produto.py -q
+50 passed in 2.04s
+.venv/bin/pytest tests/unidade/test_silver_preco_diario.py -q
+23 passed in 1.12s
+.venv/bin/pytest -q
+199 passed in 6.42s
+```
+
+Com os cassetes de products e prices como entrada: 437 linhas de preço, 0 rejeitados; directLowPrice nulo em 247 linhas e nenhum preço nulo virou zero.
+
+### Arquivos gerados
+- `src/silver/preco_diario.py` (transformar_precos)
+- `src/silver/conversao.py` (inteiro, decimal, results_do_tcgcsv, corpo_como_texto)
+- `src/silver/produto.py` (passa a usar as conversões de `conversao.py`, sem mudança de comportamento)
+- `tests/unidade/test_silver_preco_diario.py`
+- `specs/tasks.md` (T-17 concluída)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Plano aprovado. preco_diario como função pura sobre o raw de prices e os produtos válidos: uma linha por product_id e acabamento por D, moeda USD, fonte tcgcsv, preços nulos continuam nulos e inteiros viram float de forma explícita; produto desconhecido e duplicata (a partir do segundo registro) vão para rejeitados, com a precedência da spec. Conversões movidas para silver/conversao.py sem mudar o comportamento. Cassete: 437 linhas e nenhum rejeitado. Testes falharam antes pelo motivo esperado e passaram depois.

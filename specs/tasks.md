@@ -145,7 +145,7 @@ Comando base da silver: `PYTHONPATH=src python -m silver`.
 - Comando: pytest tests/unidade/test_silver_produto.py -q
 - Depende de: T-14, T-15
 
-## T-17 Tabela preco_diario
+## T-17 Tabela preco_diario — concluída (2026-11-18)
 - Requisitos: RF-16, RF-19, RF-20, RF-21
 - Arquivos: `src/silver/preco_diario.py`, `tests/unidade/test_silver_preco_diario.py`
 - Teste: test_preco_do_cassete_uma_linha_por_produto_e_acabamento (moeda "USD", fonte "tcgcsv", chave_raw do prices do dia); test_preco_nulo_continua_nulo; test_direct_low_price_extra_nulo_quando_ausente; test_produto_desconhecido_vai_para_quarentena; test_duplicata_vai_para_quarentena; test_preco_negativo_vai_para_quarentena

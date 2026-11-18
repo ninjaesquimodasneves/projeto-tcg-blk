@@ -5,7 +5,7 @@ Cada product_id usa a versao do raw de data mais recente em que aparece; se essa
 for invalida, vai para a quarentena e nao se volta para uma versao anterior (RF-14).
 """
 
-import json
+from silver.conversao import corpo_como_texto, inteiro, results_do_tcgcsv
 from silver.modelos import Rejeitado, Resultado, validar
 from silver.raw import ObjetoRaw
 
@@ -41,20 +41,11 @@ def tipo_produto(extended_data) -> str | None:
     return None
 
 
-def _inteiro(valor):
-    """Conversao explicita: int (nao bool) ou texto so com digitos; qualquer outro valor vira None."""
-    if isinstance(valor, int) and not isinstance(valor, bool):
-        return valor
-    if isinstance(valor, str) and valor.isdigit():
-        return int(valor)
-    return None
-
-
 def _linha(item: dict, tipo: str) -> dict:
     ext = item.get("extendedData")
     return {
-        "product_id": _inteiro(item.get("productId")),
-        "group_id": _inteiro(item.get("groupId")),
+        "product_id": inteiro(item.get("productId")),
+        "group_id": inteiro(item.get("groupId")),
         "nome": item.get("name"),
         "tipo_produto": tipo,
         "raridade": _item_extendido(ext, "Rarity"),
@@ -62,17 +53,6 @@ def _linha(item: dict, tipo: str) -> dict:
         "image_url": item.get("imageUrl"),
         "url": item.get("url"),
     }
-
-
-def _itens(objeto: ObjetoRaw) -> list | None:
-    """Lista results do raw, ou None se o raw nao for JSON valido com results como lista."""
-    try:
-        dados = json.loads(objeto.corpo)
-    except ValueError:  # inclui JSONDecodeError e UnicodeDecodeError
-        return None
-    if not isinstance(dados, dict) or not isinstance(dados.get("results"), list):
-        return None
-    return dados["results"]
 
 
 def _rejeitado(motivo: str, chave_raw: str, entrada) -> Rejeitado:
@@ -86,14 +66,14 @@ def transformar_produtos(objetos: list[ObjetoRaw]) -> Resultado:
     mais_recente: dict = {}
 
     for objeto in sorted(objetos, key=lambda o: (o.data, o.chave)):
-        itens = _itens(objeto)
+        itens = results_do_tcgcsv(objeto.corpo)
         if itens is None:
-            entrada = objeto.corpo.decode("utf-8", errors="replace")
+            entrada = corpo_como_texto(objeto.corpo)
             rejeitados.append(((objeto.data, objeto.chave, -1), _rejeitado("formato inesperado", objeto.chave, entrada)))
             continue
         deste_raw: dict = {}
         for posicao, item in enumerate(itens):
-            pid = _inteiro(item.get("productId")) if isinstance(item, dict) else None
+            pid = inteiro(item.get("productId")) if isinstance(item, dict) else None
             chave_pid = pid if pid is not None else (objeto.chave, posicao)  # sem id: validado sozinho
             deste_raw.setdefault(chave_pid, []).append(((objeto.data, objeto.chave, posicao), objeto.chave, item))
         mais_recente.update(deste_raw)  # o raw mais recente substitui as versoes anteriores (RF-14)
