@@ -4,6 +4,7 @@ Nada aqui adivinha: o que nao se encaixa segue sem conversao e o modelo recusa.
 """
 
 import json
+from datetime import datetime
 
 
 def inteiro(valor):
@@ -22,12 +23,34 @@ def decimal(valor):
     return valor
 
 
-def results_do_tcgcsv(corpo: bytes) -> list | None:
-    """Lista results de products ou prices; None se o corpo nao for JSON com results como lista."""
+def data_hora(valor):
+    """Texto ISO 8601 (como a PTAX publica, sem fuso) vira datetime; qualquer outro valor vira None."""
+    if not isinstance(valor, str):
+        return None
     try:
-        dados = json.loads(corpo)
+        return datetime.fromisoformat(valor)
+    except ValueError:
+        return None
+
+
+def _json(corpo: bytes):
+    try:
+        return json.loads(corpo)
     except ValueError:  # inclui JSONDecodeError e UnicodeDecodeError
         return None
+
+
+def value_da_ptax(corpo: bytes) -> list | None:
+    """Lista value da PTAX; None se o corpo nao for JSON com value como lista."""
+    dados = _json(corpo)
+    if not isinstance(dados, dict) or not isinstance(dados.get("value"), list):
+        return None
+    return dados["value"]
+
+
+def results_do_tcgcsv(corpo: bytes) -> list | None:
+    """Lista results de products ou prices; None se o corpo nao for JSON com results como lista."""
+    dados = _json(corpo)
     if not isinstance(dados, dict) or not isinstance(dados.get("results"), list):
         return None
     return dados["results"]

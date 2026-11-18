@@ -98,10 +98,15 @@ class Rejeitado:
 
 @dataclass(frozen=True)
 class Resultado:
-    """Saida de uma transformacao: registros validos (ordenados pela chave) e rejeitados."""
+    """Saida de uma transformacao: validos (ordenados pela chave), rejeitados e descartados por regra.
+
+    descartados conta o que a spec manda descartar sem quarentena (RF-17: boletins que nao sao de
+    fechamento), para o log do RF-22.
+    """
 
     validos: list[ModeloSilver]
     rejeitados: list[Rejeitado]
+    descartados: int = 0
 
 
 def _motivo(erro: ValidationError) -> str:

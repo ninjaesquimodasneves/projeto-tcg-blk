@@ -1906,3 +1906,48 @@ Observação do agente: a regra do item que não é objeto vale também para pro
 
 ### Decisão humana
 Regras encontradas no plano da T-18 escritas na spec antes do código: duplicata de data de fechamento (fica o primeiro), item que não é objeto vira formato inesperado em qualquer fonte, e precedência completa dos motivos incluindo tipo_produto indefinido. Generalizadas para cobrir também o CDI da T-19.
+## 2026-11-18 — Etapa: implementação da T-18 (tabela cambio_diario)
+
+Os prompts 1 e 2 desta etapa estão registrados na entrada anterior ("ajuste da spec antes da T-18").
+
+### Prompt 3 (literal)
+
+```text
+Spec commitada. Pode implementar a T-18 conforme o plano aprovado, incluindo as duas regras agora escritas na spec.
+```
+
+### Saída dos testes
+
+Antes da implementação (`.venv/bin/pytest tests/unidade/test_silver_cambio_diario.py -q`):
+
+```text
+tests/unidade/test_silver_cambio_diario.py:12: in <module>
+    from silver.cambio_diario import transformar_cambio
+E   ModuleNotFoundError: No module named 'silver.cambio_diario'
+ERROR tests/unidade/test_silver_cambio_diario.py
+1 error in 0.22s
+```
+
+Depois da implementação:
+
+```text
+.venv/bin/pytest tests/unidade/test_silver_cambio_diario.py -q
+24 passed in 0.40s
+.venv/bin/pytest -q
+223 passed in 7.24s
+```
+
+Cassete de dia útil (13/11/2026): 1 linha (boletim "Fechamento"), 4 descartados (abertura e 3 intermediários), 0 rejeitados. Cassete de sábado (14/11/2026): 0 linhas, 0 descartados, 0 rejeitados.
+
+### Arquivos gerados
+- `src/silver/cambio_diario.py` (transformar_cambio)
+- `src/silver/conversao.py` (data_hora, value_da_ptax; leitura do JSON compartilhada com results_do_tcgcsv)
+- `src/silver/modelos.py` (Resultado.descartados, padrão 0)
+- `tests/unidade/test_silver_cambio_diario.py`
+- `specs/tasks.md` (T-18 concluída)
+- `docs/prompts.md` (esta entrada)
+
+Pendências da decisão humana (apontadas na etapa anterior, sem mudança nesta tarefa): o item que não é objeto em products e prices (T-16 e T-17) ainda vai para o modelo em vez de "formato inesperado"; e a regra geral do RF-21 ainda diz "lista de objetos no CDI".
+
+### Decisão humana
+Plano aprovado. cambio_diario como função pura sobre os raw da PTAX: só boletins de fechamento ("Fechamento PTAX" ou "Fechamento"), gravados como "Fechamento"; demais boletins descartados e contados; lista vazia não gera linha; data e data_hora_cotacao convertidas explicitamente, sem fuso, como a fonte publica. Resultado ganhou a contagem de descartados para o log. Cassetes: 1 linha e 4 descartados no dia útil, nada no sábado. Testes falharam antes pelo motivo esperado e passaram depois.

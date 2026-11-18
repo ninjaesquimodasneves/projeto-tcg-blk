@@ -152,7 +152,7 @@ Comando base da silver: `PYTHONPATH=src python -m silver`.
 - Comando: pytest tests/unidade/test_silver_preco_diario.py -q
 - Depende de: T-14, T-16
 
-## T-18 Tabela cambio_diario
+## T-18 Tabela cambio_diario — concluída (2026-11-18)
 - Requisitos: RF-17, RF-20
 - Arquivos: `src/silver/cambio_diario.py`, `tests/unidade/test_silver_cambio_diario.py`
 - Teste: test_dia_util_uma_linha_com_boletim_fechamento (cassete de dia útil); test_sabado_sem_linha (cassete de sábado); test_rotulo_fechamento_aceito; test_boletins_que_nao_sao_de_fechamento_descartados_e_contados; test_sem_duplicata_de_data
