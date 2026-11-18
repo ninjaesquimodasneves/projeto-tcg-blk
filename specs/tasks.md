@@ -168,7 +168,7 @@ Comando base da silver: `PYTHONPATH=src python -m silver`.
 - Comando: pytest tests/unidade/test_silver_cdi_diario.py -q
 - Depende de: T-14, T-15
 
-## T-20 Tabela colecao
+## T-20 Tabela colecao — concluída (2026-11-18)
 - Requisitos: RF-13, RF-20
 - Arquivos: `src/silver/colecao.py`, `tests/unidade/test_silver_colecao.py`
 - Teste: test_colecao_uma_linha_com_os_valores_do_contrato

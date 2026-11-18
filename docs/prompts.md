@@ -2107,3 +2107,78 @@ Cassete do CDI (janela de 03/11 a 13/11/2026): 9 linhas (dias úteis), 0 rejeita
 
 ### Decisão humana
 Plano aprovado. cdi_diario como função pura sobre os raw do CDI: data de DD/MM/AAAA para date e valor de texto para float sem mudar a unidade; uma linha por data, com valor e chave_raw do raw mais recente; alerta "cdi divergente" comparando valores convertidos de ocorrências válidas; topo que não é lista e item que não é objeto viram formato inesperado; data repetida no mesmo raw é duplicata. Resultado ganhou a lista de alertas para o log. Testes falharam antes pelo motivo esperado e passaram depois.
+## 2026-11-18 — Etapa: implementação da T-20 (tabela colecao)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados Python que pratica desenvolvimento orientado a testes. Executa uma única tarefa, prova que ela funciona com a saída real do terminal e para.
+
+[R] Pedido
+Implemente somente a tarefa T-20 de specs/tasks.md. Siga esta ordem:
+1. mostre o plano: arquivos, função, de onde vem cada valor da linha e o comando de verificação. Se o plano precisar de alguma regra que ainda não está escrita na spec, liste essas regras numa seção separada "Regras fora da spec" e espere minha decisão, sem implementá-las; espere minha confirmação;
+2. escreva primeiro os testes da tarefa, rode e mostre que falham pelo motivo esperado (função ou módulo ainda inexistente, e não falta de dependência);
+3. implemente o mínimo para os testes passarem;
+4. rode a verificação da tarefa e o pytest inteiro e mostre a saída real;
+5. marque a T-20 como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit.
+
+[E] Exemplos
+Casos que os testes precisam cobrir:
+  a transformação devolve exatamente uma linha, validada pelo modelo Colecao, com group_id 24325, nome "SV: Black Bolt", sigla "BLK", data_lancamento 2025-07-18 (date) e responsavel "Gabriel_Cabral", como no RF-13;
+  a função não depende do raw nem de S3;
+  se a configuração tiver GROUP_ID ou SIGLA diferentes do RF-13, a linha não é gerada silenciosamente errada (o comportamento esperado vai no plano).
+Commit proposto: feat(T-20): tabela colecao [RF-13]
+
+[A] Ajustes
+- Faça só a T-20; a escrita do Parquet é da T-22.
+- Função pura, sem rede e sem S3.
+- Siga o RF-13 ao pé da letra; regras novas só depois da minha decisão.
+- Não leia nem imprima o .env.
+- Não rode git add, git commit nem git push.
+- Se a verificação falhar, tente corrigir no máximo duas vezes; depois disso, pare e explique.
+- Não declare sucesso sem mostrar a saída do comando.
+
+[T] Tipo de saída
+Os arquivos da tarefa, a saída do pytest antes e depois e um resumo de até cinco linhas com o que mudou e a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/plan.md, specs/tasks.md e src/silver/ antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2 (literal)
+
+```text
+Plano da T-20 aprovado. Regra 1 recusada: a silver não usa a SIGLA da configuração, então uma SIGLA diferente não afeta nenhum dado; o teste test_colecao_nao_le_a_configuracao já cobre isso. Registre essa decisão em docs/prompts.md. Pode implementar a T-20 sem regras novas. Não rode git add, git commit nem git push.
+```
+
+Decisão registrada a pedido: a regra proposta pelo agente (conferir no comando da silver se a SIGLA da configuração é "BLK" e parar se divergir) foi recusada. A silver não usa a SIGLA da configuração; os valores da colecao são fixos do RF-13, e test_colecao_nao_le_a_configuracao cobre o caso de GROUP_ID e SIGLA diferentes no ambiente.
+
+### Saída dos testes
+
+Antes da implementação (`.venv/bin/pytest tests/unidade/test_silver_colecao.py -q`):
+
+```text
+    from silver.colecao import transformar_colecao
+E   ModuleNotFoundError: No module named 'silver.colecao'
+ERROR tests/unidade/test_silver_colecao.py
+1 error in 0.32s
+```
+
+Depois da implementação:
+
+```text
+.venv/bin/pytest tests/unidade/test_silver_colecao.py -q
+5 passed in 0.29s
+.venv/bin/pytest -q
+269 passed in 7.55s
+```
+
+### Arquivos gerados
+- `src/silver/colecao.py` (transformar_colecao)
+- `tests/unidade/test_silver_colecao.py`
+- `specs/tasks.md` (T-20 concluída)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Plano aprovado. Tabela colecao como função pura com os valores fixos do RF-13 e group_id da mesma fonte do coletor; recusa do modelo vira erro de código, sem quarentena, já que os valores são fixos. Regra extra sobre a SIGLA da configuração recusada: a silver não usa essa variável, e o teste com configuração divergente prova que a linha sai igual. Testes falharam antes pelo motivo esperado e passaram depois.
