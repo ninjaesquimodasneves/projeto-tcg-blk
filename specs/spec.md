@@ -148,6 +148,7 @@ Origem: OBJ-03, OBJ-07, restrição "PTAX e CDI das APIs públicas do Banco Cent
 - E entram só os boletins com tipoBoletim igual a "Fechamento PTAX" ou "Fechamento"; os demais (abertura, intermediários) são descartados sem ir para a quarentena
 - E boletim é gravado sempre como "Fechamento"; cotacao_compra, cotacao_venda e data_hora_cotacao vêm de cotacaoCompra, cotacaoVenda e dataHoraCotacao; data é a data de dataHoraCotacao; chave_raw é a chave do cotacao.json de origem
 - E há uma linha por dia útil com boletim de fechamento, sem duplicata de data; um raw com lista vazia (RF-08) não gera linha
+- E, se a mesma data de fechamento aparecer em mais de um boletim (no mesmo raw ou em raw diferentes), o primeiro pela ordem (data do raw, posição no raw) fica e os seguintes vão para a quarentena com o motivo "duplicata", com a precedência do RF-21
 Verificação: teste de unidade com o cassete de dia útil (uma linha, boletim "Fechamento") e com o de sábado (nenhuma linha); teste de unidade com o rótulo "Fechamento"; DESCRIBE no Parquet gerado comparado com o contrato.
 
 ### RF-18 Tabela cdi_diario sem duplicata entre janelas
@@ -181,7 +182,8 @@ Origem: OBJ-02, OBJ-06
 - Então ele é gravado em quarentena/<tabela>/group_id=24325/data=D/ com a entrada original como veio do raw, o motivo, a chave do raw de origem e a data da geração, e não entra na tabela publicada
 - E a execução continua com os demais registros; registro em quarentena sozinho não torna o código de saída diferente de zero
 - E qualquer raw da coleção (products, prices, PTAX ou CDI) que não seja JSON válido ou não tenha a estrutura esperada (results como lista no TCGCSV, value como lista na PTAX, lista de objetos no CDI) vira um único registro na quarentena com o motivo "formato inesperado", com o corpo do raw como entrada, e os demais raw seguem normalmente
-- E, quando mais de um motivo se aplica ao mesmo registro, vale o primeiro desta ordem: "duplicata", depois "produto desconhecido", depois as recusas do modelo (RF-20)
+- E um item da lista de qualquer fonte (results do TCGCSV, value da PTAX, lista do CDI) que não seja um objeto vai para a quarentena com o motivo "formato inesperado", com o próprio item como entrada, e o resto do raw segue
+- E, quando mais de um motivo se aplica ao mesmo registro, vale o primeiro desta ordem: "duplicata", depois "produto desconhecido" ou "tipo_produto indefinido" (cada um só existe na sua tabela), depois as recusas do modelo (RF-20)
 Verificação: teste de integração com MinIO em Testcontainers gravando um registro inválido e lendo a quarentena (entrada original idêntica, motivo presente); teste de unidade da contagem; testes de unidade de cada transformação com raw em formato inesperado e da precedência dos motivos.
 
 ### RF-22 Log da geração da silver

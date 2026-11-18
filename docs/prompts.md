@@ -1844,3 +1844,65 @@ Com os cassetes de products e prices como entrada: 437 linhas de preço, 0 rejei
 
 ### Decisão humana
 Plano aprovado. preco_diario como função pura sobre o raw de prices e os produtos válidos: uma linha por product_id e acabamento por D, moeda USD, fonte tcgcsv, preços nulos continuam nulos e inteiros viram float de forma explícita; produto desconhecido e duplicata (a partir do segundo registro) vão para rejeitados, com a precedência da spec. Conversões movidas para silver/conversao.py sem mudar o comportamento. Cassete: 437 linhas e nenhum rejeitado. Testes falharam antes pelo motivo esperado e passaram depois.
+## 2026-11-18 — Etapa: ajuste da spec antes da T-18 (duplicata no câmbio, item fora do formato e precedência completa)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados Python que pratica desenvolvimento orientado a testes. Executa uma única tarefa, prova que ela funciona com a saída real do terminal e para.
+
+[R] Pedido
+Implemente somente a tarefa T-18 de specs/tasks.md. Siga esta ordem:
+1. mostre o plano: arquivos, funções, como cada campo da PTAX vira coluna da cambio_diario e o comando de verificação. Se o plano precisar de alguma regra que ainda não está escrita na spec (por exemplo, a mesma data de fechamento aparecendo em dois raw diferentes), liste essas regras numa seção separada "Regras fora da spec" e espere minha decisão, sem implementá-las; espere minha confirmação;
+2. escreva primeiro os testes da tarefa, rode e mostre que falham pelo motivo esperado (função ou módulo ainda inexistente, e não falta de dependência);
+3. implemente o mínimo para os testes passarem;
+4. rode a verificação da tarefa e o pytest inteiro e mostre a saída real;
+5. marque a T-18 como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit.
+
+[E] Exemplos
+Casos que os testes precisam cobrir:
+  cassete da PTAX de dia útil (13/11) -> uma linha, boletim "Fechamento", cotacao_compra e cotacao_venda como float, data_hora_cotacao como datetime e data igual à data dessa cotação;
+  boletins de abertura e intermediários são descartados, sem ir para a quarentena, e contados para o log;
+  rótulo "Fechamento" (sem "PTAX") também é aceito e gravado como "Fechamento";
+  cassete do sábado (14/11, lista vazia) -> nenhuma linha e nenhum rejeitado;
+  raw em formato inesperado -> um único rejeitado "formato inesperado", e os outros raw seguem (regra geral do RF-21);
+  raw de vários dias -> uma linha por dia útil, ordenada por data;
+  chave_raw aponta para o cotacao.json de origem.
+Commit proposto: feat(T-18): tabela cambio_diario [RF-17, RF-21]
+
+[A] Ajustes
+- Faça só a T-18; a gravação da quarentena é da T-21 e a escrita do Parquet é da T-22.
+- Função pura sobre os objetos do raw da PTAX (T-15), sem S3.
+- Conversões explícitas antes do modelo (strict=True); reaproveite silver/conversao.py.
+- Siga o RF-17 ao pé da letra; regras novas só depois da minha decisão.
+- Sem rede nos testes. Não leia nem imprima o .env.
+- Não rode git add, git commit nem git push.
+- Se a verificação falhar, tente corrigir no máximo duas vezes; depois disso, pare e explique.
+- Não declare sucesso sem mostrar a saída do comando.
+
+[T] Tipo de saída
+Os arquivos da tarefa, a saída do pytest antes e depois e um resumo de até cinco linhas com o que mudou, quantas linhas e quantos descartados saíram dos cassetes e a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/plan.md, specs/tasks.md e src/silver/ antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2 (literal)
+
+```text
+Plano da T-18 aprovado, e as duas regras também. Antes do código, edite apenas specs/spec.md:
+- No RF-17, acrescente: se a mesma data de fechamento aparecer em mais de um boletim (no mesmo raw ou em raw diferentes), o primeiro pela ordem (data do raw, posição no raw) fica e os seguintes vão para a quarentena com o motivo "duplicata", com a precedência do RF-21.
+- No RF-21, generalize a regra de formato inesperado também para os itens: um item da lista de qualquer fonte (results do TCGCSV, value da PTAX, lista do CDI) que não seja um objeto vai para a quarentena com o motivo "formato inesperado", com o próprio item como entrada, e o resto do raw segue.
+- No RF-21, complete a precedência dos motivos: "duplicata", depois "produto desconhecido" ou "tipo_produto indefinido" (cada um só existe na sua tabela), depois as recusas do modelo (RF-20).
+Acrescente esta mudança em docs/prompts.md e pare, sem criar código. Não rode git add, git commit nem git push.
+```
+
+### Arquivos gerados
+- `specs/spec.md` (RF-17: duplicata de data de fechamento; RF-21: item que não é objeto vira "formato inesperado" e precedência completa dos motivos)
+- `docs/prompts.md` (esta entrada)
+
+Observação do agente: a regra do item que não é objeto vale também para products e prices, já implementados na T-16 e na T-17. Hoje esse item vai para o modelo como objeto vazio e é recusado com o motivo do modelo (por exemplo, "product_id: int_type"), não "formato inesperado". O ajuste do código da T-16 e da T-17 fica pendente de decisão.
+
+### Decisão humana
+Regras encontradas no plano da T-18 escritas na spec antes do código: duplicata de data de fechamento (fica o primeiro), item que não é objeto vira formato inesperado em qualquer fonte, e precedência completa dos motivos incluindo tipo_produto indefinido. Generalizadas para cobrir também o CDI da T-19.
