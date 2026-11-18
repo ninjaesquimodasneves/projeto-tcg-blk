@@ -161,7 +161,7 @@ Comando base da silver: `PYTHONPATH=src python -m silver`.
 - Comando: pytest tests/unidade/test_silver_cambio_diario.py -q
 - Depende de: T-14, T-15
 
-## T-19 Tabela cdi_diario com alerta de divergência
+## T-19 Tabela cdi_diario com alerta de divergência — concluída (2026-11-18)
 - Requisitos: RF-18, RF-20, RF-21
 - Arquivos: `src/silver/cdi_diario.py`, `tests/unidade/test_silver_cdi_diario.py`
 - Teste: test_cassete_converte_data_e_valor; test_janelas_sobrepostas_sem_duplicata_com_chave_raw_mais_recente; test_valor_divergente_gera_alerta; test_valor_nao_numerico_vai_para_quarentena

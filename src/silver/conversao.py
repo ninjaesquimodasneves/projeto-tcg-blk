@@ -4,7 +4,11 @@ Nada aqui adivinha: o que nao se encaixa segue sem conversao e o modelo recusa.
 """
 
 import json
-from datetime import datetime
+import re
+from datetime import date, datetime
+
+_DECIMAL_DA_FONTE = re.compile(r"-?\d+(\.\d+)?")
+_DATA_BRASILEIRA = re.compile(r"\d{2}/\d{2}/\d{4}")
 
 
 def inteiro(valor):
@@ -23,6 +27,27 @@ def decimal(valor):
     return valor
 
 
+def numero_de_texto(valor):
+    """Texto decimal com ponto, como o BCB publica (ex.: "0.050788"), vira float sem mudar a unidade.
+
+    int (nao bool) vira float e float fica como esta; qualquer outro valor (inclusive "0,05", "nan"
+    e bool) segue sem conversao para o modelo recusar.
+    """
+    if isinstance(valor, str) and _DECIMAL_DA_FONTE.fullmatch(valor):
+        return float(valor)
+    return decimal(valor)
+
+
+def data_brasileira(valor):
+    """Texto DD/MM/AAAA vira date; qualquer outro valor (ou data impossivel) vira None."""
+    if not isinstance(valor, str) or not _DATA_BRASILEIRA.fullmatch(valor):
+        return None
+    try:
+        return datetime.strptime(valor, "%d/%m/%Y").date()
+    except ValueError:
+        return None
+
+
 def data_hora(valor):
     """Texto ISO 8601 (como a PTAX publica, sem fuso) vira datetime; qualquer outro valor vira None."""
     if not isinstance(valor, str):
@@ -38,6 +63,12 @@ def _json(corpo: bytes):
         return json.loads(corpo)
     except ValueError:  # inclui JSONDecodeError e UnicodeDecodeError
         return None
+
+
+def lista_do_cdi(corpo: bytes) -> list | None:
+    """Lista do topo do CDI; None se o corpo nao for JSON com uma lista no topo (RF-21)."""
+    dados = _json(corpo)
+    return dados if isinstance(dados, list) else None
 
 
 def value_da_ptax(corpo: bytes) -> list | None:

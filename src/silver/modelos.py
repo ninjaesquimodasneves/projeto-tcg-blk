@@ -4,7 +4,7 @@ strict=True: sem coercao silenciosa (texto da fonte vira numero ou data so nas t
 extra="forbid": campo fora do modelo e recusado. frozen=True: registro validado nao muda.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Any, Literal
 
@@ -97,6 +97,15 @@ class Rejeitado:
 
 
 @dataclass(frozen=True)
+class Alerta:
+    """Aviso para o log do RF-22, sem quarentena (RF-18: "alerta: cdi divergente" com a data)."""
+
+    mensagem: str
+    data: date
+    chaves_raw: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class Resultado:
     """Saida de uma transformacao: validos (ordenados pela chave), rejeitados e descartados por regra.
 
@@ -107,6 +116,7 @@ class Resultado:
     validos: list[ModeloSilver]
     rejeitados: list[Rejeitado]
     descartados: int = 0
+    alertas: list[Alerta] = field(default_factory=list)
 
 
 def _motivo(erro: ValidationError) -> str:

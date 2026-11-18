@@ -2062,3 +2062,48 @@ A implementação da T-19 fica para depois do commit da spec; o plano já mostra
 
 ### Decisão humana
 Regras encontradas no plano da T-19 escritas no RF-18 antes do código: valor vem do raw mais recente, sem voltar para ocorrência antiga se a mais recente for inválida; alerta de divergência compara números convertidos de ocorrências válidas; data repetida no mesmo raw é duplicata, e entre raw diferentes é sobreposição de janelas.
+## 2026-11-18 — Etapa: implementação da T-19 (tabela cdi_diario com alerta de divergência)
+
+Os prompts 1 e 2 desta etapa estão registrados na entrada anterior ("ajuste da spec antes da T-19").
+
+### Prompt 3 (literal)
+
+```text
+Spec commitada. Pode implementar a T-19 conforme o plano aprovado, incluindo as quatro regras agora escritas no RF-18. Ao final, mostre a saída do pytest antes e depois e um resumo de até cinco linhas com o que mudou, quantas linhas saíram do cassete e a mensagem de commit proposta. Não rode git add, git commit nem git push.
+```
+
+### Saída dos testes
+
+Antes da implementação (`.venv/bin/pytest tests/unidade/test_silver_cdi_diario.py -q`):
+
+```text
+tests/unidade/test_silver_cdi_diario.py:12: in <module>
+    from silver.cdi_diario import transformar_cdi
+E   ModuleNotFoundError: No module named 'silver.cdi_diario'
+ERROR tests/unidade/test_silver_cdi_diario.py
+1 error in 0.21s
+```
+
+Depois da implementação:
+
+```text
+.venv/bin/pytest tests/unidade/test_silver_cdi_diario.py -q
+33 passed in 0.40s
+.venv/bin/pytest tests/unidade -q -k silver
+165 passed, 87 deselected in 3.06s
+.venv/bin/pytest -q
+264 passed in 6.80s
+```
+
+Cassete do CDI (janela de 03/11 a 13/11/2026): 9 linhas (dias úteis), 0 rejeitados, 0 alertas.
+
+### Arquivos gerados
+- `src/silver/cdi_diario.py` (transformar_cdi)
+- `src/silver/conversao.py` (numero_de_texto, data_brasileira, lista_do_cdi)
+- `src/silver/modelos.py` (dataclass Alerta e Resultado.alertas, padrão vazio)
+- `tests/unidade/test_silver_cdi_diario.py`
+- `specs/tasks.md` (T-19 concluída)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Plano aprovado. cdi_diario como função pura sobre os raw do CDI: data de DD/MM/AAAA para date e valor de texto para float sem mudar a unidade; uma linha por data, com valor e chave_raw do raw mais recente; alerta "cdi divergente" comparando valores convertidos de ocorrências válidas; topo que não é lista e item que não é objeto viram formato inesperado; data repetida no mesmo raw é duplicata. Resultado ganhou a lista de alertas para o log. Testes falharam antes pelo motivo esperado e passaram depois.
