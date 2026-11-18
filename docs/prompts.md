@@ -1470,3 +1470,86 @@ Pode gravar specs/plan.md, specs/tasks.md e a nota em specs/spec.md, acrescentar
 
 ### Decisão humana
 Aprovados o plano e as tarefas da silver (T-14 a T-27). Contrato num dicionário único usado na criação e na verificação; DuckDB grava o Parquet localmente; boto3 lê o raw e publica, com a guarda do RNF-05 antes de cada put e delete; quarentena em registros.jsonl por tabela e data; gerar e verificar tudo antes de apagar; job silver separado no workflow. Conflito RF-21 x RF-24 resolvido: gerado_em é a data real da geração e fica fora da comparação de idempotência, com nota no RF-24.
+## 2026-11-18 — Etapa: implementação da T-14 (dependências, contrato e modelos Pydantic da silver)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados Python que pratica desenvolvimento orientado a testes. Executa uma única tarefa, prova que ela funciona com a saída real do terminal e para.
+
+[R] Pedido
+Implemente somente a tarefa T-14 de specs/tasks.md. Siga esta ordem:
+1. mostre o plano: dependências novas com versões fixadas, arquivos, o dicionário do contrato, os modelos, a estrutura de registro rejeitado e o comando de verificação; espere minha confirmação;
+2. instale as dependências novas no .venv e confirme que importam no Python 3.14;
+3. escreva primeiro os testes da tarefa, rode e mostre que falham pelo motivo esperado (módulo ainda inexistente, e não falta de dependência);
+4. implemente o mínimo para os testes passarem;
+5. rode a verificação da tarefa e o pytest inteiro e mostre a saída real;
+6. marque a T-14 como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit.
+
+[E] Exemplos
+Casos que os testes precisam cobrir:
+  o contrato tem exatamente as cinco tabelas e as colunas mínimas com os tipos da spec v2;
+  para cada modelo: um registro válido passa e um inválido é recusado por cada regra do RF-20 (chave nula, group_id diferente de 24325, moeda diferente de "USD", boletim diferente de "Fechamento", tipo_produto fora de carta/selado, preço negativo);
+  preço nulo é aceito (RF-19);
+  o registro rejeitado guarda a entrada original, o motivo e a chave do raw.
+Commit proposto: feat(T-14): contrato e modelos pydantic da silver [RF-20, RF-23]
+
+[A] Ajustes
+- Faça só a T-14; nenhuma transformação de dados nesta tarefa.
+- Pydantic somente na API v2 (BaseModel, Field, field_validator, model_validator, ConfigDict, model_validate, model_dump); nada de validator, parse_obj ou .dict().
+- Se o duckdb ou o pydantic não instalarem no Python 3.14, pare e me mostre o erro antes de tentar outra versão.
+- Sem rede nos testes. Não leia nem imprima o .env.
+- Não rode git add, git commit nem git push.
+- Se a verificação falhar, tente corrigir no máximo duas vezes; depois disso, pare e explique.
+- Não declare sucesso sem mostrar a saída do comando.
+
+[T] Tipo de saída
+Os arquivos da tarefa, a saída do pytest antes e depois e um resumo de até cinco linhas com o que mudou e a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/plan.md, specs/tasks.md e requirements.txt antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2 (literal)
+
+```text
+Plano aprovado, com as três decisões: duckdb==1.5.6 por compatibilidade com o Python 3.14, image_url e url anuláveis e strict=True nos modelos. Pode seguir.
+```
+
+### Saída dos testes
+
+Instalação (`.venv/bin/pip install -q -r requirements.txt`) e importação: `3.14.2 2.14.3 1.5.6` (Python, pydantic, duckdb). A duckdb 2.0.0 não foi usada por não ter wheel para Python 3.14 (só cp311 e cp312 no PyPI).
+
+Antes da implementação (`.venv/bin/pytest tests/unidade/test_silver_modelos.py -q`):
+
+```text
+tests/unidade/test_silver_modelos.py:10: in <module>
+    from silver.contrato import CHAVES, COLUNAS_EXTRAS, CONTRATO
+E   ModuleNotFoundError: No module named 'silver'
+ERROR tests/unidade/test_silver_modelos.py
+1 error in 0.17s
+```
+
+Depois da implementação:
+
+```text
+.venv/bin/pytest tests/unidade/test_silver_modelos.py -q
+40 passed in 0.18s
+.venv/bin/pytest -q
+139 passed in 4.01s
+```
+
+Busca por API v1 do Pydantic (`parse_obj`, `@validator`, `.dict(`) em `src/silver` e no teste: nenhuma ocorrência.
+
+### Arquivos gerados
+- `requirements.txt` (pydantic==2.14.3, duckdb==1.5.6)
+- `src/silver/__init__.py`
+- `src/silver/contrato.py` (CONTRATO, COLUNAS_EXTRAS, CHAVES)
+- `src/silver/modelos.py` (cinco modelos Pydantic v2, Rejeitado, validar)
+- `tests/unidade/test_silver_modelos.py`
+- `specs/tasks.md` (T-14 concluída)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Plano aprovado. pydantic==2.14.3 e duckdb==1.5.6 (a 2.0.0 não tem wheel para Python 3.14). Contrato da turma num dicionário único com as cinco tabelas, colunas extras e chaves; um modelo Pydantic v2 por tabela com strict=True e extra="forbid", cobrindo as regras do RF-20; image_url e url anuláveis; preço nulo aceito. Registro rejeitado com entrada original, motivo determinístico e chave do raw. Testes falharam antes pelo motivo esperado e passaram depois.

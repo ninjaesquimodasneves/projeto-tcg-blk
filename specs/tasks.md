@@ -124,7 +124,7 @@ Comando base: `.venv/bin/pytest` com `pythonpath = src` no `pytest.ini`.
 Origem: `specs/spec.md` v2 (RF-13 a RF-24, RNF-05, RNF-06) e a seção "Camada silver (spec v2)" de `specs/plan.md`. Mesmas regras de cima: uma tarefa por vez, cerca de 30 minutos, testes de unidade sem rede e sem Docker. Os testes de unidade usam o corpo dos cassetes de `tests/contrato/cassettes/` como entrada (helper da T-15) e um S3 falso em memória.
 Comando base da silver: `PYTHONPATH=src python -m silver`.
 
-## T-14 Dependências novas, contrato e modelos Pydantic das cinco tabelas
+## T-14 Dependências novas, contrato e modelos Pydantic das cinco tabelas — concluída (2026-11-18)
 - Requisitos: RF-20, RF-23 (contrato), RF-13 a RF-18 (colunas mínimas)
 - Arquivos: `requirements.txt` (pydantic e duckdb com versões fixadas e wheel para Python 3.14), `src/silver/__init__.py`, `src/silver/contrato.py`, `src/silver/modelos.py`, `tests/unidade/test_silver_modelos.py`
 - Teste: test_contrato_tem_as_cinco_tabelas_com_colunas_minimas; test_modelo_valido_por_tabela; test_group_id_diferente_de_24325_recusado; test_moeda_diferente_de_usd_recusada; test_boletim_diferente_de_fechamento_recusado; test_tipo_produto_fora_de_carta_e_selado_recusado; test_preco_negativo_recusado; test_preco_nulo_aceito; test_chave_obrigatoria_nula_recusada; test_rejeitado_guarda_entrada_motivo_e_chave_raw
