@@ -1967,3 +1967,39 @@ Pendente de decisão humana: o ajuste de products e prices (T-16 e T-17) para a 
 
 ### Decisão humana
 Aprovado: o raw do CDI só é inválido quando o topo não é uma lista; itens que não são objetos seguem a regra de item do RF-21.
+## 2026-11-18 — Etapa: correção de products e prices (item que não é objeto, RF-21)
+
+### Prompt (literal)
+
+```text
+Decisão 1: corrija em uma tarefa de correção separada, sem mexer no cambio_diario nem adiantar a T-19. Em silver/produto.py e silver/preco_diario.py, um item de results que não seja objeto passa a ir para a quarentena com o motivo "formato inesperado" e o próprio item como entrada, sem entrar na contagem de duplicata, e o resto do raw segue (RF-21). Escreva primeiro um teste em cada transformação, mostre que falha, corrija, rode os testes da silver e o pytest inteiro e mostre a saída real. Registre em docs/prompts.md e em specs/tasks.md (nota nas T-16 e T-17). Proponha a mensagem de commit e pare. Não rode git add, git commit nem git push.
+```
+
+### Saída dos testes
+
+Antes da correção (`.venv/bin/pytest tests/unidade/test_silver_produto.py tests/unidade/test_silver_preco_diario.py -q -k "nao_e_objeto" --tb=line`): 8 failed, 50 deselected in 0.48s. Os 8 falham por asserção sobre o Rejeitado (comportamento antigo), por exemplo:
+
+```text
+At index 0 diff: Rejeitado(tabela='preco_diario', motivo='produto desconhecido', ..., entrada=[1, 2]) != Rejeitado(tabela='preco_diario', motivo='formato inesperado', ..., entrada=[1, 2])
+```
+
+Depois da correção:
+
+```text
+.venv/bin/pytest tests/unidade/test_silver_produto.py tests/unidade/test_silver_preco_diario.py -q
+58 passed in 2.53s
+.venv/bin/pytest tests/unidade -q -k silver
+132 passed, 87 deselected in 3.04s
+.venv/bin/pytest -q
+231 passed in 7.15s
+```
+
+### Arquivos gerados
+- `src/silver/produto.py` (item que não é objeto vira "formato inesperado" antes de qualquer outra regra)
+- `src/silver/preco_diario.py` (idem, fora da contagem de duplicata)
+- `tests/unidade/test_silver_produto.py` e `tests/unidade/test_silver_preco_diario.py` (um teste parametrizado em cada)
+- `specs/tasks.md` (nota nas T-16 e T-17)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Correção aprovada em commit próprio, com a regra do RF-21 já commitada antes: em products e prices, item que não é objeto vai para a quarentena como formato inesperado, fora da contagem de duplicata. Testes falharam antes e passaram depois.
