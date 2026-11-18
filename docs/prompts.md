@@ -1256,4 +1256,4 @@ Pode escrever as seções novas e alteradas.
 - `docs/prompts.md` (esta entrada)
 
 ### Decisão humana
-Aprovada a spec v2 da silver (RF-13 a RF-24, RNF-05 e RNF-06). Produto: versão mais recente de cada product_id, mantendo os que sumiram; preço sem produto vai para a quarentena; CDI repetido usa o raw mais recente, com alerta se divergir; boletim aceita "Fechamento PTAX" e "Fechamento" e grava "Fechamento"; regra de tipo_produto como hipótese; directLowPrice como coluna extra opcional.
+Aprovada a spec v2 da silver (RF-13 a RF-24, RNF-05 e RNF-06). Produto: versão mais recente de cada product_id, mantendo os que sumiram; preço sem produto, duplicata, tipo_produto indefinido e preço negativo vão para a quarentena; CDI repetido usa o raw mais recente, com alerta se divergir; boletim aceita "Fechamento PTAX" e "Fechamento" e grava "Fechamento"; regra de tipo_produto e rótulo fonte = "tcgcsv" como hipóteses; directLowPrice como coluna extra opcional. Reprocessamento reconstrói silver e quarentena, verificando o contrato antes de qualquer remoção.
