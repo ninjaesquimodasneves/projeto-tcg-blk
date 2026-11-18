@@ -1951,3 +1951,19 @@ Pendências da decisão humana (apontadas na etapa anterior, sem mudança nesta 
 
 ### Decisão humana
 Plano aprovado. cambio_diario como função pura sobre os raw da PTAX: só boletins de fechamento ("Fechamento PTAX" ou "Fechamento"), gravados como "Fechamento"; demais boletins descartados e contados; lista vazia não gera linha; data e data_hora_cotacao convertidas explicitamente, sem fuso, como a fonte publica. Resultado ganhou a contagem de descartados para o log. Cassetes: 1 linha e 4 descartados no dia útil, nada no sábado. Testes falharam antes pelo motivo esperado e passaram depois.
+## 2026-11-18 — Etapa: ajuste da spec (raw do CDI no formato inesperado do RF-21)
+
+### Prompt (literal)
+
+```text
+Decisão 2: aprovada. Edite apenas specs/spec.md: na regra geral de formato inesperado do RF-21, troque "lista de objetos no CDI" por "lista no CDI", deixando claro que o raw do CDI só é inválido quando o topo não for uma lista; itens que não são objetos seguem a regra de item. Acrescente esta mudança em docs/prompts.md e pare. Não rode git add, git commit nem git push.
+```
+
+### Arquivos gerados
+- `specs/spec.md` (RF-21: "lista no CDI"; o raw do CDI só é inválido quando o topo não é uma lista, e itens que não são objetos seguem a regra de item)
+- `docs/prompts.md` (esta entrada)
+
+Pendente de decisão humana: o ajuste de products e prices (T-16 e T-17) para a regra do item que não é objeto.
+
+### Decisão humana
+Aprovado: o raw do CDI só é inválido quando o topo não é uma lista; itens que não são objetos seguem a regra de item do RF-21.
