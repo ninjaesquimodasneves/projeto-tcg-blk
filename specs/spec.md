@@ -158,6 +158,10 @@ Origem: OBJ-07, restrição "PTAX e CDI das APIs públicas do Banco Central"
 - Então existe silver/cdi_diario/group_id=24325/cdi.parquet com as colunas mínimas data DATE, taxa_dia DOUBLE e chave_raw VARCHAR, uma linha por dia útil publicado e nenhuma data repetida
 - E data vem de data (DD/MM/AAAA na fonte) e taxa_dia vem de valor (texto na fonte), convertido para número sem mudança de unidade (% ao dia, como publicada)
 - E, quando a mesma data aparece em vários raw, chave_raw aponta para o raw de data mais recente e, se o valor divergir entre os raw, o log registra "alerta: cdi divergente" com a data (regra: hipótese, validação pendente)
+- E, quando a mesma data aparece em vários raw, o valor da linha também vem do raw de data mais recente; as ocorrências dos raw mais antigos não vão para a quarentena e só servem para a comparação do alerta
+- E, se a ocorrência mais recente de uma data for inválida, ela vai para a quarentena e não se volta para uma ocorrência mais antiga (mesma regra do RF-14)
+- E o alerta de divergência compara os números já convertidos, só entre ocorrências válidas
+- E a mesma data duas vezes no mesmo raw: a primeira conta e as seguintes vão para a quarentena como "duplicata", com a precedência do RF-21; a repetição entre raw diferentes não é duplicata
 Verificação: teste de unidade com dois raw sintéticos de janelas sobrepostas (sem duplicata, chave_raw do mais recente) e com valor divergente (alerta no log); teste de unidade com o cassete do CDI; DESCRIBE no Parquet gerado comparado com o contrato.
 
 ### RF-19 Preço ausente fica nulo, nunca zero

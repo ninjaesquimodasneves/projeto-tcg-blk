@@ -2003,3 +2003,62 @@ Depois da correção:
 
 ### Decisão humana
 Correção aprovada em commit próprio, com a regra do RF-21 já commitada antes: em products e prices, item que não é objeto vai para a quarentena como formato inesperado, fora da contagem de duplicata. Testes falharam antes e passaram depois.
+## 2026-11-18 — Etapa: ajuste da spec antes da T-19 (repetição de datas e alerta do CDI)
+
+### Prompt 1 (literal, como recebido; o texto chegou cortado na seção [T])
+
+```text
+[C] Personagem
+Você é um engenheiro de dados Python que pratica desenvolvimento orientado a testes. Executa uma única tarefa, prova que ela funciona com a saída real do terminal e para.
+
+[R] Pedido
+Implemente somente a tarefa T-19 de specs/tasks.md. Siga esta ordem:
+1. mostre o plano: arquivos, funções, como cada campo do CDI vira coluna da cdi_diario, como o alerta de divergência chega ao log e o comando de verificação. Se o plano precisar de alguma regra que ainda não está escrita na spec, liste essas regras numa seção separada "Regras fora da spec" e espere minha decisão, sem implementá-las; espere minha confirmação;
+2. escreva primeiro os testes da tarefa, rode e mostre que falham pelo motivo esperado (função ou módulo ainda inexistente, e não falta de dependência);
+3. implemente o mínimo para os testes passarem;
+4. rode a verificação da tarefa e o pytest inteiro e mostre a saída real;
+5. marque a T-19 como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit.
+
+[E] Exemplos
+Casos que os testes precisam cobrir:
+  cassete do CDI (janela de 03/11 a 13/11) -> uma linha por dia útil publicado, data convertida de DD/MM/AAAA para date, taxa_dia convertida de texto para float sem mudança de unidade;
+  dois raw sintéticos com janelas sobrepostas -> nenhuma data repetida, e a chave_raw de cada data aponta para o raw de data mais recente que a contém;
+  a mesma data com valores diferentes em dois raw -> alerta "alerta: cdi divergente" com a data, disponível para o log do RF-22;
+  topo do raw que não é lista -> um único rejeitado "formato inesperado"; item que não é objeto -> rejeitado "formato inesperado" só para aquele item, e o resto segue (RF-21);
+  valor que não converte para número -> recusado pelo modelo;
+  saída ordenada por data.
+Commit proposto: feat(T-19): tabela cdi_diario [RF-18, RF-21]
+
+[A] Ajustes
+- Faça só a T-19; a gravação da quarentena é da T-21 e a escrita do Parquet é da T-22.
+- Função pura sobre os objetos do raw do CDI (T-15), sem S3.
+- Conversões explícitas antes do modelo (strict=True); reaproveite silver/conversao.py.
+- Siga o RF-18 e o RF-21 ao pé da letra; regras novas só depois da minha decisão.
+- Sem rede nos testes. Não leia nem imprima o .env.
+- Não rode git add, git commit nem git push.
+- Se a verificação falhar, tente corrigir no máximo duas vezes; depois disso, pare e explique.
+- Não declare sucesso sem mostrar a saída do comando.
+
+[T] Tipo de saída
+Os arquivos da tarefa, a saída do pytest antes e depois e um
+```
+
+### Prompt 2 (literal)
+
+```text
+Plano da T-19 aprovado, e as quatro regras também. Antes do código, edite apenas specs/spec.md, no RF-18:
+1. quando a mesma data aparece em vários raw, o valor da linha também vem do raw de data mais recente; as ocorrências dos raw mais antigos não vão para a quarentena e só servem para a comparação do alerta;
+2. se a ocorrência mais recente for inválida, ela vai para a quarentena e não se volta para uma mais antiga (mesma regra do RF-14);
+3. o alerta de divergência compara os números já convertidos, só entre ocorrências válidas;
+4. a mesma data duas vezes no mesmo raw: a primeira conta e as seguintes vão para a quarentena como "duplicata", com a precedência do RF-21; repetição entre raw diferentes não é duplicata.
+Acrescente esta mudança em docs/prompts.md e pare, sem criar código. Não rode git add, git commit nem git push.
+```
+
+### Arquivos gerados
+- `specs/spec.md` (RF-18: valor do raw mais recente, sem volta para ocorrência antiga, comparação do alerta entre números válidos e duplicata só dentro do mesmo raw)
+- `docs/prompts.md` (esta entrada)
+
+A implementação da T-19 fica para depois do commit da spec; o plano já mostrado continua valendo.
+
+### Decisão humana
+Regras encontradas no plano da T-19 escritas no RF-18 antes do código: valor vem do raw mais recente, sem voltar para ocorrência antiga se a mais recente for inválida; alerta de divergência compara números convertidos de ocorrências válidas; data repetida no mesmo raw é duplicata, e entre raw diferentes é sobreposição de janelas.
