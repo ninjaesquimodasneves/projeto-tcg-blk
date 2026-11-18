@@ -115,7 +115,10 @@ Origem: OBJ-04, OBJ-06, restrição "silver no contrato comum da turma"
 - E um product_id que deixou de aparecer nos raw mais recentes continua na tabela com a versão do último raw em que apareceu
 - E nome, image_url e url vêm de name, imageUrl e url; raridade e numero vêm dos itens Rarity e Number de extendedData e ficam nulos quando o item não existe; tipo_produto segue o RF-15
 - E produtos com raridade "Code Card" ficam na tabela (a exclusão deles das perguntas fica para a v3)
-Verificação: teste de unidade da transformação com o cassete de products; teste de unidade com dois raw sintéticos de datas diferentes (produto alterado fica com a versão mais recente; produto ausente no raw mais recente continua na tabela); DESCRIBE no Parquet gerado comparado com o contrato.
+- E um productId que aparece duas vezes no mesmo raw tem as duas ocorrências enviadas para a quarentena (RF-21) com o motivo "duplicata"
+- E um raw de products que não é JSON válido ou não tem "results" como lista vira um único registro na quarentena com o motivo "formato inesperado", com o corpo do raw como entrada
+- E, se a versão mais recente de um produto for inválida, ela vai para a quarentena e não se volta para uma versão de raw anterior; os preços desse produto seguem a regra "produto desconhecido" do RF-16
+Verificação: teste de unidade da transformação com o cassete de products; teste de unidade com dois raw sintéticos de datas diferentes (produto alterado fica com a versão mais recente; produto ausente no raw mais recente continua na tabela; versão mais recente inválida vai para a quarentena sem volta à versão anterior); testes de unidade com productId repetido no mesmo raw e com raw em formato inesperado; DESCRIBE no Parquet gerado comparado com o contrato.
 
 ### RF-15 Classificação de tipo_produto em carta ou selado
 Origem: OBJ-04
@@ -172,7 +175,7 @@ Verificação: testes de unidade de cada modelo com um registro válido e um inv
 
 ### RF-21 Quarentena dos registros inválidos
 Origem: OBJ-02, OBJ-06
-- Dado um registro reprovado pelo RF-20 ou pelas regras de "produto desconhecido", "duplicata" ou "tipo_produto indefinido" (RF-15, RF-16), vindo de um raw de data D
+- Dado um registro reprovado pelo RF-20 ou pelas regras de "produto desconhecido", "duplicata", "tipo_produto indefinido" ou "formato inesperado" (RF-14, RF-15, RF-16), vindo de um raw de data D
 - Quando a silver é gerada
 - Então ele é gravado em quarentena/<tabela>/group_id=24325/data=D/ com a entrada original como veio do raw, o motivo, a chave do raw de origem e a data da geração, e não entra na tabela publicada
 - E a execução continua com os demais registros; registro em quarentena sozinho não torna o código de saída diferente de zero

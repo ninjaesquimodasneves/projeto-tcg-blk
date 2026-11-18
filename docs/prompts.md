@@ -1631,3 +1631,66 @@ Depois da implementação:
 
 ### Decisão humana
 Plano aprovado. Leitura do raw só nos prefixos raw/<fonte>/group_id=24325/, com paginação completa, bytes sem decodificar e nenhuma escrita; objetos de outros group_id nunca listados nem baixados; chaves fora do padrão ignoradas com aviso. Helper de testes lê os corpos dos cassetes sem rede. Testes falharam antes pelo motivo esperado e passaram depois.
+## 2026-11-18 — Etapa: ajuste da spec antes da T-16 (novos critérios do RF-14 e motivos do RF-21)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados Python que pratica desenvolvimento orientado a testes. Executa uma única tarefa, prova que ela funciona com a saída real do terminal e para.
+
+[R] Pedido
+Implemente somente a tarefa T-16 de specs/tasks.md. Siga esta ordem:
+1. mostre o plano: arquivos, funções, como cada campo do products.json vira coluna da tabela produto, a regra de tipo_produto e o comando de verificação; espere minha confirmação;
+2. escreva primeiro os testes da tarefa, rode e mostre que falham pelo motivo esperado (função ou módulo ainda inexistente, e não falta de dependência);
+3. implemente o mínimo para os testes passarem;
+4. rode a verificação da tarefa e o pytest inteiro e mostre a saída real;
+5. marque a T-16 como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit.
+
+[E] Exemplos
+Casos que os testes precisam cobrir:
+  com o cassete de products como entrada: uma linha por product_id, todos validados pelo modelo Produto, nenhum rejeitado inesperado;
+  extendedData com Number, Rarity e Card Type -> tipo_produto "carta", com raridade e numero preenchidos;
+  extendedData só com Rarity (Code Card) -> "carta", com numero nulo;
+  extendedData sem Rarity nem Number -> "selado", com raridade e numero nulos;
+  extendedData com Number e sem Rarity -> rejeitado com o motivo "tipo_produto indefinido";
+  dois raw sintéticos de datas diferentes: produto alterado fica com a versão mais recente; produto ausente no raw mais recente continua com a versão do último raw em que apareceu;
+  a saída vem ordenada por product_id;
+  cada rejeitado guarda a entrada original, o motivo e a chave do raw de origem.
+Commit proposto: feat(T-16): tabela produto e regra de tipo_produto [RF-14, RF-15, RF-21]
+
+[A] Ajustes
+- Faça só a T-16; a gravação da quarentena é da T-21 e a escrita do Parquet é da T-22.
+- A transformação recebe os objetos do raw (saída da T-15) e devolve os registros válidos e os rejeitados; é função pura, sem S3.
+- Conversões de tipo explícitas antes do modelo (strict=True).
+- A regra de tipo_produto continua marcada como "hipótese, validação pendente" no código.
+- Sem rede nos testes. Não leia nem imprima o .env.
+- Não rode git add, git commit nem git push.
+- Se a verificação falhar, tente corrigir no máximo duas vezes; depois disso, pare e explique.
+- Não declare sucesso sem mostrar a saída do comando.
+
+[T] Tipo de saída
+Os arquivos da tarefa, a saída do pytest antes e depois e um resumo de até cinco linhas com o que mudou, quantas cartas e quantos selados saíram do cassete e a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/plan.md, specs/tasks.md e src/silver/ antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2 (literal)
+
+```text
+Decisões: 1) aprovada, siga o RF-14 ao pé da letra; 3) aprovada.
+Sobre a decisão 2 e o caso do raw com formato inesperado: são regras novas, que ainda não estão na spec. Antes do código, edite apenas specs/spec.md e acrescente ao RF-14 três critérios:
+- produto com o mesmo productId duas vezes no mesmo raw: as duas ocorrências vão para a quarentena com o motivo "duplicata";
+- raw de products que não é JSON válido ou não tem "results" como lista: vira um único registro na quarentena com o motivo "formato inesperado", com o corpo do raw como entrada;
+- se a versão mais recente de um produto for inválida, ela vai para a quarentena e não se volta para uma versão antiga; os preços desse produto seguem a regra "produto desconhecido" do RF-16.
+Atualize também a lista de motivos do RF-21. Acrescente esta mudança em docs/prompts.md e pare, sem criar código. Eu faço o commit da spec e depois peço a implementação. Não rode git add, git commit nem git push.
+```
+
+### Arquivos gerados
+- `specs/spec.md` (RF-14: três critérios novos e verificação ampliada; RF-21: motivo "formato inesperado" e referência ao RF-14 na lista de motivos)
+- `docs/prompts.md` (esta entrada)
+
+A implementação da T-16 fica para depois do commit da spec; o plano da T-16 já mostrado continua valendo, com as decisões 1 e 3 aprovadas e a 2 coberta pelo novo critério do RF-14.
+
+### Decisão humana
