@@ -205,7 +205,7 @@ Origem: OBJ-01, OBJ-02, OBJ-06
 - Dada uma execução da geração da silver
 - Quando ela termina
 - Então o log traz, por tabela: raw lidos, registros lidos, publicados, descartados por regra (boletins que não são de fechamento) e em quarentena, com a contagem por motivo, mais os alertas do RF-18 e o resultado da verificação do RF-23
-- E o código de saída é diferente de zero se a verificação do RF-23 falhar ou se um raw não puder ser lido; caso contrário é 0
+- E o código de saída é diferente de zero se a verificação do RF-23 falhar, se um raw não puder ser lido ou se um put ou um delete falhar na publicação (RF-24); caso contrário é 0
 Verificação: teste de unidade do conteúdo do log e dos códigos de saída; log da primeira geração real anexado em `docs/evidencias/`.
 
 ### RF-23 Verificação do contrato antes de publicar
@@ -226,11 +226,25 @@ Verificação: teste de unidade da comparação (esquema igual, coluna extra, co
 Origem: OBJ-02, OBJ-06, restrição "raw/ guarda a resposta original e nunca é sobrescrito"
 - Dado o raw da coleção no bucket
 - Quando um único comando de reprocessamento roda
-- Então ele reconstrói a partir do raw todas as tabelas da silver (RF-13 a RF-18) e a quarentena da coleção, apagando antes os objetos de silver/*/group_id=24325/ e quarentena/*/group_id=24325/ que não forem regravados, e só depois da verificação do RF-23
+- Então ele reconstrói a partir do raw todas as tabelas da silver (RF-13 a RF-18) e a quarentena da coleção, nesta ordem: gera tudo, verifica o contrato (RF-23), publica as chaves novas e só então apaga os objetos de silver/*/group_id=24325/ e quarentena/*/group_id=24325/ que não foram regravados (redação corrigida em 2026-11-19; antes dizia "apagando antes", o que contradizia o plano e a ordem do RF-23)
 - E rodar o comando duas vezes seguidas sobre o mesmo raw produz as mesmas linhas em cada tabela e na quarentena, sem duplicata
 - Nota: na quarentena, "mesmas linhas" considera todos os campos exceto gerado_em, que é a data real da geração exigida pelo RF-21 e muda a cada execução; nas tabelas da silver, a comparação considera todos os campos
 - E nenhum objeto de raw/ é escrito ou apagado
-Verificação: teste de integração com MinIO em Testcontainers rodando o comando duas vezes e comparando as linhas de cada tabela e as chaves e sha256 do raw antes e depois; execução real registrada em `docs/evidencias/`.
+
+- Dado um raw da coleção que não pode ser lido
+- Quando o reprocessamento roda
+- Então nenhum objeto é publicado nem apagado, e o código de saída é diferente de zero (RF-22)
+
+- Dada uma falha num put no meio da publicação
+- Quando o reprocessamento publica as chaves novas
+- Então ele para no put que falhou, não apaga nenhum objeto e termina com erro informando a chave, e o código de saída é diferente de zero (RF-22)
+- E a silver pode ficar mista (parte das chaves nova, parte antiga) até a próxima execução, que é idempotente e conserta
+
+- Dada uma falha num delete
+- Quando o reprocessamento apaga os objetos antigos não regravados
+- Então ele para no primeiro delete que falhar e termina com erro informando a chave, e o código de saída é diferente de zero (RF-22)
+- E os objetos novos já estão publicados; os antigos restantes são apagados na próxima execução
+Verificação: teste de integração com MinIO em Testcontainers rodando o comando duas vezes e comparando as linhas de cada tabela e as chaves e sha256 do raw antes e depois; execução real registrada em `docs/evidencias/`; testes de unidade com S3 falso para a ordem (verificar, publicar, apagar), raw ilegível (nenhum put nem delete), falha num put (para sem apagar) e falha num delete (para e informa a chave).
 
 ## Requisitos funcionais — proteção contra atraso do agendador (adendo de 2026-11-18)
 

@@ -2560,3 +2560,69 @@ Depois da correção:
 
 ### Decisão humana
 Plano aprovado. Parquet gravado localmente pelo DuckDB com tabelas criadas nos tipos do contrato, sem inferência, e linhas ordenadas pelas chaves; preco_diario com um arquivo por D e as demais com um arquivo só, nas chaves da spec v2. Esquema lido do próprio arquivo com DESCRIBE e comparado ao contrato (coluna extra aceita, coluna faltando ou tipo diferente reprovam o conjunto inteiro). Tabelas sem linha válida geram Parquet vazio com o esquema, exceto preco_diario. Proteções contra erro de programação com ValueError. Testes falharam antes pelo motivo esperado e passaram depois.
+## 2026-11-19 — Etapa: ajuste da spec antes da T-23 (ordem e falhas da publicação, RF-24 e RF-22)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados Python que pratica desenvolvimento orientado a testes e trata operações destrutivas com cuidado. Executa uma única tarefa, prova que ela funciona com a saída real do terminal e para.
+
+[R] Pedido
+Implemente somente a tarefa T-23 de specs/tasks.md (publicação com a guarda do RNF-05 e reprocessamento completo). Siga esta ordem:
+1. mostre o plano: arquivos, funções, a ordem exata das operações (gerar, verificar, publicar, apagar), como a guarda é aplicada antes de cada put e cada delete, o que acontece em cada tipo de falha e o comando de verificação. Se o plano precisar de alguma regra que ainda não está escrita na spec, liste essas regras numa seção separada "Regras fora da spec" e espere minha decisão, sem implementá-las; espere minha confirmação;
+2. escreva primeiro os testes da tarefa, rode e mostre que falham pelo motivo esperado (função ou módulo ainda inexistente, e não falta de dependência);
+3. implemente o mínimo para os testes passarem;
+4. rode a verificação da tarefa e o pytest inteiro e mostre a saída real;
+5. marque a T-23 como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit.
+
+[E] Exemplos
+Casos que os testes precisam cobrir (S3 falso em memória):
+  ordem: tudo é gerado e verificado antes de qualquer put; só depois dos puts são apagados os objetos antigos de silver/*/group_id=24325/ e quarentena/*/group_id=24325/ que não foram regravados;
+  verificação do contrato reprovada -> nenhum put e nenhum delete; a silver já publicada fica intacta;
+  qualquer chave fora de silver/ ou quarentena/, ou sem group_id=24325, é recusada antes do put ou do delete (RNF-05);
+  nenhum objeto de raw/ é escrito ou apagado; nenhum objeto de outro group_id é escrito ou apagado (RNF-06), mesmo que esteja no mesmo prefixo de tabela;
+  rodar duas vezes sobre o mesmo raw deixa as mesmas chaves e as mesmas linhas;
+  uma partição antiga de preco_diario que não foi regravada é apagada;
+  falha num put no meio da publicação: o comportamento esperado vai no plano.
+Commit proposto: feat(T-23): publicacao com guarda e reprocessamento completo [RF-24, RNF-05, RNF-06]
+
+[A] Ajustes
+- Faça só a T-23; o comando python -m silver e o log são da T-24.
+- Use as funções das T-15 a T-22; nada de reimplementar transformação.
+- Toda escrita e remoção passa por uma única função de put e uma única de delete, ambas com a guarda.
+- Testes só com S3 falso; nenhum acesso ao bucket real nesta tarefa.
+- Siga o RF-23, o RF-24, o RNF-05 e o RNF-06 ao pé da letra; regras novas só depois da minha decisão.
+- Não leia nem imprima o .env.
+- Não rode git add, git commit nem git push.
+- Se a verificação falhar, tente corrigir no máximo duas vezes; depois disso, pare e explique.
+- Não declare sucesso sem mostrar a saída do comando.
+
+[T] Tipo de saída
+Os arquivos da tarefa, a saída do pytest antes e depois e um resumo de até cinco linhas com o que mudou e a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/plan.md, specs/tasks.md e src/silver/ antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2 (literal)
+
+```text
+Plano da T-23 aprovado, e as regras A, B, C e D também. Mas, antes do código, elas vão para a spec, porque mudam o comportamento no lake. Mude o plano para esta etapa apenas: editar specs/spec.md no RF-24 (e no RF-22, se couber):
+A) falha num put no meio da publicação: para no put que falhou, não apaga nada e termina com erro informando a chave; a silver pode ficar mista até a próxima execução, que é idempotente e conserta;
+B) falha num delete: para no primeiro delete que falhar e termina com erro; os objetos novos já estão publicados e os antigos restantes são apagados na próxima execução;
+C) raw ilegível: nada é publicado nem apagado, e o código de saída é diferente de zero;
+D) corrija a redação do RF-24 para a ordem: verificar o contrato, publicar as chaves novas e só então apagar os objetos antigos não regravados.
+Acrescente esta mudança em docs/prompts.md e pare, sem criar código. Não rode git add, git commit nem git push.
+```
+
+### Decisões registradas a pedido
+- A, B e C: aprovadas e levadas à spec antes do código (RF-24, com o código de saída no RF-22), porque mudam o comportamento no lake.
+- D: redação do RF-24 corrigida para a ordem gerar, verificar o contrato, publicar as chaves novas e só então apagar os objetos antigos não regravados.
+
+### Arquivos gerados
+- `specs/spec.md` (RF-24: ordem corrigida e cenários de raw ilegível, falha num put e falha num delete, com a verificação correspondente; RF-22: código de saída diferente de zero também quando um put ou um delete falha)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Regras encontradas no plano da T-23 escritas na spec antes do código: falha num put para sem apagar nada; falha num delete para e deixa os antigos para a próxima execução; raw ilegível não publica nem apaga; RF-24 corrigido para a ordem verificar, publicar e só então apagar.
