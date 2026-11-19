@@ -2339,3 +2339,102 @@ Depois da implementação:
 
 ### Decisão humana
 Plano aprovado em modo plan, com aprovação manual das edições. D = data UTC de (instante − 20 h) em urls.py; janela e ramo "fora da janela" removidos do orquestrador; heads antes do GET e do put mantidos. Testes dos cinco casos de D, da compatibilidade com a regra antiga minuto a minuto entre 20:00 e 02:59 UTC, da execução atrasada com ja_existia e da configuração inválida em qualquer horário. Docstring do test_workflow.py atualizada. Testes novos falharam antes pelo motivo esperado; integração e suíte inteira passando.
+## 2026-11-19 — Etapa: implementação da T-21 (quarentena em JSON Lines)
+
+### Prompt 1 (literal)
+
+```text
+Voltando à T-21, que estava pausada. Plano aprovado. Sobre as regras fora da spec:
+1 a 3 (chave_raw sem data, tabela desconhecida, gerado_em sem fuso): aprovadas como proteções contra erro de programação, com ValueError; não são regras de dado e não exigem mudança na spec. Registre essa justificativa em docs/prompts.md.
+4 (NaN e Infinity): aprovada a proposta de preservar como veio (allow_nan=True), porque o RF-21 exige a entrada original sem alteração; registre no código um comentário explicando que o arquivo pode não ser JSON estrito por esse motivo.
+Releia rapidamente src/silver/ antes de começar, porque a T-28 mudou o pacote coleta (não a silver). Pode implementar a T-21. Não rode git add, git commit nem git push.
+```
+
+Nota do agente: o plano original da T-21 tinha sido apresentado numa sessão anterior e não estava disponível nesta. O agente parou e ofereceu duas opções; a escolhida foi refazer o plano a partir do prompt original (Prompt 2).
+
+### Prompt 2 (literal)
+
+```text
+Opção 2: refaça o plano, a partir do prompt original abaixo, já incorporando as decisões sobre as regras 1 a 4. Mostre o plano e espere minha confirmação antes de implementar.
+
+[C] Personagem
+Você é um engenheiro de dados Python que pratica desenvolvimento orientado a testes. Executa uma única tarefa, prova que ela funciona com a saída real do terminal e para.
+
+[R] Pedido
+Implemente somente a tarefa T-21 de specs/tasks.md. Siga esta ordem:
+1. mostre o plano: arquivos, funções, o formato exato de cada linha do registros.jsonl, como a chave de cada arquivo é montada e o comando de verificação; espere minha confirmação;
+2. escreva primeiro os testes da tarefa, rode e mostre que falham pelo motivo esperado (função ou módulo ainda inexistente, e não falta de dependência);
+3. implemente o mínimo para os testes passarem;
+4. rode a verificação da tarefa e o pytest inteiro e mostre a saída real;
+5. marque a T-21 como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit.
+
+[E] Exemplos
+Casos que os testes precisam cobrir:
+  rejeitados de várias tabelas e datas viram um arquivo por tabela e por D, na chave quarentena/<tabela>/group_id=24325/data=D/registros.jsonl, com D tirado da chave_raw;
+  cada linha traz motivo, chave_raw, gerado_em e a entrada original sem alteração;
+  entrada que é texto (o corpo de um raw em formato inesperado) e entrada que é objeto são serializadas sem perder conteúdo, inclusive acentos;
+  duas execuções com os mesmos rejeitados e o mesmo gerado_em produzem bytes idênticos; com gerado_em diferente, só esse campo muda (idempotência do RF-24);
+  as linhas saem em ordem determinística;
+  sem rejeitados, nenhum arquivo é gerado;
+  a contagem por tabela e por motivo fica disponível para o log do RF-22.
+Commit proposto: feat(T-21): quarentena em json lines [RF-21]
+
+[A] Ajustes
+- Faça só a T-21; gravar no bucket é da T-23.
+- Função pura que devolve o conteúdo de cada arquivo em bytes, por chave, sem S3.
+- gerado_em recebido por parâmetro, para os testes não dependerem do relógio.
+- Toda chave gerada começa com quarentena/ e contém group_id=24325.
+- Decisões já tomadas: chave_raw sem segmento data=AAAA-MM-DD válido, tabela fora de {produto, preco_diario, cambio_diario, cdi_diario} e gerado_em sem fuso lançam ValueError, como proteção contra erro de programação (não são regras de dado e não mudam a spec); NaN e Infinity na entrada são preservados (allow_nan=True), porque o RF-21 exige a entrada original sem alteração, com um comentário no código avisando que o arquivo pode não ser JSON estrito por esse motivo.
+- Siga o RF-21 e o RF-24 ao pé da letra; outras regras novas só depois da minha decisão.
+- Sem rede nos testes. Não leia nem imprima o .env.
+- Não rode git add, git commit nem git push.
+- Se a verificação falhar, tente corrigir no máximo duas vezes; depois disso, pare e explique.
+- Não declare sucesso sem mostrar a saída do comando.
+
+[T] Tipo de saída
+Os arquivos da tarefa, a saída do pytest antes e depois e um resumo de até cinco linhas com o que mudou e a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/plan.md, specs/tasks.md e src/silver/ antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 3 (literal)
+
+```text
+Plano aprovado. Pode seguir.
+```
+
+### Justificativa das regras fora da spec (registrada a pedido)
+- Regras 1 a 3: chave_raw sem segmento data=AAAA-MM-DD válido, tabela fora de {produto, preco_diario, cambio_diario, cdi_diario} e gerado_em sem fuso lançam ValueError. São proteções contra erro de programação, não regras de dado: os Rejeitado vêm das transformações com chave_raw montada pelo leitor do raw (T-15), tabela fixa em cada módulo e gerado_em passado pelo comando da silver. Por isso não exigem mudança na spec.
+- Regra 4: NaN e Infinity na entrada são preservados (json.dumps com allow_nan=True), porque o RF-21 exige a entrada original sem alteração. O comentário em `src/silver/quarentena.py` avisa que, por esse motivo, o arquivo pode não ser JSON estrito.
+
+### Saída dos testes
+
+Antes da implementação (`.venv/bin/pytest tests/unidade/test_silver_quarentena.py -q`):
+
+```text
+    from silver.quarentena import (
+E   ModuleNotFoundError: No module named 'silver.quarentena'
+ERROR tests/unidade/test_silver_quarentena.py
+1 error in 0.40s
+```
+
+Depois da implementação:
+
+```text
+.venv/bin/pytest tests/unidade/test_silver_quarentena.py -q
+17 passed in 0.29s
+.venv/bin/pytest -m "not integracao and not vcr" -q
+278 passed, 12 deselected in 3.15s
+.venv/bin/pytest -q
+290 passed in 5.46s
+```
+
+### Arquivos gerados
+- `src/silver/quarentena.py` (data_da_chave_raw, chave_quarentena, linha_jsonl, montar_quarentena, contagem_por_motivo)
+- `tests/unidade/test_silver_quarentena.py`
+- `specs/tasks.md` (T-21 concluída)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Plano aprovado. Quarentena gerada como função pura: um registros.jsonl por tabela e D (tirado da chave_raw), linhas com motivo, chave_raw, gerado_em e entrada original, em ordem determinística; mesmos rejeitados e mesmo gerado_em dão bytes idênticos. Chaves sempre em quarentena/ com group_id=24325. Casos de chave_raw sem data, tabela desconhecida e gerado_em sem fuso tratados como erro de programação; NaN e Infinity preservados para manter a entrada original. Contagem por tabela e motivo para o log. Plano refeito numa sessão nova do Claude Code e conferido contra o anterior. Testes falharam antes pelo motivo esperado e passaram depois.

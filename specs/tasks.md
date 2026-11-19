@@ -176,12 +176,13 @@ Comando base da silver: `PYTHONPATH=src python -m silver`.
 - Comando: pytest tests/unidade/test_silver_colecao.py -q
 - Depende de: T-14
 
-## T-21 Quarentena em JSON Lines
+## T-21 Quarentena em JSON Lines — concluída (2026-11-19)
 - Requisitos: RF-21, RF-22 (contagem por motivo)
 - Arquivos: `src/silver/quarentena.py`, `tests/unidade/test_silver_quarentena.py`
 - Teste: test_chave_deterministica_por_tabela_e_data; test_linha_tem_motivo_chave_raw_gerado_em_e_entrada_original; test_ordem_deterministica_entre_execucoes; test_contagem_por_motivo
 - Comando: pytest tests/unidade/test_silver_quarentena.py -q
 - Depende de: T-14
+- Nota (2026-11-19): além dos quatro testes acima, o arquivo cobre entrada em texto e objeto com acentos, idempotência com gerado_em igual e diferente, ausência de arquivo sem rejeitados, prefixo das chaves, NaN e Infinity preservados e as proteções com ValueError (chave_raw sem data válida, tabela sem quarentena, gerado_em sem fuso).
 
 ## T-22 Escrita do Parquet e verificação do contrato
 - Requisitos: RF-23, RF-13 a RF-18
