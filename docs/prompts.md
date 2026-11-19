@@ -2504,3 +2504,59 @@ Acrescente esta mudança em docs/prompts.md e pare, sem criar código. Não rode
 
 ### Decisão humana
 Regra encontrada no plano da T-22 escrita na spec antes do código: tabelas sem linha válida geram Parquet vazio com o esquema do contrato (exceto preco_diario, que não gera partição sem linhas), para a tabela não sumir para os colegas depois do reprocessamento.
+## 2026-11-19 — Etapa: implementação da T-22 (escrita do Parquet e verificação do contrato)
+
+O prompt da T-22 e a decisão sobre as regras 1 e 2 estão na entrada "ajuste da spec antes da T-22", logo acima.
+
+### Prompt (literal)
+
+```text
+Spec commitada. Pode implementar a T-22 conforme o plano aprovado, incluindo a regra 1 agora escrita na spec e as proteções da regra 2. Ao final, mostre a saída do pytest antes e depois e um resumo de até cinco linhas com o que mudou e a mensagem de commit proposta. Não rode git add, git commit nem git push.
+```
+
+### Saída dos testes
+
+Antes da implementação (`.venv/bin/pytest tests/unidade/test_silver_parquet.py -q`):
+
+```text
+    from silver.parquet import (
+E   ModuleNotFoundError: No module named 'silver.parquet'
+ERROR tests/unidade/test_silver_parquet.py
+1 error in 3.52s
+```
+
+Primeira execução depois da implementação (1 de no máximo 2 correções):
+
+```text
+E         Left contains one more item: Divergencia(tabela='produto', coluna='group_id', esperado='INTEGER', encontrado='BIGINT')
+FAILED tests/unidade/test_silver_parquet.py::test_parquet_tem_os_tipos_do_contrato[colecao]
+FAILED tests/unidade/test_silver_parquet.py::test_parquet_tem_os_tipos_do_contrato[produto]
+FAILED tests/unidade/test_silver_parquet.py::test_parquet_tem_os_tipos_do_contrato[preco_diario]
+FAILED tests/unidade/test_silver_parquet.py::test_coluna_extra_aceita - Asser...
+FAILED tests/unidade/test_silver_parquet.py::test_uma_tabela_divergente_reprova_o_conjunto
+FAILED tests/unidade/test_silver_parquet.py::test_tabela_vazia_gera_parquet_com_esquema_e_zero_linhas[colecao]
+FAILED tests/unidade/test_silver_parquet.py::test_tabela_vazia_gera_parquet_com_esquema_e_zero_linhas[produto]
+7 failed, 15 passed in 1.52s
+```
+
+Causa: o caminho local espelha a chave (`.../group_id=24325/...`), e o `read_parquet` do DuckDB detecta partição hive e troca a coluna group_id do arquivo pela da partição, com tipo BIGINT. Correção: ler o esquema do próprio arquivo com `hive_partitioning = false` (RF-23: esquema lido do próprio arquivo).
+
+Depois da correção:
+
+```text
+.venv/bin/pytest tests/unidade/test_silver_parquet.py -q
+22 passed in 1.48s
+.venv/bin/pytest -m "not integracao and not vcr" -q
+300 passed, 12 deselected in 4.68s
+.venv/bin/pytest -q
+312 passed in 7.11s
+```
+
+### Arquivos gerados
+- `src/silver/parquet.py` (chave_silver, colunas, escrever_tabela, ler_esquema, comparar_esquema, verificar_contrato)
+- `tests/unidade/test_silver_parquet.py`
+- `specs/tasks.md` (T-22 concluída)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Plano aprovado. Parquet gravado localmente pelo DuckDB com tabelas criadas nos tipos do contrato, sem inferência, e linhas ordenadas pelas chaves; preco_diario com um arquivo por D e as demais com um arquivo só, nas chaves da spec v2. Esquema lido do próprio arquivo com DESCRIBE e comparado ao contrato (coluna extra aceita, coluna faltando ou tipo diferente reprovam o conjunto inteiro). Tabelas sem linha válida geram Parquet vazio com o esquema, exceto preco_diario. Proteções contra erro de programação com ValueError. Testes falharam antes pelo motivo esperado e passaram depois.

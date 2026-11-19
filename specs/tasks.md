@@ -184,12 +184,13 @@ Comando base da silver: `PYTHONPATH=src python -m silver`.
 - Depende de: T-14
 - Nota (2026-11-19): além dos quatro testes acima, o arquivo cobre entrada em texto e objeto com acentos, idempotência com gerado_em igual e diferente, ausência de arquivo sem rejeitados, prefixo das chaves, NaN e Infinity preservados e as proteções com ValueError (chave_raw sem data válida, tabela sem quarentena, gerado_em sem fuso).
 
-## T-22 Escrita do Parquet e verificação do contrato
+## T-22 Escrita do Parquet e verificação do contrato — concluída (2026-11-19)
 - Requisitos: RF-23, RF-13 a RF-18
 - Arquivos: `src/silver/parquet.py`, `tests/unidade/test_silver_parquet.py` (DuckDB local em `tmp_path`, sem rede e sem Docker)
 - Teste: test_parquet_tem_os_tipos_do_contrato (as cinco tabelas, via DESCRIBE); test_coluna_extra_aceita; test_coluna_faltando_reprovada; test_tipo_diferente_reprovado; test_linhas_ordenadas_pelas_chaves
 - Comando: pytest tests/unidade/test_silver_parquet.py -q
 - Depende de: T-14
+- Nota (2026-11-19): o arquivo também cobre preço nulo, um arquivo por D na preco_diario, prefixo das chaves, reprovação do conjunto com uma tabela divergente, tabela sem linhas (RF-23: Parquet vazio com o esquema; preco_diario sem arquivo) e as proteções com ValueError. O esquema é lido com `hive_partitioning = false`, porque o caminho local espelha a chave e, com a detecção automática, o DuckDB troca a coluna group_id do arquivo pela da partição (BIGINT).
 
 ## T-23 Publicação com a guarda do RNF-05 e reprocessamento completo
 - Requisitos: RF-23, RF-24, RNF-05, RNF-06
