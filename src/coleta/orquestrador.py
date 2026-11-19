@@ -1,8 +1,9 @@
-"""Orquestrador da coleta diaria [RF-01 a RF-04, RF-08, RF-10, RF-11, RF-25, RF-26].
+"""Orquestrador da coleta diaria [RF-01 a RF-05, RF-08, RF-10, RF-11, RF-26].
 
-Le a config, le o instante uma unica vez e checa a janela de coleta (RF-25); dentro dela,
-consulta a chave de cada fonte antes do GET (RF-26), busca, grava o raw e escreve o log:
-uma linha JSON por fonte mais uma de resumo, sem cabecalhos HTTP nem valores da Config.
+Le a config antes de qualquer chamada (RF-11) e le o instante uma unica vez; D sai do
+instante (RF-05), em qualquer horario. Consulta a chave de cada fonte antes do GET (RF-26),
+busca, grava o raw e escreve o log: uma linha JSON por fonte mais uma de resumo, sem
+cabecalhos HTTP nem valores da Config.
 """
 
 import argparse
@@ -24,10 +25,6 @@ log = logging.getLogger("coleta")
 SAIDA_OK = 0
 SAIDA_ERRO_FONTE = 1
 SAIDA_ERRO_CONFIG = 2
-
-# Janela de coleta em hora UTC [RF-25]: de 20:00:00 a 02:59:59 (17h a 23h59 em Sao Paulo)
-JANELA_INICIO_UTC = 20
-JANELA_FIM_UTC = 3
 
 
 @dataclass(frozen=True)
@@ -54,12 +51,6 @@ def _url(fonte: str, d: date) -> str:
         "ptax": lambda: url_ptax(d),
         "cdi": lambda: url_cdi(d),
     }[fonte]()
-
-
-def dentro_da_janela(instante: datetime) -> bool:
-    """RF-25: verdadeiro de 20:00:00 a 02:59:59 UTC; a janela atravessa a meia-noite UTC."""
-    hora = instante.astimezone(timezone.utc).hour
-    return hora >= JANELA_INICIO_UTC or hora < JANELA_FIM_UTC
 
 
 def _coletar_fonte(fonte, url, chave, config, cliente_http, s3, instante, obter):
@@ -164,7 +155,7 @@ def main(
 ) -> int:
     parser = argparse.ArgumentParser(
         prog="python -m coleta",
-        description="Coleta diaria do groupId 24325 (D = data corrente em America/Sao_Paulo).",
+        description="Coleta diaria do groupId 24325 (D = data UTC de instante - 20 h).",
     )
     parser.parse_args(argv)
 
@@ -177,19 +168,6 @@ def main(
         return SAIDA_ERRO_CONFIG
 
     instante = relogio().astimezone(timezone.utc)
-    if not dentro_da_janela(instante):
-        log.info(
-            _json(
-                {
-                    "tipo": "resumo",
-                    "resultado": "fora da janela",
-                    "data": data_coleta(instante).isoformat(),
-                    "coletado_em": instante.isoformat(timespec="seconds"),
-                    "codigo_saida": SAIDA_OK,
-                }
-            )
-        )
-        return SAIDA_OK
 
     if cliente_http is None:
         cliente_http = ClienteHTTP(config.user_agent)

@@ -2242,3 +2242,100 @@ Pode gravar spec.md, tasks.md, plan.md e AGENTS.md, acrescentar o prompt em docs
 
 ### Decisão humana
 Aprovada a nova definição de D (data UTC de instante − 20 h), substituindo a janela do RF-25, após atrasos de 5 a 8 h nas execuções de 17 e 18/11. Compatível com os dias já gravados. AGENTS.md ajustado para a nova regra; atraso eventual da atualização do TCGCSV registrado como lacuna para o ATAM. Implementação na T-28, antes da T-21.
+## 2026-11-19 — Etapa: implementação da T-28 (nova D e remoção da janela)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados Python que pratica desenvolvimento orientado a testes. Executa uma única tarefa, prova que ela funciona com a saída real do terminal e para.
+
+[R] Pedido
+Implemente somente a tarefa T-28 de specs/tasks.md (nova definição de D e remoção da janela). Siga esta ordem:
+1. mostre o plano: arquivos, mudanças em urls.py e orquestrador.py, testes novos, testes removidos ou substituídos e comandos de verificação; espere minha confirmação;
+2. escreva primeiro os testes novos, rode e mostre que falham pelo motivo esperado (comportamento ainda inexistente, e não falta de dependência);
+3. implemente o mínimo para os testes passarem, removendo a checagem de janela;
+4. rode a verificação da tarefa, os testes de integração e o pytest inteiro e mostre a saída real;
+5. marque a T-28 como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit.
+
+[E] Exemplos
+Comportamento esperado:
+  2026-11-18T21:17 UTC -> D = 2026-11-18;
+  2026-11-19T02:33 UTC -> D = 2026-11-18;
+  2026-11-19T09:29 UTC -> D = 2026-11-18, e com as chaves já existentes: ja_existia, nenhum GET, código 0;
+  2026-11-19T19:59 UTC sem chave -> grava sob D = 2026-11-18;
+  2026-11-19T20:00 UTC -> D = 2026-11-19;
+  instante sem fuso -> recusado;
+  configuração inválida em qualquer horário -> código diferente de zero, sem chamadas HTTP nem S3;
+  nenhum log de "fora da janela" em nenhum horário.
+Commit proposto: feat(T-28): data D pela ultima atualizacao do tcgcsv [RF-05, RF-11, RF-25, RF-26]
+
+[A] Ajustes
+- Faça só a T-28; não altere o workflow nem nada da silver.
+- O head antes do GET (RF-26) e o head antes do put continuam como estão.
+- Os testes de integração com Testcontainers precisam continuar passando.
+- Não rode o coletor contra o bucket e não dispare o workflow.
+- Não leia nem imprima o .env.
+- Não rode git add, git commit nem git push.
+- Se a verificação falhar, tente corrigir no máximo duas vezes; depois disso, pare e explique.
+- Não declare sucesso sem mostrar a saída do comando.
+
+[T] Tipo de saída
+Os arquivos alterados, a saída do pytest antes e depois e um resumo de até cinco linhas com o que mudou e a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/plan.md, specs/tasks.md, src/coleta/ e os testes em tests/ antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2 (literal)
+
+```text
+Plano aprovado. Acrescente só uma coisa: atualize a docstring de tests/unidade/test_workflow.py para não citar o RF-25 como vigente (mencione que ele foi substituído pela nova D da T-28), sem mudar nenhum teste desse arquivo. Pode seguir.
+```
+
+### Saída dos testes
+
+Antes da implementação (`.venv/bin/pytest tests/unidade/test_urls.py tests/unidade/test_orquestrador.py -q`, resumo):
+
+```text
+E       assert datetime.date(2026, 11, 19) == datetime.date(2026, 11, 18)
+E        +  where datetime.date(2026, 11, 19) = data_coleta(datetime.datetime(2026, 11, 19, 9, 29, tzinfo=datetime.timezone.utc))
+E       assert datetime.date(2026, 11, 19) == datetime.date(2026, 11, 18)
+E        +  where datetime.date(2026, 11, 19) = data_coleta(datetime.datetime(2026, 11, 19, 19, 59, 59, tzinfo=datetime.timezone.utc))
+E       AssertionError: assert [] == ['raw/tcgplay...-18/cdi.json']
+E         Right contains 4 more items, first extra item: 'raw/tcgplayer/group_id=24325/data=2026-11-18/products.json'
+E       assert 0 == 4
+E        +  where 0 = len([])
+FAILED tests/unidade/test_urls.py::test_d_2026_11_19t09h29_utc_e_18 - assert ...
+FAILED tests/unidade/test_urls.py::test_d_2026_11_19t19h59_utc_e_18 - assert ...
+FAILED tests/unidade/test_orquestrador.py::test_execucao_atrasada_com_chave_existente_registra_ja_existia_sem_get
+FAILED tests/unidade/test_orquestrador.py::test_execucao_19h59_utc_sem_chave_grava_na_d_anterior
+4 failed, 27 passed in 1.75s
+```
+
+Os testes novos que já passavam antes (21:17, 02:33 e 20:00 UTC, compatibilidade com a regra antiga e configuração inválida) cobrem instantes em que as duas regras coincidem e servem de proteção contra regressão.
+
+Depois da implementação:
+
+```text
+.venv/bin/pytest tests/unidade/test_urls.py tests/unidade/test_orquestrador.py -q
+31 passed in 0.33s
+.venv/bin/pytest -m "not integracao and not vcr" -q
+261 passed, 12 deselected in 4.91s
+.venv/bin/pytest -m integracao -q
+5 passed, 268 deselected in 11.68s
+.venv/bin/pytest -q
+273 passed in 5.82s
+```
+
+### Arquivos gerados
+- `src/coleta/urls.py` (`data_coleta` = data UTC de instante − 20 h; constante `ATRASO_ATUALIZACAO_TCGCSV`; sem `zoneinfo`)
+- `src/coleta/orquestrador.py` (sem `dentro_da_janela`, constantes `JANELA_*` e ramo "fora da janela"; docstring e descrição da CLI)
+- `tests/unidade/test_urls.py` (cinco casos de D e compatibilidade; sai test_data_d_em_sao_paulo; test_instante_sem_fuso_recusado renomeado)
+- `tests/unidade/test_orquestrador.py` (saem os seis testes de janela; entram execução atrasada, 19:59 UTC sem chave e configuração inválida em três horários)
+- `tests/unidade/test_workflow.py` (só docstrings)
+- `specs/tasks.md` (T-28 concluída)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Plano aprovado em modo plan, com aprovação manual das edições. D = data UTC de (instante − 20 h) em urls.py; janela e ramo "fora da janela" removidos do orquestrador; heads antes do GET e do put mantidos. Testes dos cinco casos de D, da compatibilidade com a regra antiga minuto a minuto entre 20:00 e 02:59 UTC, da execução atrasada com ja_existia e da configuração inválida em qualquer horário. Docstring do test_workflow.py atualizada. Testes novos falharam antes pelo motivo esperado; integração e suíte inteira passando.

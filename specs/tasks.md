@@ -245,7 +245,7 @@ Comando base da silver: `PYTHONPATH=src python -m silver`.
 
 # Nova definição de D (adendo de 2026-11-19)
 
-## T-28 Nova D no cálculo da data e remoção da janela
+## T-28 Nova D no cálculo da data e remoção da janela — concluída (2026-11-19)
 - Requisitos: RF-05, RF-03, RF-04, RF-06, RF-11, RF-12, RF-26 (RF-25 substituído)
 - Motivo: nas noites de 17/11 e 18/11, as execuções agendadas atrasaram de 5 a 8 h. Em 18/11, só a primeira entrou na janela, com 27 min de folga, e as seguintes registraram "fora da janela" (origem: aba Actions). Se todas atrasarem além da janela, o dia se perde. Com D = data UTC de (instante − 20 h), uma execução em qualquer horário grava sob a D correta.
 - Arquivos: `src/coleta/urls.py` (`data_coleta`), `src/coleta/orquestrador.py` (remove `dentro_da_janela`, as constantes `JANELA_*` e o ramo "fora da janela", e atualiza a descrição da CLI), `tests/unidade/test_urls.py`, `tests/unidade/test_orquestrador.py`
@@ -253,3 +253,4 @@ Comando base da silver: `PYTHONPATH=src python -m silver`.
 - Os testes de borda substituem test_data_d_em_sao_paulo (T-03) e os testes de janela da T-13: test_19h59_utc_fora_da_janela_sem_http_nem_s3, test_20h00_utc_dentro_da_janela, test_02h59_utc_dentro_da_janela_com_d_do_dia_anterior_em_utc, test_03h00_utc_fora_da_janela_sem_http_nem_s3, test_fora_da_janela_loga_e_sai_com_zero e test_config_invalida_fora_da_janela_sai_com_erro.
 - Comando: pytest tests/unidade/test_urls.py tests/unidade/test_orquestrador.py -q && pytest -m "not integracao and not vcr" -q && pytest -m integracao -q (test_coleta_completa_duas_vezes_com_minio continua passando)
 - Depende de: T-13. Prioridade: vem antes da T-21, que fica pausada. O workflow não muda.
+- Nota (2026-11-19): a pedido, a docstring de `tests/unidade/test_workflow.py` deixou de citar o RF-25 como vigente; nenhum teste desse arquivo mudou.

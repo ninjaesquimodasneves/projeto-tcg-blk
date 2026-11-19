@@ -1,6 +1,7 @@
-"""T-10 e T-13: workflow do GitHub Actions [RF-11, RF-12, RF-25, RNF-03].
+"""T-10 e T-13: workflow do GitHub Actions [RF-11, RF-12, RNF-03].
 
 Le o YAML como texto (sem dependencia nova). Sem rede e sem .env.
+O RF-25 (janela de coleta) foi substituido pela nova D na T-28; os quatro horarios do RF-12 continuam.
 """
 
 import re
@@ -18,7 +19,7 @@ def _env_example() -> dict[str, str]:
 
 
 def test_workflow_tem_quatro_crons_entre_20h_e_3h_utc():
-    """RF-12 e RF-25: quatro horarios na noite, todos dentro da janela de 20:00 a 02:59 UTC."""
+    """RF-12: quatro horarios na noite, entre 20:00 e 02:59 UTC (a janela do RF-25 foi substituida pela nova D, T-28)."""
     crons = re.findall(r'^\s*-\s*cron:\s*"([^"]+)"', WORKFLOW, re.M)
     assert sorted(crons) == sorted(["17 21 * * *", "47 22 * * *", "17 0 * * *", "47 1 * * *"])
     for cron in crons:

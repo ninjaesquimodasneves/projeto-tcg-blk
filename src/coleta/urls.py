@@ -3,12 +3,12 @@
 Funcoes puras: sem rede e sem relogio; o instante da coleta e sempre parametro.
 """
 
-from datetime import date, datetime, timedelta
-from zoneinfo import ZoneInfo
+from datetime import date, datetime, timedelta, timezone
 
 from coleta.config import GROUP_ID_PERMITIDO
 
-FUSO = ZoneInfo("America/Sao_Paulo")
+# O TCGCSV atualiza por volta das 20h UTC (origem: enunciado); D e a data dessa atualizacao (RF-05)
+ATRASO_ATUALIZACAO_TCGCSV = timedelta(hours=20)
 
 # Janela do CDI em dias corridos: hipotese, validacao pendente (RF-04)
 JANELA_CDI_DIAS = 10
@@ -24,10 +24,10 @@ FONTES = tuple(_PREFIXOS_RAW)
 
 
 def data_coleta(instante: datetime) -> date:
-    """D = data civil do instante no fuso America/Sao_Paulo."""
+    """D = data UTC de (instante - 20 h): a data da ultima atualizacao do TCGCSV (RF-05)."""
     if instante.tzinfo is None or instante.utcoffset() is None:
         raise ValueError("instante sem fuso horario; D ficaria ambiguo")
-    return instante.astimezone(FUSO).date()
+    return (instante.astimezone(timezone.utc) - ATRASO_ATUALIZACAO_TCGCSV).date()
 
 
 def url_products() -> str:
