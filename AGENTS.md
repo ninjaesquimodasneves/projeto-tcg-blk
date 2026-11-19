@@ -42,7 +42,7 @@
 - Rodar a coleta de novo no mesmo dia é permitido e esperado; o que não pode é sobrescrever.
 - raw guarda a resposta original da fonte, sem transformação.
 - Coleta TCGCSV: User-Agent próprio (`USER_AGENT`), pausa mínima de 100 ms entre chamadas, no máximo uma coleta por dia.
-- Coleta do TCGCSV depois das 20h UTC, quando a fonte atualiza.
+- Cada D é coletada depois da atualização do TCGCSV por volta das 20h UTC daquele dia (D = data UTC de instante − 20 h; ver spec), quando a fonte atualiza.
 - Testes de unidade não acessam rede nem Docker; testes de contrato usam cassetes VCR sem segredos; testes de integração usam Testcontainers (MinIO local); nenhum teste acessa o bucket real da turma.
 
 ## Gates por etapa

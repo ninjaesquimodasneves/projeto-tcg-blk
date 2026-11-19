@@ -2182,3 +2182,63 @@ Depois da implementação:
 
 ### Decisão humana
 Plano aprovado. Tabela colecao como função pura com os valores fixos do RF-13 e group_id da mesma fonte do coletor; recusa do modelo vira erro de código, sem quarentena, já que os valores são fixos. Regra extra sobre a SIGLA da configuração recusada: a silver não usa essa variável, e o teste com configuração divergente prova que a linha sai igual. Testes falharam antes pelo motivo esperado e passaram depois.
+## 2026-11-19 — Etapa: nova definição de D na spec (RF-25 substituído, T-28)
+
+### Prompt 1 (literal)
+
+```text
+Antes de responder sobre a T-21, vamos tratar uma mudança mais urgente na coleta. A T-21 fica pausada.
+
+[C] Personagem
+Você é um engenheiro de requisitos de dados. Escreve requisitos verificáveis com critério Dado/Quando/Então. Não escreve código.
+
+[R] Pedido
+Atualize specs/spec.md, specs/tasks.md e specs/plan.md para mudar a definição da data D da coleta.
+Fatos (origem: aba Actions do repositório): nas noites de 17/11 e 18/11, todas as execuções agendadas atrasaram de 5 a 8 horas; em 18/11, só a primeira entrou na janela, com 27 minutos de folga (rodou às 02:33 UTC); as seguintes rodaram depois das 03:00 UTC e registraram "fora da janela". Se todas atrasarem além da janela, o dia se perde.
+Mudança:
+1. A data D passa a ser a data da última atualização do TCGCSV: D = data UTC de (instante da coleta − 20 horas). Origem: o TCGCSV atualiza por volta das 20h UTC (enunciado). Atualize a convenção de D no topo da spec e os requisitos que a usam (RF-03, RF-04, RF-05 e o que mais citar a data da coleta em São Paulo).
+2. Com isso, uma execução em qualquer horário grava o dado sob a D correta: antes das 20h UTC do dia seguinte, a fonte ainda traz o dado de D, e a chave de D já existe ou é gravada.
+3. O RF-25 (janela de coleta) é substituído: marque-o como "substituído pela nova definição de D", sem apagar o texto, explicando o motivo. A configuração continua sendo lida antes de qualquer chamada.
+4. Registre como fato que a nova regra é compatível com os dias já gravados: as execuções que gravaram 17/11 e 18/11 (entre 20:00 e 02:59 UTC) produzem a mesma D pelas duas definições.
+5. O RF-12 continua com os quatro horários; o texto deixa de citar a janela.
+6. Em specs/tasks.md, acrescente a T-28 (implementação da nova D no cálculo da data, remoção da checagem de janela no orquestrador, atualização dos testes de borda para a nova regra), com o motivo, e marque na T-13 que a janela foi substituída pela T-28.
+7. Atualize o specs/plan.md onde ele cita a janela.
+
+[E] Exemplos
+Casos que a spec precisa citar:
+  2026-11-18T21:17 UTC -> D = 2026-11-18;
+  2026-11-19T02:33 UTC -> D = 2026-11-18;
+  2026-11-19T09:29 UTC -> D = 2026-11-18 (execução atrasada: registra ja_existia, sem dado novo);
+  2026-11-19T19:59 UTC -> D = 2026-11-18;
+  2026-11-19T20:00 UTC -> D = 2026-11-19.
+
+[A] Ajustes
+- Não altere os demais requisitos além do necessário para a nova D.
+- Não escreva código nem altere o workflow nesta etapa.
+- Não rode git add, git commit nem git push.
+
+[T] Tipo de saída
+Somente specs/spec.md, specs/tasks.md e specs/plan.md. Mostre as seções alteradas e novas antes de gravar e espere minha confirmação.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/plan.md, specs/tasks.md, src/coleta/urls.py e src/coleta/orquestrador.py. Ao gravar, acrescente o prompt em docs/prompts.md. Pare ao final.
+```
+
+### Prompt 2 (literal)
+
+```text
+Seções aprovadas. Decisões:
+1. Ajuste o AGENTS.md: troque "coleta do TCGCSV depois das 20h UTC" por "cada D é coletada depois da atualização do TCGCSV por volta das 20h UTC daquele dia (D = data UTC de instante − 20 h; ver spec)". Não altere mais nada no AGENTS.md.
+2. Registre como lacuna na spec: o horário de atualização do TCGCSV é aproximado; se em algum dia ela atrasar, uma execução entre 20:00 UTC e o horário real gravaria o dado anterior sob a nova D. Risco a avaliar no ATAM.
+Pode gravar spec.md, tasks.md, plan.md e AGENTS.md, acrescentar o prompt em docs/prompts.md e parar. Não rode git add, git commit nem git push.
+```
+
+### Arquivos gerados
+- `specs/spec.md` (convenção de D; adendo de 2026-11-19; RF-03, RF-04, RF-05 com os cinco casos, RF-06, RF-11 com a leitura da configuração antes de qualquer chamada, RF-12 e RF-26 ajustados; RF-25 marcado como substituído, com o texto mantido; fatos dos atrasos de 17/11 e 18/11 e da compatibilidade das duas regras; lacuna do horário aproximado de atualização do TCGCSV)
+- `specs/tasks.md` (nota na T-13; nova T-28; rastreabilidade de RF-03, RF-04, RF-05, RF-11, RF-25 e RF-26)
+- `specs/plan.md` (componentes Orquestrador e URLs, escolhas técnicas de D e da CLI, checagem da janela marcada como substituída, notas sobre os horários e as execuções atrasadas)
+- `AGENTS.md` (regra do horário de coleta do TCGCSV reescrita em termos de D)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Aprovada a nova definição de D (data UTC de instante − 20 h), substituindo a janela do RF-25, após atrasos de 5 a 8 h nas execuções de 17 e 18/11. Compatível com os dias já gravados. AGENTS.md ajustado para a nova regra; atraso eventual da atualização do TCGCSV registrado como lacuna para o ATAM. Implementação na T-28, antes da T-21.

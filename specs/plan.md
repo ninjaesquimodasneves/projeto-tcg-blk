@@ -1,6 +1,6 @@
 # Plano — Coleta diária e camada bruta (versão 1)
 
-Cobre `specs/spec.md` v1 (RF-01 a RF-12, RNF-01 a RNF-04) e o adendo de 2026-11-18 (RF-12 alterado, RF-25 e RF-26: proteção contra atraso do agendador). A camada silver da spec v2 (RF-13 a RF-24, RNF-05 e RNF-06) está na seção "Camada silver (spec v2)", no fim deste arquivo. Tarefas em `specs/tasks.md`. Personas em `docs/00_persona.md`.
+Cobre `specs/spec.md` v1 (RF-01 a RF-12, RNF-01 a RNF-04) e o adendo de 2026-11-18 (RF-12 alterado, RF-25 e RF-26: proteção contra atraso do agendador) e o adendo de 2026-11-19 (nova D, RF-25 substituído). A camada silver da spec v2 (RF-13 a RF-24, RNF-05 e RNF-06) está na seção "Camada silver (spec v2)", no fim deste arquivo. Tarefas em `specs/tasks.md`. Personas em `docs/00_persona.md`.
 
 ## Diagrama C4 de contexto
 
@@ -41,9 +41,9 @@ C4Component
     Component(workflow, "Workflow coleta.yml", ".github/workflows", "Quatro crons entre 21h17 e 01h47 UTC e workflow_dispatch com secrets")
   }
   Container_Boundary(pacote, "Pacote src/coleta") {
-    Component(cli, "Orquestrador e CLI", "__main__.py e orquestrador.py", "Checa a janela, consulta as chaves, chama as fontes, loga e define o código de saída")
+    Component(cli, "Orquestrador e CLI", "__main__.py e orquestrador.py", "Consulta as chaves, chama as fontes, loga e define o código de saída")
     Component(config, "Config", "config.py", "Lê as variáveis do .env.example via os.environ")
-    Component(urls, "URLs chaves e datas", "urls.py", "D em America/Sao_Paulo, PTAX MM-DD-AAAA, janela do CDI")
+    Component(urls, "URLs chaves e datas", "urls.py", "D = data UTC de (instante − 20 h), PTAX MM-DD-AAAA, janela do CDI")
     Component(cliente, "Cliente HTTP", "cliente_http.py e repeticao.py", "User-Agent, pausa, timeouts e repetição")
     Component(classif, "Classificador da PTAX", "ptax.py", "Sem boletim e alerta de dia útil")
     Component(gravador, "Gravador do raw", "gravador.py", "Head antes do put, metadados ASCII e sha256")
@@ -71,20 +71,20 @@ C4Component
 | `head_object` antes do `put_object`: 404 grava, existente vira ja_existia | Put condicional `If-None-Match` (suporte no RustFS: hipótese, validação pendente) | RF-06 |
 | Recusa de chave sem `group_id=24325` antes de qualquer chamada S3 | Confiar só na montagem da chave | RNF-04 |
 | Metadados `x-amz-meta-*` validados como ASCII antes do put | Tags de objeto | RF-07 |
-| `zoneinfo` (stdlib) para D em America/Sao_Paulo | pytz | RF-03, RF-04, RF-05 |
-| CLI sem parâmetro de data: D é sempre a data corrente | Parâmetro `--data` (gravaria preço de hoje com data passada) | RF-05, OBJ-02 |
+| datetime e timedelta da stdlib em UTC: D = (instante − 20 h).date() | D pelo fuso America/Sao_Paulo (regra até 2026-11-18) ou pytz | RF-03, RF-04, RF-05 |
+| CLI sem parâmetro de data: D sai sempre do instante da coleta (RF-05) | Parâmetro `--data` (gravaria preço de hoje com data passada) | RF-05, OBJ-02 |
 | python-dotenv carregado só se houver `.env` local; no Actions vale só o ambiente | dotenv também em produção | RNF-03 |
 | pytest com marcadores `integracao` e `vcr` | unittest | verificação de todos os RF e RNF |
 | vcrpy com pytest-recording, `filter_headers` de Authorization, `record_mode=none` na execução normal | Biblioteca responses ou chamadas reais nos testes | RF-01 a RF-04, RF-08, RNF-03 |
 | Testcontainers com MinIO `coollabsio/minio:RELEASE.2025-10-15T17-29-55Z` | moto (não exercita um servidor S3 real) | RF-05, RF-06, RF-07, RNF-04 |
 | `logging` da stdlib na saída padrão, uma linha JSON por fonte mais um resumo | Arquivo de log no runner (descartado no fim do job) | RF-10 |
 | GitHub Actions com crons `17 21 * * *`, `47 22 * * *`, `17 0 * * *` e `47 1 * * *`, `workflow_dispatch`, secrets e `concurrency` | Railway; um único cron (o atraso de 17/11 mostrou que uma execução só não basta) | RF-12, RNF-03, RF-06 |
-| Checagem da janela de 20:00 a 02:59 UTC no orquestrador, com o relógio injetado, depois de carregar a config e antes de criar os clientes HTTP e S3 | Condição `if` de horário no workflow (não cobre o disparo manual nem o atraso do runner depois do início do job) | RF-25, RF-11 |
+| ~~Checagem da janela de 20:00 a 02:59 UTC no orquestrador, com o relógio injetado, depois de carregar a config e antes de criar os clientes HTTP e S3~~ Substituída em 2026-11-19 pela nova D (RF-05): a janela perdia o dia quando todas as execuções atrasavam | Condição `if` de horário no workflow (não cobre o disparo manual nem o atraso do runner depois do início do job) | RF-25, RF-11 |
 | `head_object` da chave de cada fonte antes do GET; GET só quando a chave não existe. O gravador mantém o próprio head antes do put | Baixar sempre e checar só antes do put (até quatro downloads do TCGCSV por noite) | RF-26, RF-06, RNF-01 |
 
 Notas:
-- Os minutos 17 e 47 evitam o atraso do GitHub em hora cheia. Os quatro horários equivalem a 18h17, 19h47, 21h17 e 22h47 em São Paulo, todos dentro da janela do RF-25. Depois da meia-noite UTC, D (São Paulo) é o dia civil anterior ao de UTC; a D sai sempre de `data_coleta` em America/Sao_Paulo.
-- Uma execução atrasada que comece depois das 02:59 UTC sai com código 0 e "fora da janela", sem tocar no bucket; a noite seguinte segue normal.
+- Os minutos 17 e 47 evitam o atraso do GitHub em hora cheia. A D sai de `data_coleta` = data UTC de (instante − 20 h), então um atraso não muda a D enquanto a execução começar antes das 20h UTC do dia seguinte.
+- Uma execução atrasada grava sob a D correta: se a chave já existe, registra ja_existia sem GET (RF-26); se não existe, grava o dado da última atualização.
 - O `concurrency` impede duas execuções simultâneas entre o head e o put, que é a janela de corrida do RF-06.
 - Testes de unidade não usam rede nem Docker. Cliente S3, sessão HTTP, relógio, `sleep` e gerador aleatório são injetados como dependências falsas. O "servidor simulado lento" do RNF-02 é uma sessão falsa que lança timeout.
 - A primeira execução da noite faz 4 chamadas HTTP, ou até 20 com 5 tentativas cada; as seguintes só fazem as 4 consultas de chave no S3 e nenhuma chamada HTTP para as fontes já gravadas (RF-26). Isso fica muito abaixo das 10.000 por dia do RNF-01.

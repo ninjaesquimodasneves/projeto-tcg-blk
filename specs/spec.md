@@ -1,7 +1,7 @@
 # Spec — Coleta diária, camada bruta e camada silver (versão 2)
 
-Escopo da v1 (RF-01 a RF-12, RNF-01 a RNF-04): coleta diária das fontes e gravação da resposta original em raw/. Escopo acrescentado na v2 (RF-13 a RF-24, RNF-05 e RNF-06): camada silver em Parquet, derivada só do raw, validada e publicada no contrato comum da turma (origem: enunciado do projeto), com quarentena e reprocessamento. Adendo de 2026-11-18 (RF-12 alterado, RF-25 e RF-26): proteção da coleta contra atrasos do agendador. Origem dos IDs: personas P-xx em `docs/00_persona.md`, objetivos OBJ-xx em `docs/01_objetivos_negocio.md`, restrições em `docs/01_objetivos_negocio.md` e `AGENTS.md`.
-Convenções: D = data da coleta no fuso America/Sao_Paulo (AAAA-MM-DD); na silver, D é a data da partição `data=D` do raw de origem. Bucket `tcg`. Valores marcados "hipótese, validação pendente" têm valor inicial sugerido.
+Escopo da v1 (RF-01 a RF-12, RNF-01 a RNF-04): coleta diária das fontes e gravação da resposta original em raw/. Escopo acrescentado na v2 (RF-13 a RF-24, RNF-05 e RNF-06): camada silver em Parquet, derivada só do raw, validada e publicada no contrato comum da turma (origem: enunciado do projeto), com quarentena e reprocessamento. Adendo de 2026-11-18 (RF-12 alterado, RF-25 e RF-26): proteção da coleta contra atrasos do agendador. Adendo de 2026-11-19 (nova definição de D; RF-03 a RF-06, RF-11, RF-12 e RF-26 ajustados; RF-25 substituído): proteção da coleta contra atrasos maiores que a janela. Origem dos IDs: personas P-xx em `docs/00_persona.md`, objetivos OBJ-xx em `docs/01_objetivos_negocio.md`, restrições em `docs/01_objetivos_negocio.md` e `AGENTS.md`.
+Convenções: D = data da última atualização do TCGCSV = data UTC de (instante da coleta − 20 horas), no formato AAAA-MM-DD. Origem: o TCGCSV atualiza por volta das 20h UTC (enunciado). Até 2026-11-18, D era a data da coleta no fuso America/Sao_Paulo; as duas regras dão a mesma D entre 20:00 e 02:59 UTC (ver "Fatos"). Na silver, D é a data da partição `data=D` do raw de origem. Bucket `tcg`. Valores marcados "hipótese, validação pendente" têm valor inicial sugerido.
 Convenções da silver (v2): "colunas mínimas" são as colunas do contrato listadas em cada tabela, com nome e tipo fixos; colunas extras são permitidas. Os tipos são os do DuckDB (INTEGER, VARCHAR, DOUBLE, DATE, TIMESTAMP). "Publicar" é gravar o Parquet na chave final da silver.
 
 ## Requisitos funcionais
@@ -20,16 +20,16 @@ Origem: OBJ-01, OBJ-03
 - Então faz GET em https://tcgcsv.com/tcgplayer/3/24325/prices e entrega o corpo da resposta, sem alteração, ao RF-05
 Verificação: teste de contrato com cassete VCR; log da execução real com status 200 para prices.
 
-### RF-03 Coleta da PTAX do dólar do dia
+### RF-03 Coleta da PTAX do dólar do dia D
 Origem: OBJ-03, restrição "PTAX e CDI das APIs públicas do Banco Central"
-- Dada a data D
+- Dada a data D (convenção do topo: data da última atualização do TCGCSV)
 - Quando o coletor roda
 - Então faz GET em https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoMoedaDia(moeda=@moeda,dataCotacao=@dataCotacao)?@moeda='USD'&@dataCotacao='MM-DD-AAAA'&$format=json com dataCotacao = D no formato MM-DD-AAAA, e a resposta com todos os boletins do dia vai para o RF-05
 Verificação: teste de unidade da montagem da URL para uma D fixa; teste de contrato com cassete VCR.
 
 ### RF-04 Coleta do CDI em janela de dias
 Origem: OBJ-07, restrição "PTAX e CDI das APIs públicas do Banco Central"
-- Dada a data D e uma janela de N dias corridos (N = 10; hipótese, validação pendente)
+- Dada a data D (convenção do topo) e uma janela de N dias corridos (N = 10; hipótese, validação pendente)
 - Quando o coletor roda
 - Então faz GET em https://api.bcb.gov.br/dados/serie/bcdata.sgs.12/dados?formato=json&dataInicial=DD/MM/AAAA&dataFinal=DD/MM/AAAA com dataInicial = D − N e dataFinal = D, e a resposta vai para o RF-05
 Verificação: teste de unidade das datas da janela para uma D fixa; teste de contrato com cassete VCR.
@@ -39,12 +39,18 @@ Origem: OBJ-01, OBJ-02, restrição "raw/ guarda a resposta original"
 - Dada uma resposta de sucesso de uma fonte na data D
 - Quando o coletor grava
 - Então os bytes do corpo são gravados sem transformação em raw/tcgplayer/group_id=24325/data=D/products.json, raw/tcgplayer/group_id=24325/data=D/prices.json, raw/bcb_ptax/group_id=24325/data=D/cotacao.json ou raw/bcb_cdi/group_id=24325/data=D/cdi.json, conforme a fonte
-Verificação: teste de integração com MinIO em Testcontainers comparando o sha256 do objeto lido com o do corpo recebido; no bucket real, listar as chaves de D.
+
+- Dado o instante da coleta em UTC, por agendamento ou por disparo manual, em qualquer horário
+- Quando o coletor calcula D
+- Então D = data UTC de (instante − 20 h), e as quatro chaves do raw usam essa D
+- E, como a fonte ainda traz o dado de D até as 20h UTC do dia seguinte, a execução grava sob a D correta em qualquer horário: se a chave de D já existe, registra ja_existia (RF-06, RF-26); se não existe, grava
+- Casos: 2026-11-18T21:17 UTC → D = 2026-11-18; 2026-11-19T02:33 UTC → D = 2026-11-18; 2026-11-19T09:29 UTC → D = 2026-11-18 (execução atrasada: registra ja_existia, sem dado novo); 2026-11-19T19:59 UTC → D = 2026-11-18; 2026-11-19T20:00 UTC → D = 2026-11-19
+Verificação: teste de integração com MinIO em Testcontainers comparando o sha256 do objeto lido com o do corpo recebido; no bucket real, listar as chaves de D; teste de unidade do cálculo de D nos cinco casos; teste de unidade do orquestrador às 09:29 UTC com a chave existente (ja_existia, nenhum GET).
 
 ### RF-06 Recusa de sobrescrita no bruto
 Origem: OBJ-01, OBJ-02, restrição "raw/ nunca sobrescrito"
 - Dado que raw/tcgplayer/group_id=24325/data=2026-11-10/prices.json já existe no bucket
-- Quando o coletor roda de novo no mesmo dia
+- Quando o coletor roda de novo com a mesma D
 - Então nenhum put é feito nessa chave, o log registra ja_existia para prices e a execução termina com código 0
 Verificação: teste de integração com MinIO em Testcontainers; no bucket real, rodar a coleta duas vezes e listar a chave.
 
@@ -87,14 +93,18 @@ Origem: OBJ-01, OBJ-02
 - Dada uma execução em que pelo menos uma fonte termina em erro
 - Quando o coletor encerra
 - Então o código de saída é diferente de zero; com todas as fontes em gravado ou ja_existia, o código é 0
-Verificação: teste de unidade dos dois casos; execução com falha forçada mostrando a falha no agendador.
+
+- Dada uma configuração inválida, inclusive a falha forçada
+- Quando o coletor roda, em qualquer horário
+- Então a configuração é lida antes de qualquer chamada, o coletor não faz nenhuma chamada HTTP nem S3 e sai com código diferente de zero
+Verificação: teste de unidade dos dois casos; execução com falha forçada mostrando a falha no agendador; teste de unidade com configuração inválida (código diferente de zero, nenhuma chamada HTTP nem S3).
 
 ### RF-12 Execução agendada e manual
 Origem: OBJ-01, restrição "agendamento no GitHub Actions ou Railway"
 - Dado o repositório no GitHub
-- Quando chega um dos horários agendados da noite, todos entre 20h e 3h UTC (21:17, 22:47, 00:17 e 01:47 UTC; hipótese, validação pendente), ou alguém dispara à mão
-- Então o coletor roda com as credenciais vindas de variáveis de ambiente do agendador, sujeito à janela do RF-25
-- E, na mesma noite, a primeira execução dentro da janela grava cada fonte e as seguintes registram ja_existia (RF-06, RF-26); uma fonte que terminou em erro numa execução é gravada pela execução seguinte da mesma noite
+- Quando chega um dos horários agendados da noite (21:17, 22:47, 00:17 e 01:47 UTC; hipótese, validação pendente), ou alguém dispara à mão
+- Então o coletor roda com as credenciais vindas de variáveis de ambiente do agendador e grava sob a D do RF-05, mesmo se a execução atrasar
+- E, para a mesma D, a primeira execução grava cada fonte e as seguintes registram ja_existia (RF-06, RF-26); uma fonte que terminou em erro numa execução é gravada pela execução seguinte com a mesma D
 Verificação: definição dos horários no repositório; histórico do GitHub Actions com uma noite em que a primeira execução grava e as seguintes registram ja_existia.
 
 ## Requisitos funcionais — camada silver (v2)
@@ -219,6 +229,8 @@ Verificação: teste de integração com MinIO em Testcontainers rodando o coman
 ## Requisitos funcionais — proteção contra atraso do agendador (adendo de 2026-11-18)
 
 ### RF-25 Janela de coleta
+**Substituído pela nova definição de D (adendo de 2026-11-19); não vale mais.** Motivo: nas noites de 17/11 e 18/11, todas as execuções agendadas atrasaram de 5 a 8 horas. Em 18/11, só a primeira entrou na janela, às 02:33 UTC, com 27 minutos de folga; as seguintes rodaram depois das 03:00 UTC e registraram "fora da janela" (origem: aba Actions). Se todas atrasarem além da janela, o dia se perde. Com D = data UTC de (instante − 20 h) (RF-05), a execução grava sob a D correta em qualquer horário, então a janela deixa de ser necessária. A leitura da configuração antes de qualquer chamada continua valendo e passou para o RF-11.
+
 Origem: OBJ-01, OBJ-02, restrição "coleta do TCGCSV depois das 20h UTC", restrição "raw/ nunca sobrescrito"
 - Dado o instante da coleta em UTC
 - Quando o coletor roda, por agendamento ou por disparo manual
@@ -230,7 +242,7 @@ Verificação: testes de unidade com relógio falso nos quatro instantes de bord
 
 ### RF-26 Consulta da chave antes da busca
 Origem: OBJ-01, RNF-01, restrição "no máximo uma coleta por dia no TCGCSV" (`AGENTS.md`)
-- Dada uma execução dentro da janela do RF-25 e a chave raw de uma fonte para D
+- Dada uma execução do coletor e a chave raw de uma fonte para D
 - Quando o coletor vai buscar essa fonte
 - Então primeiro consulta (head) se a chave existe no bucket; se existe, não faz a chamada HTTP dessa fonte, registra ja_existia e deixa status HTTP, bytes e sha256 vazios no log (RF-10), com tentativas 0
 - E, se a chave não existe, segue o RF-01 a RF-05; a recusa de sobrescrita do RF-06 continua valendo se a chave aparecer entre a consulta e a gravação
@@ -316,7 +328,7 @@ Verificação: teste de integração com MinIO contendo silver sintética de out
 | RF-24 | OBJ-02, OBJ-06 (e restrição do raw imutável) |
 | RNF-05 | OBJ-06 (e restrições do lake e do raw) |
 | RNF-06 | OBJ-05, OBJ-06 (e restrição do lake) |
-| RF-25 | OBJ-01, OBJ-02 (e restrições da coleta do TCGCSV depois das 20h UTC e do raw) |
+| RF-25 (substituído em 2026-11-19) | OBJ-01, OBJ-02 (e restrições da coleta do TCGCSV depois das 20h UTC e do raw) |
 | RF-26 | OBJ-01 (e RNF-01 e restrição de uma coleta por dia no TCGCSV) |
 
 ## Fatos, lacunas e suposições
@@ -337,10 +349,13 @@ Verificação: teste de integração com MinIO contendo silver sintética de out
 - **Hipótese, validação pendente:** no CDI repetido entre raw, chave_raw do raw mais recente e alerta quando o valor diverge (RF-18).
 - **Hipótese, validação pendente:** rótulo fonte = "tcgcsv" na preco_diario, a confirmar com o contrato da turma.
 - **Fato:** a execução agendada de 17/11/2026, marcada para 21:17 UTC, começou às 02:54 UTC de 18/11 (23:54 em São Paulo), com quase 6 horas de atraso. Um atraso que passe da meia-noite de São Paulo grava os preços do dia anterior com a D seguinte, e a execução correta da noite encontra a chave ocupada. Origem: aba Actions do repositório.
-- **Fato:** São Paulo não tem horário de verão desde 2019, então a janela de 20:00 a 02:59 UTC do RF-25 corresponde sempre a 17:00 a 23:59 em São Paulo; entre 00:00 e 02:59 UTC, D é o dia civil anterior ao de UTC. Origem: Decreto nº 9.772/2019. (Substitui a suposição da v1 de que D é o mesmo dia civil em UTC no horário agendado, que deixa de valer para os horários depois da meia-noite UTC.)
+- **Fato:** São Paulo não tem horário de verão desde 2019, então a janela de 20:00 a 02:59 UTC do RF-25 corresponde sempre a 17:00 a 23:59 em São Paulo; entre 00:00 e 02:59 UTC, D é o dia civil anterior ao de UTC. Origem: Decreto nº 9.772/2019. (Substitui a suposição da v1 de que D é o mesmo dia civil em UTC no horário agendado, que deixa de valer para os horários depois da meia-noite UTC.) Desde o adendo de 2026-11-19, D não depende mais do fuso de São Paulo; este fato fica só como base da compatibilidade abaixo.
+- **Fato:** nas noites de 17/11 e 18/11/2026, todas as execuções agendadas atrasaram de 5 a 8 horas. Em 18/11, só a primeira entrou na janela do RF-25, às 02:33 UTC, com 27 minutos de folga; as seguintes rodaram depois das 03:00 UTC e registraram "fora da janela". Origem: aba Actions do repositório.
+- **Fato:** a nova D é compatível com os dias já gravados. As execuções que gravaram 17/11 e 18/11, entre 20:00 e 02:59 UTC, dão a mesma D pelas duas regras. Entre 20:00 e 23:59 UTC do dia X, São Paulo marca X e instante − 20 h também cai em X. Entre 00:00 e 02:59 UTC do dia X+1, São Paulo marca X e instante − 20 h cai em X, das 04:00 às 06:59. Origem: cálculo pelas duas definições; execuções na aba Actions.
 - **Fato:** o TCGCSV deve ser coletado no máximo uma vez por dia; com vários horários na noite, o RF-26 evita baixar de novo uma fonte já gravada. Origem: `AGENTS.md`.
 - **Hipótese, validação pendente:** horários 21:17, 22:47, 00:17 e 01:47 UTC (RF-12), escolhidos fora da hora cheia e espaçados em 1h30 para que o atraso de uma execução não impeça as outras.
 - **Suposição:** a data da cambio_diario é a data civil de dataHoraCotacao, que a fonte publica no horário de Brasília.
 - **Lacuna:** formato do log (arquivo, saída padrão ou ambos) e onde ele fica guardado; fica para o plano.
 - **Lacuna:** nome e formato dos arquivos dentro de quarentena/<tabela>/group_id=24325/data=D/; fica para o plano.
 - **Lacuna:** se a geração da silver roda junto com a coleta diária ou em passo separado do agendador; fica para o plano.
+- **Lacuna:** o horário de atualização do TCGCSV é aproximado ("por volta das 20h UTC"). Se em algum dia ela atrasar, uma execução entre 20:00 UTC e o horário real gravaria o dado anterior sob a nova D. Risco a avaliar no ATAM.
