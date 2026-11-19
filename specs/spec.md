@@ -214,7 +214,13 @@ Origem: OBJ-06, restrição "silver no contrato comum da turma"
 - Quando o esquema é lido do próprio arquivo (por exemplo, com DESCRIBE no DuckDB) e comparado com o contrato
 - Então, se todas as colunas mínimas existem com nome e tipo exatos (colunas extras são aceitas), a tabela pode ser publicada
 - E, se alguma coluna mínima faltar ou tiver tipo diferente, nenhuma tabela da execução é publicada, a silver já publicada permanece como estava, o log registra a tabela e a coluna divergentes e o código de saída é diferente de zero
-Verificação: teste de unidade da comparação (esquema igual, coluna extra, coluna faltando, tipo diferente); teste de integração com MinIO mostrando que, com esquema divergente, nenhum objeto da silver é alterado.
+
+- Dada uma tabela sem nenhuma linha válida na geração (todos os registros na quarentena, descartados ou sem raw)
+- Quando a silver é gerada
+- Então colecao, produto, cambio_diario e cdi_diario geram o Parquet na chave da tabela com o esquema do contrato e zero linhas, e esse arquivo passa pela verificação acima como qualquer outro
+- E preco_diario não gera arquivo para uma D sem nenhuma linha válida, porque a partição data=D só existe com linhas; no reprocessamento do RF-24, o arquivo antigo dessa D, se houver, é apagado como qualquer objeto não regravado
+- Motivo: com o arquivo vazio, a tabela continua existindo no contrato para os colegas depois do reprocessamento do RF-24 (adendo de 2026-11-19, decisão da T-22)
+Verificação: teste de unidade da comparação (esquema igual, coluna extra, coluna faltando, tipo diferente); teste de integração com MinIO mostrando que, com esquema divergente, nenhum objeto da silver é alterado; teste de unidade com tabela sem linhas (Parquet com o esquema do contrato e zero linhas; preco_diario sem arquivo).
 
 ### RF-24 Reprocessamento completo e idempotente
 Origem: OBJ-02, OBJ-06, restrição "raw/ guarda a resposta original e nunca é sobrescrito"

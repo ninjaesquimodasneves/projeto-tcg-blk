@@ -2438,3 +2438,69 @@ Depois da implementação:
 
 ### Decisão humana
 Plano aprovado. Quarentena gerada como função pura: um registros.jsonl por tabela e D (tirado da chave_raw), linhas com motivo, chave_raw, gerado_em e entrada original, em ordem determinística; mesmos rejeitados e mesmo gerado_em dão bytes idênticos. Chaves sempre em quarentena/ com group_id=24325. Casos de chave_raw sem data, tabela desconhecida e gerado_em sem fuso tratados como erro de programação; NaN e Infinity preservados para manter a entrada original. Contagem por tabela e motivo para o log. Plano refeito numa sessão nova do Claude Code e conferido contra o anterior. Testes falharam antes pelo motivo esperado e passaram depois.
+## 2026-11-19 — Etapa: ajuste da spec antes da T-22 (tabela sem linhas válidas, RF-23)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados Python que pratica desenvolvimento orientado a testes. Executa uma única tarefa, prova que ela funciona com a saída real do terminal e para.
+
+[R] Pedido
+Implemente somente a tarefa T-22 de specs/tasks.md. Siga esta ordem:
+1. mostre o plano: arquivos, funções, como o DuckDB cria cada tabela nos tipos do contrato e grava o Parquet localmente, como o esquema é lido de volta e comparado, a chave final de cada arquivo e o comando de verificação. Se o plano precisar de alguma regra que ainda não está escrita na spec, liste essas regras numa seção separada "Regras fora da spec" e espere minha decisão, sem implementá-las; espere minha confirmação;
+2. escreva primeiro os testes da tarefa, rode e mostre que falham pelo motivo esperado (função ou módulo ainda inexistente, e não falta de dependência);
+3. implemente o mínimo para os testes passarem;
+4. rode a verificação da tarefa e o pytest inteiro e mostre a saída real;
+5. marque a T-22 como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit.
+
+[E] Exemplos
+Casos que os testes precisam cobrir:
+  as linhas válidas de cada tabela viram um Parquet local cujo esquema, lido de volta do próprio arquivo com DESCRIBE no DuckDB, tem exatamente as colunas mínimas do contrato, com nome e tipo exatos;
+  a coluna extra direct_low_price aparece na preco_diario e é aceita;
+  preço nulo continua nulo no Parquet (nunca zero);
+  as linhas saem ordenadas pelas chaves de cada tabela;
+  preco_diario gera um arquivo por D; as outras tabelas geram um arquivo só, nas chaves da spec v2;
+  comparação de esquema: igual passa; coluna extra passa; coluna faltando falha; tipo diferente falha; o resultado diz a tabela e a coluna divergentes;
+  se qualquer tabela divergir, a verificação reprova o conjunto inteiro (RF-23);
+  tabela sem nenhuma linha válida: o comportamento esperado vai no plano.
+Commit proposto: feat(T-22): escrita do parquet e verificacao do contrato [RF-23, RF-13, RF-14, RF-16, RF-17, RF-18]
+
+[A] Ajustes
+- Faça só a T-22; publicar e apagar no bucket é da T-23.
+- Os arquivos vão para um diretório temporário recebido por parâmetro; sem S3.
+- Os tipos vêm do dicionário do contrato da T-14, não de inferência.
+- Toda chave final começa com silver/ e contém group_id=24325.
+- Siga o RF-23 ao pé da letra; regras novas só depois da minha decisão.
+- Sem rede nos testes. Não leia nem imprima o .env.
+- Não rode git add, git commit nem git push.
+- Se a verificação falhar, tente corrigir no máximo duas vezes; depois disso, pare e explique.
+- Não declare sucesso sem mostrar a saída do comando.
+
+[T] Tipo de saída
+Os arquivos da tarefa, a saída do pytest antes e depois e um resumo de até cinco linhas com o que mudou e a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/plan.md, specs/tasks.md e src/silver/ antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2 (literal)
+
+```text
+Plano da T-22 aprovado. Regra 2 aprovada como proteção contra erro de programação, sem mudar a spec. Regra 1 aprovada como você propôs, mas, por mudar o que os colegas encontram no lake, ela vai para a spec antes do código. Edite apenas specs/spec.md, no RF-23 (ou onde couber melhor, citando o RF-24):
+- colecao, produto, cambio_diario e cdi_diario sem nenhuma linha válida geram o Parquet com o esquema do contrato e zero linhas, e esse arquivo passa pela verificação do RF-23;
+- preco_diario não gera arquivo para uma D sem nenhuma linha válida, porque a partição data=D só existe com linhas;
+- motivo: com o arquivo vazio, a tabela continua existindo no contrato para os colegas depois do reprocessamento do RF-24.
+Acrescente esta mudança em docs/prompts.md e pare, sem criar código. Não rode git add, git commit nem git push.
+```
+
+### Decisões registradas a pedido
+- Regra 1 (tabela sem nenhuma linha válida): aprovada e levada à spec antes do código, no RF-23, citando o RF-24, porque muda o que os colegas encontram no lake.
+- Regra 2 (ValueError para tabela fora do contrato, linha de outro modelo e chave fora de silver/ ou de group_id=24325): aprovada como proteção contra erro de programação, sem mudar a spec.
+
+### Arquivos gerados
+- `specs/spec.md` (RF-23: cenário de tabela sem linhas válidas, com o motivo e a verificação correspondente)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Regra encontrada no plano da T-22 escrita na spec antes do código: tabelas sem linha válida geram Parquet vazio com o esquema do contrato (exceto preco_diario, que não gera partição sem linhas), para a tabela não sumir para os colegas depois do reprocessamento.
