@@ -192,12 +192,13 @@ Comando base da silver: `PYTHONPATH=src python -m silver`.
 - Depende de: T-14
 - Nota (2026-11-19): o arquivo também cobre preço nulo, um arquivo por D na preco_diario, prefixo das chaves, reprovação do conjunto com uma tabela divergente, tabela sem linhas (RF-23: Parquet vazio com o esquema; preco_diario sem arquivo) e as proteções com ValueError. O esquema é lido com `hive_partitioning = false`, porque o caminho local espelha a chave e, com a detecção automática, o DuckDB troca a coluna group_id do arquivo pela da partição (BIGINT).
 
-## T-23 Publicação com a guarda do RNF-05 e reprocessamento completo
+## T-23 Publicação com a guarda do RNF-05 e reprocessamento completo — concluída (2026-11-19)
 - Requisitos: RF-23, RF-24, RNF-05, RNF-06
 - Arquivos: `src/silver/publicador.py`, `src/silver/reprocessamento.py`, `tests/unidade/test_silver_publicador.py`
 - Teste: test_chave_em_raw_recusada_antes_do_put; test_chave_de_outro_group_id_recusada_antes_do_put_e_do_delete; test_chave_sem_group_id_recusada; test_apaga_so_objetos_antigos_nao_regravados; test_contrato_divergente_nada_publicado_nem_apagado; test_ordem_verifica_publica_e_depois_apaga
 - Comando: pytest tests/unidade/test_silver_publicador.py -q
 - Depende de: T-15 a T-22
+- Nota (2026-11-19): o arquivo também cobre a listagem só nos prefixos da coleção, a chave proibida na geração (aborta antes do primeiro put), raw e outro group_id intocados, partição antiga de preco_diario apagada, duas execuções com as mesmas chaves e linhas e as falhas do RF-24 (raw ilegível, put e delete). Pendência observada: os testes do reprocessamento levam cerca de 55 s, por causa do `executemany` do DuckDB em `escrever_tabela` (T-22), cerca de 1,2 s para 437 linhas; a correção fica para um commit próprio, se aprovada.
 
 ## T-24 CLI e log da silver
 - Requisitos: RF-22, RF-24

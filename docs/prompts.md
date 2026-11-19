@@ -2626,3 +2626,45 @@ Acrescente esta mudança em docs/prompts.md e pare, sem criar código. Não rode
 
 ### Decisão humana
 Regras encontradas no plano da T-23 escritas na spec antes do código: falha num put para sem apagar nada; falha num delete para e deixa os antigos para a próxima execução; raw ilegível não publica nem apaga; RF-24 corrigido para a ordem verificar, publicar e só então apagar.
+## 2026-11-19 — Etapa: implementação da T-23 (publicação com guarda e reprocessamento completo)
+
+O prompt da T-23 e as decisões A a D estão na entrada "ajuste da spec antes da T-23", logo acima.
+
+### Prompt (literal)
+
+```text
+Spec commitada. Pode implementar a T-23 conforme o plano aprovado, com as regras A a D agora escritas no RF-22 e no RF-24 (incluindo a chave na mensagem de erro do caso B). Ao final, mostre a saída do pytest antes e depois e um resumo de até cinco linhas com o que mudou e a mensagem de commit proposta. Não acesse o bucket real. Não rode git add, git commit nem git push.
+```
+
+### Saída dos testes
+
+Antes da implementação (`.venv/bin/pytest tests/unidade/test_silver_publicador.py -q`):
+
+```text
+E   ModuleNotFoundError: No module named 'silver.reprocessamento'
+ERROR tests/unidade/test_silver_publicador.py
+1 error in 0.22s
+```
+
+Depois da implementação:
+
+```text
+.venv/bin/pytest tests/unidade/test_silver_publicador.py -q
+21 passed in 55.34s
+.venv/bin/pytest -m "not integracao and not vcr" -q
+321 passed, 12 deselected in 65.19s (0:01:05)
+.venv/bin/pytest -q
+333 passed in 67.62s (0:01:07)
+```
+
+Tempo observado (`--durations=5`): cada reprocessamento sobre o raw dos cassetes leva cerca de 4,5 s; a gravação da preco_diario com `executemany` do DuckDB (T-22) leva cerca de 1,2 s para 437 linhas. Não foi alterado nesta tarefa (o arquivo é da T-22); fica como pendência para decisão.
+
+### Arquivos gerados
+- `src/silver/publicador.py` (chave_silver_permitida, publicar_objeto, apagar_objeto, listar_publicados, ErroChaveProibida, ErroPublicacao)
+- `src/silver/reprocessamento.py` (gerar_silver, reprocessar, Geracao, Relatorio)
+- `tests/unidade/test_silver_publicador.py`
+- `specs/tasks.md` (T-23 concluída, com a pendência de tempo)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Plano aprovado em modo plan, com aprovação manual das edições. Publicação por uma única função de put e uma única de delete, ambas com a guarda do RNF-05; listagem só dos prefixos silver/ e quarentena/ com group_id=24325. Ordem: ler, gerar, verificar o contrato, conferir todas as chaves, publicar e só então apagar os antigos não regravados. Contrato reprovado ou raw ilegível não publicam nem apagam nada; falha num put para sem apagar; falha num delete para e deixa os antigos para a próxima execução. Raw e outros group_id intocados, comparados por sha256. Testes falharam antes pelo motivo esperado e passaram depois.
