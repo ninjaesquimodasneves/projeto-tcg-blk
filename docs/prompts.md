@@ -2738,3 +2738,69 @@ Diagnóstico (cProfile e contagem de imports com falha): o tempo restante está 
 
 ### Decisão humana
 Aprovada a inserção em lote com CAST para os tipos do contrato, sem alterar testes: a suíte caiu de 79,7 s para 58,6 s. Diagnóstico: a lentidão principal vem do DuckDB 1.5.6 tentando importar o pandas, ausente do .venv, a cada parâmetro. Pendência mantida: medir de novo quando o pandas entrar como dependência do Streamlit; opção de leitura por arquivo temporário só se a lentidão continuar.
+## 2026-11-20 — Etapa: ajuste da spec antes da T-24 (códigos de saída, contagens e log da silver, RF-22)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados Python que pratica desenvolvimento orientado a testes. Executa uma única tarefa, prova que ela funciona com a saída real do terminal e para.
+
+[R] Pedido
+Implemente somente a tarefa T-24 de specs/tasks.md (comando python -m silver e log da silver). Siga esta ordem:
+1. mostre o plano: arquivos, funções, o formato de cada linha do log, os códigos de saída para cada caso e o comando de verificação. Se o plano precisar de alguma regra que ainda não está escrita na spec, liste essas regras numa seção separada "Regras fora da spec" e espere minha decisão, sem implementá-las; espere minha confirmação;
+2. escreva primeiro os testes da tarefa, rode e mostre que falham pelo motivo esperado (função ou módulo ainda inexistente, e não falta de dependência);
+3. implemente o mínimo para os testes passarem;
+4. rode a verificação da tarefa e o pytest inteiro e mostre a saída real;
+5. marque a T-24 como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit.
+
+[E] Exemplos
+Casos que os testes precisam cobrir (S3 falso, relógio e diretório temporário injetados):
+  o comando não aceita parâmetros (como o coletor);
+  a configuração é lida antes de qualquer chamada; configuração inválida sai com código diferente de zero, sem chamadas ao S3;
+  o log traz uma linha JSON por tabela com raw lidos, registros lidos, publicados, descartados e em quarentena, com a contagem por motivo, mais os alertas do CDI, o resultado da verificação do contrato e uma linha de resumo (RF-22);
+  códigos de saída: 0 quando tudo é publicado; diferente de zero quando a verificação do contrato reprova, quando um raw não pode ser lido e quando um put ou um delete falha;
+  registros em quarentena sozinhos não tornam o código diferente de zero (RF-21);
+  nenhum valor de credencial no log, nem quando um put falha;
+  gerado_em é lido uma única vez, em UTC.
+Commit proposto: feat(T-24): comando e log da silver [RF-22, RF-24]
+
+[A] Ajustes
+- Faça só a T-24; a integração com MinIO é da T-25 e a primeira geração real é da T-26.
+- Use reprocessar da T-23; nada de reimplementar a publicação.
+- Reaproveite carregar_config, criar_cliente_s3 e o padrão de log do coletor.
+- Testes só com S3 falso; nenhum acesso ao bucket real.
+- Siga o RF-22 e o RF-24 ao pé da letra; regras novas só depois da minha decisão.
+- Não leia nem imprima o .env.
+- Não rode git add, git commit nem git push.
+- Se a verificação falhar, tente corrigir no máximo duas vezes; depois disso, pare e explique.
+- Não declare sucesso sem mostrar a saída do comando.
+
+[T] Tipo de saída
+Os arquivos da tarefa, a saída do pytest antes e depois, o comando para rodar a silver de verdade e um resumo de até cinco linhas com a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/plan.md, specs/tasks.md, src/coleta/ e src/silver/ antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2 (literal)
+
+```text
+O refactor da T-22 já foi commitado e enviado (3b39412); confira com git log e siga.
+Regras 1 a 5 aprovadas como você propôs. Registre-as antes na spec, como adendo ao RF-22, num commit docs(T-24): configuração inválida sai com 2 sem chamada ao S3; chave proibida, falha na listagem e exceção inesperada saem com 1 sem publicar nem apagar; raw_lidos e registros_lidos por tabela como você definiu (colecao com 0 e 1; versões antigas de produto e ocorrências antigas do CDI fora da contagem); publicados por tabela conta só os puts que deram certo; com raw ilegível, o log tem só a linha de resumo com o erro. Edite apenas specs/spec.md, acrescente esta mudança em docs/prompts.md e pare, sem criar código. Não rode git add, git commit nem git push.
+```
+
+### Decisões registradas a pedido
+- Regras 1 a 5 do plano da T-24 aprovadas e levadas à spec antes do código, como adendo de 2026-11-20 ao RF-22.
+- 1: configuração inválida sai com código 2, sem chamada ao S3.
+- 2: chave proibida pela guarda, falha na listagem e exceção inesperada saem com código 1, sem publicar nem apagar.
+- 3: raw_lidos e registros_lidos por tabela; colecao com 0 raw e 1 registro; versões antigas de produto e ocorrências antigas do CDI fora da contagem.
+- 4: publicados por tabela conta só as linhas dos arquivos cujo put deu certo.
+- 5: com raw ilegível, o log tem só a linha de resumo com o erro.
+
+### Arquivos gerados
+- `specs/spec.md` (RF-22: adendo de 2026-11-20 com as regras 1 a 5, motivo e verificação ampliada; linha de escopo cita o adendo)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Regras encontradas no plano da T-24 escritas como adendo ao RF-22 antes do código: configuração inválida sai com 2 sem chamada ao S3; chave proibida, falha na listagem e exceção inesperada saem com 1 sem publicar nem apagar; definição de raw_lidos, registros_lidos e publicados por tabela; com raw ilegível, só a linha de resumo.
