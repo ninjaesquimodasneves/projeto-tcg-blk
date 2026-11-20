@@ -202,12 +202,13 @@ Comando base da silver: `PYTHONPATH=src python -m silver`.
 - Depende de: T-15 a T-22
 - Nota (2026-11-19): o arquivo também cobre a listagem só nos prefixos da coleção, a chave proibida na geração (aborta antes do primeiro put), raw e outro group_id intocados, partição antiga de preco_diario apagada, duas execuções com as mesmas chaves e linhas e as falhas do RF-24 (raw ilegível, put e delete). A pendência de tempo observada aqui foi tratada na T-22 (nota de 2026-11-20); o que resta dela está registrado lá.
 
-## T-24 CLI e log da silver
+## T-24 CLI e log da silver — concluída (2026-11-20)
 - Requisitos: RF-22, RF-24
 - Arquivos: `src/silver/__main__.py`, `src/silver/reprocessamento.py`, `tests/unidade/test_silver_cli.py`
 - Teste: test_log_por_tabela_com_lidos_publicados_descartados_e_quarentena; test_contagem_da_quarentena_por_motivo_no_log; test_alerta_cdi_divergente_no_log; test_saida_zero_com_registros_em_quarentena; test_saida_diferente_de_zero_com_contrato_divergente; test_saida_diferente_de_zero_com_raw_ilegivel; test_log_sem_credenciais; test_cli_sem_parametro_de_data
 - Comando: pytest tests/unidade/test_silver_cli.py -q && pytest -m "not integracao and not vcr" -q
 - Depende de: T-23
+- Nota (2026-11-20): segue o adendo de 2026-11-20 do RF-22. Além dos oito testes acima, o arquivo cobre a linha de verificação e a de resumo, a falha num put (publicados só dos puts que deram certo) e num delete, a chave proibida, a falha na listagem e a exceção inesperada (código 1), a configuração inválida (código 2, sem cliente S3 e antes do relógio) e gerado_em lido uma vez em UTC (mesmo valor no resumo e na quarentena). `reprocessar` ganhou três parâmetros opcionais que só observam (`ao_gerar`, `ao_verificar`, `ao_publicar`), para o log sair mesmo quando um put ou um delete interrompe a publicação; os testes da T-23 não mudaram. Os 20 testes levam cerca de 37 s, pela mesma causa da pendência de tempo da T-22.
 
 ## T-25 Integração da silver com Testcontainers
 - Requisitos: RF-21, RF-23, RF-24, RNF-05, RNF-06

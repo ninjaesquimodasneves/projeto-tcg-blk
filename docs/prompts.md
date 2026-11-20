@@ -2804,3 +2804,53 @@ Regras 1 a 5 aprovadas como você propôs. Registre-as antes na spec, como adend
 
 ### Decisão humana
 Regras encontradas no plano da T-24 escritas como adendo ao RF-22 antes do código: configuração inválida sai com 2 sem chamada ao S3; chave proibida, falha na listagem e exceção inesperada saem com 1 sem publicar nem apagar; definição de raw_lidos, registros_lidos e publicados por tabela; com raw ilegível, só a linha de resumo.
+## 2026-11-20 — Etapa: implementação da T-24 (comando python -m silver e log da silver)
+
+O prompt 1 da T-24 e as decisões das regras 1 a 5 estão na entrada "ajuste da spec antes da T-24", logo acima.
+
+### Prompt (literal)
+
+```text
+Spec commitada (95f5dd8). Pode implementar a T-24 conforme o plano aprovado, com as regras 1 a 5 agora no RF-22. Ao final, mostre a saída do pytest antes e depois, o comando para rodar a silver de verdade e um resumo de até cinco linhas com a mensagem de commit proposta. Não acesse o bucket real. Não rode git add, git commit nem git push.
+```
+
+### Saída dos testes
+
+Antes da implementação (`pytest tests/unidade/test_silver_cli.py -q`):
+
+```text
+tests/unidade/test_silver_cli.py:18: in <module>
+    from silver.reprocessamento import main
+E   ImportError: cannot import name 'main' from 'silver.reprocessamento' (/workspaces/projeto-tcg-blk/src/silver/reprocessamento.py)
+ERROR tests/unidade/test_silver_cli.py
+1 error in 0.63s
+```
+
+Depois da implementação:
+
+```text
+pytest tests/unidade/test_silver_cli.py -q
+20 passed in 37.07s
+pytest -m "not integracao and not vcr" -q
+341 passed, 12 deselected in 96.39s (0:01:36)
+pytest -q
+353 passed in 98.10s (0:01:38)
+```
+
+Parâmetro recusado sem tocar em nada (`PYTHONPATH=src python -m silver --data 2026-11-17`):
+
+```text
+usage: python -m silver [-h]
+python -m silver: error: unrecognized arguments: --data 2026-11-17
+codigo: 2
+```
+
+### Arquivos gerados
+- `src/silver/__main__.py` (novo: `python -m silver`, log na saída padrão como o coletor)
+- `src/silver/reprocessamento.py` (main, linhas_log, códigos 0/1/2; parâmetros opcionais de observação em reprocessar)
+- `tests/unidade/test_silver_cli.py` (novo, 20 testes com S3 falso)
+- `specs/tasks.md` (T-24 concluída, com nota)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Plano aprovado. Comando python -m silver sem parâmetros, com a configuração lida antes de qualquer chamada e gerado_em lido uma vez em UTC; usa reprocessar da T-23, com dois observadores opcionais que não mudam a publicação. Log JSON com uma linha por tabela, alertas do CDI, resultado da verificação e resumo, sem credenciais. Códigos de saída conforme o adendo ao RF-22: 0 com tudo publicado (mesmo com quarentena), 1 nas falhas de contrato, leitura, publicação, guarda, listagem ou exceção inesperada, e 2 com configuração inválida. Testes falharam antes pelo motivo esperado e passaram depois.
