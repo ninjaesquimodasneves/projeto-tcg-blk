@@ -2668,3 +2668,73 @@ Tempo observado (`--durations=5`): cada reprocessamento sobre o raw dos cassetes
 
 ### Decisão humana
 Plano aprovado em modo plan, com aprovação manual das edições. Publicação por uma única função de put e uma única de delete, ambas com a guarda do RNF-05; listagem só dos prefixos silver/ e quarentena/ com group_id=24325. Ordem: ler, gerar, verificar o contrato, conferir todas as chaves, publicar e só então apagar os antigos não regravados. Contrato reprovado ou raw ilegível não publicam nem apagam nada; falha num put para sem apagar; falha num delete para e deixa os antigos para a próxima execução. Raw e outros group_id intocados, comparados por sha256. Testes falharam antes pelo motivo esperado e passaram depois.
+## 2026-11-20 — Etapa: melhoria de desempenho da T-22 (inserção em lote no DuckDB)
+
+### Prompt (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados Python que melhora desempenho sem mudar comportamento. Executa uma única tarefa, prova com a saída real do terminal e para.
+
+[R] Pedido
+Faça a melhoria de desempenho registrada como pendência da T-22: em src/silver/parquet.py, troque o executemany do escrever_tabela por uma inserção em lote (por exemplo, um único INSERT com todas as linhas, ou outra forma do DuckDB que não infira tipos e mantenha os tipos do contrato), sem mudar nenhum resultado. Siga esta ordem:
+1. mostre o plano e o tempo atual do pytest inteiro; espere minha confirmação;
+2. implemente;
+3. rode os testes de parquet, os do publicador e o pytest inteiro e mostre a saída real e o novo tempo;
+4. remova a pendência de specs/tasks.md (com uma nota na T-22), acrescente este prompt em docs/prompts.md e proponha a mensagem de commit.
+
+[E] Exemplos
+Resultado esperado: mesmos testes passando (nenhum teste alterado), tempo do pytest inteiro bem abaixo dos 67 s atuais.
+Commit proposto: refactor(T-22): insercao em lote no duckdb sem mudar o resultado [RF-23]
+
+[A] Ajustes
+- Nenhuma mudança de comportamento: os tipos continuam vindo do contrato, a ordem pelas chaves e os nulos continuam nulos.
+- Não altere nenhum teste. Se algum teste precisar mudar, pare e explique.
+- Não acesse o bucket real. Não leia nem imprima o .env.
+- Não rode git add, git commit nem git push.
+- Se a verificação falhar, tente corrigir no máximo duas vezes; depois disso, pare e explique.
+
+[T] Tipo de saída
+O arquivo alterado, a saída do pytest com o tempo antes e depois e um resumo de até três linhas com a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/tasks.md e src/silver/parquet.py antes de começar. Pare ao final.
+```
+
+Prompts seguintes:
+
+```text
+Pode implementar.
+```
+
+```text
+Opção 1. Mantenha a mudança atual e siga o passo 4, sem dar a lentidão como resolvida. Registre a pendência em specs/tasks.md com o seu diagnóstico (o DuckDB 1.5.6 tenta importar o pandas a cada parâmetro, e o pandas não está no .venv) e com esta próxima ação: medir de novo o tempo da suíte quando o pandas entrar no projeto como dependência do Streamlit, na tarefa do dashboard; só se a lentidão continuar, avaliar a opção 2 numa tarefa própria. Não instale o pandas agora. Não rode git add, git commit nem git push.
+```
+
+### Saída dos testes
+
+Antes da mudança:
+
+```text
+pytest -q
+333 passed in 79.73s (0:01:19)
+```
+
+Depois da mudança:
+
+```text
+pytest tests/unidade/test_silver_parquet.py tests/unidade/test_silver_publicador.py -q
+43 passed in 47.39s
+pytest -q
+333 passed in 58.64s
+```
+
+Diagnóstico (cProfile e contagem de imports com falha): o tempo restante está na conversão dos parâmetros Python; o DuckDB 1.5.6 tenta importar o pandas a cada parâmetro (4.088 imports com falha para 437 linhas, cerca de 0,33 s por tabela), e o pandas não está no `.venv`. A lentidão não foi dada como resolvida; a pendência está na T-22, em `specs/tasks.md`.
+
+### Arquivos gerados
+- `src/silver/parquet.py` (`_gravar`: um único INSERT com CAST para os tipos do contrato)
+- `specs/tasks.md` (nota e pendência na T-22; nota da T-23 aponta para a T-22)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Aprovada a inserção em lote com CAST para os tipos do contrato, sem alterar testes: a suíte caiu de 79,7 s para 58,6 s. Diagnóstico: a lentidão principal vem do DuckDB 1.5.6 tentando importar o pandas, ausente do .venv, a cada parâmetro. Pendência mantida: medir de novo quando o pandas entrar como dependência do Streamlit; opção de leitura por arquivo temporário só se a lentidão continuar.

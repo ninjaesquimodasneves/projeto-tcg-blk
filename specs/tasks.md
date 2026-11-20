@@ -191,6 +191,8 @@ Comando base da silver: `PYTHONPATH=src python -m silver`.
 - Comando: pytest tests/unidade/test_silver_parquet.py -q
 - Depende de: T-14
 - Nota (2026-11-19): o arquivo também cobre preço nulo, um arquivo por D na preco_diario, prefixo das chaves, reprovação do conjunto com uma tabela divergente, tabela sem linhas (RF-23: Parquet vazio com o esquema; preco_diario sem arquivo) e as proteções com ValueError. O esquema é lido com `hive_partitioning = false`, porque o caminho local espelha a chave e, com a detecção automática, o DuckDB troca a coluna group_id do arquivo pela da partição (BIGINT).
+- Nota (2026-11-20): o `executemany` de `_gravar` foi trocado por um único `INSERT ... VALUES` com todas as linhas do lote, com `CAST(? AS <tipo do contrato>)` em cada marcador (sem inferência de tipo; nulos seguem nulos; ordem pelas chaves no COPY inalterada). Nenhum teste alterado. Tempo do `pytest -q` inteiro: 79,73 s antes e 58,64 s depois, medidos nesta máquina.
+- Pendência (2026-11-20): a lentidão não foi resolvida. Diagnóstico: o DuckDB 1.5.6 tenta importar o pandas a cada parâmetro Python ligado (4.088 imports com falha para 437 linhas, cerca de 0,33 s por tabela), e o pandas não está no `.venv`; cada import com falha percorre o `sys.path`. Passar uma lista por coluna (`unnest`) tem o mesmo custo. Próxima ação: medir de novo o tempo da suíte quando o pandas entrar no projeto como dependência do Streamlit, na tarefa do dashboard; só se a lentidão continuar, avaliar numa tarefa própria a gravação sem parâmetros (arquivo temporário lido com `read_json` e os tipos do contrato).
 
 ## T-23 Publicação com a guarda do RNF-05 e reprocessamento completo — concluída (2026-11-19)
 - Requisitos: RF-23, RF-24, RNF-05, RNF-06
@@ -198,7 +200,7 @@ Comando base da silver: `PYTHONPATH=src python -m silver`.
 - Teste: test_chave_em_raw_recusada_antes_do_put; test_chave_de_outro_group_id_recusada_antes_do_put_e_do_delete; test_chave_sem_group_id_recusada; test_apaga_so_objetos_antigos_nao_regravados; test_contrato_divergente_nada_publicado_nem_apagado; test_ordem_verifica_publica_e_depois_apaga
 - Comando: pytest tests/unidade/test_silver_publicador.py -q
 - Depende de: T-15 a T-22
-- Nota (2026-11-19): o arquivo também cobre a listagem só nos prefixos da coleção, a chave proibida na geração (aborta antes do primeiro put), raw e outro group_id intocados, partição antiga de preco_diario apagada, duas execuções com as mesmas chaves e linhas e as falhas do RF-24 (raw ilegível, put e delete). Pendência observada: os testes do reprocessamento levam cerca de 55 s, por causa do `executemany` do DuckDB em `escrever_tabela` (T-22), cerca de 1,2 s para 437 linhas; a correção fica para um commit próprio, se aprovada.
+- Nota (2026-11-19): o arquivo também cobre a listagem só nos prefixos da coleção, a chave proibida na geração (aborta antes do primeiro put), raw e outro group_id intocados, partição antiga de preco_diario apagada, duas execuções com as mesmas chaves e linhas e as falhas do RF-24 (raw ilegível, put e delete). A pendência de tempo observada aqui foi tratada na T-22 (nota de 2026-11-20); o que resta dela está registrado lá.
 
 ## T-24 CLI e log da silver
 - Requisitos: RF-22, RF-24

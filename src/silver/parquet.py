@@ -96,9 +96,14 @@ def _gravar(tabela: str, linhas: list[ModeloSilver], caminho: Path) -> None:
         definicao = ", ".join(f"{_identificador(nome)} {tipo}" for nome, tipo in cols)
         con.execute(f"CREATE TABLE t ({definicao})")
         if linhas:
-            marcadores = ", ".join("?" for _ in cols)
-            valores = [[linha.model_dump()[nome] for nome, _ in cols] for linha in linhas]
-            con.executemany(f"INSERT INTO t VALUES ({marcadores})", valores)
+            # Um unico INSERT com todas as linhas; CAST para o tipo do contrato em cada marcador,
+            # para o DuckDB nao inferir o tipo do VALUES pelos valores (nulos seguem nulos)
+            tupla = "(" + ", ".join(f"CAST(? AS {tipo})" for _, tipo in cols) + ")"
+            valores = []
+            for linha in linhas:
+                dados = linha.model_dump()
+                valores.extend(dados[nome] for nome, _ in cols)
+            con.execute(f"INSERT INTO t VALUES {', '.join(tupla for _ in linhas)}", valores)
         ordem = ", ".join(_identificador(c) for c in CHAVES[tabela])
         # COPY TO nao aceita parametro no nome do arquivo: literal com aspas escapadas
         con.execute(f"COPY (SELECT * FROM t ORDER BY {ordem}) TO {_literal(str(caminho))} (FORMAT parquet)")
