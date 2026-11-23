@@ -270,12 +270,13 @@ Comando base da silver: `PYTHONPATH=src python -m silver`.
 Origem: `specs/spec.md` v3 (RF-27 a RF-50, RNF-07) e a seção "Gold, carteira e dashboard (spec v3)" de `specs/plan.md`. Mesmas regras de cima: uma tarefa por vez, cerca de 30 minutos, testes de unidade sem rede e sem Docker (Parquet sintético em `tmp_path` e S3 falso em memória), integração com MinIO em Testcontainers.
 Comando base da gold: `PYTHONPATH=src python -m gold`. Dashboard: `PYTHONPATH=src streamlit run dashboard/app.py`.
 
-## T-29 Leitura da silver da turma com os tipos do contrato e exclusão da coleção fora do contrato
+## T-29 Leitura da silver da turma com os tipos do contrato e exclusão da coleção fora do contrato — concluída (2026-11-23)
 - Requisitos: RF-27, RF-28, RNF-06
 - Arquivos: `src/gold/__init__.py`, `src/gold/leitura.py`, `tests/unidade/test_gold_leitura.py`
 - Teste: test_lista_e_baixa_silver_de_todas_as_colecoes_so_com_list_e_get (S3 falso registra put e delete e espera nenhum); test_group_id_integer_vindo_do_arquivo_com_hive_desligado (Parquet local em caminho group_id=<id>/); test_group_id_do_arquivo_diferente_do_caminho_fora_do_contrato; test_tres_colecoes_terceira_com_tipo_errado_fica_fora_com_alerta; test_colecao_sem_cdi_diario_fica_fora_com_alerta; test_silver_da_24325_fora_do_contrato_vira_erro; test_coluna_extra_aceita
 - Comando: pytest tests/unidade/test_gold_leitura.py -q
 - Depende de: T-27. Reaproveita `CONTRATO` de `silver.contrato` e `ler_esquema` e `comparar_esquema` de `silver.parquet`.
+- Nota (2026-11-23): segue o adendo de 2026-11-23 ao RF-27 e ao RF-28 (commit e72d901). Além dos sete testes acima, o arquivo cobre coluna faltando (test_coluna_faltando_fica_fora_com_alerta), arquivo ilegível no get e Parquet corrompido sem o texto do erro (test_arquivo_ilegivel_tira_a_colecao), 24325 ausente do bucket (test_sem_silver_da_24325_vira_erro), group_id nulo (test_group_id_nulo_fora_do_contrato), arquivo com zero linhas (test_arquivo_com_zero_linhas_passa), cambio_diario e cdi_diario identificados só pelo caminho (test_cambio_e_cdi_de_outra_colecao_sem_group_id_aprovados_pelo_caminho), falha na listagem (test_falha_na_listagem_vira_erro_com_prefixo_e_classe), seis chaves fora do padrão e três objetos que não são .parquet. A 24325 fora do contrato não lança exceção: `propria_aprovada` fica falso e as demais coleções aparecem no resultado, para o log da T-37 mostrar todas; o comando da T-37 transforma isso em código diferente de zero. Nenhum código da silver nem da coleta mudou.
 
 ## T-30 Conferência da lista de raridades da P2 contra a silver real
 - Requisitos: RF-40

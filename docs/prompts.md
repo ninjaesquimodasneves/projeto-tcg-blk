@@ -3464,3 +3464,54 @@ Acrescente esta mudança em docs/prompts.md e pare, sem criar código. Não rode
 
 ### Decisão humana
 Regras encontradas no plano da T-29 escritas como adendo ao RF-27 e ao RF-28 antes do código: chave fora do padrão e objeto que não é Parquet ignorados com alerta; conferência do group_id só nas tabelas que têm a coluna; group_id nulo tira o arquivo do contrato e arquivo vazio passa; falha na listagem derruba a leitura com código 1.
+
+## 2026-11-23 — Etapa: implementação da T-29 (leitura da silver da turma)
+
+### Prompt (literal)
+
+```text
+Spec commitada (e72d901). Pode implementar a T-29 conforme o plano aprovado, com as cinco regras agora escritas no RF-27 e no RF-28. Ao final, mostre a saída do pytest antes e depois e um resumo de até cinco linhas com o que mudou e a mensagem de commit proposta. Não acesse o bucket real. Não rode git add, git commit nem git push.
+```
+
+O pedido original da T-29 (prompt 1) e a aprovação do plano com as cinco regras (prompt 2) estão na entrada anterior, "adendo ao RF-27 e ao RF-28 (plano da T-29)".
+
+### Observação do agente
+- Os testes foram escritos antes do código. Na primeira execução falharam na coleta com `ModuleNotFoundError: No module named 'gold'`, porque o módulo ainda não existia. Não faltava nenhuma dependência: duckdb, boto3 e silver importaram normalmente.
+- Os Parquet da 24325 são gerados com `silver.parquet.escrever_tabela`. Os das outras coleções e os casos fora do contrato são cópias feitas no DuckDB com `SELECT * REPLACE/EXCLUDE`, porque os modelos da silver só aceitam a 24325.
+- A 24325 fora do contrato não lança exceção. `propria_aprovada` fica falso e as demais coleções continuam no resultado, para o log da T-37 mostrar todas.
+- A falha na listagem lança `ErroListagemSilver`, com o prefixo e a classe do erro.
+- O log de alertas usa uma linha JSON por alerta, no logger `gold`, e omite os campos vazios.
+- Nenhum código da silver nem da coleta mudou. Nenhum acesso ao bucket real.
+
+### Saída dos testes
+Antes da implementação (`.venv/bin/pytest tests/unidade/test_gold_leitura.py -q`):
+```text
+ImportError while importing test module '/workspaces/projeto-tcg-blk/tests/unidade/test_gold_leitura.py'.
+tests/unidade/test_gold_leitura.py:17: in <module>
+    from gold.leitura import ErroListagemSilver, ler_silver_da_turma
+E   ModuleNotFoundError: No module named 'gold'
+ERROR tests/unidade/test_gold_leitura.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 4.24s
+```
+
+Depois (`.venv/bin/pytest tests/unidade/test_gold_leitura.py -q`):
+```text
+.......................                                                  [100%]
+23 passed in 8.78s
+```
+
+Suíte inteira, com a integração (`.venv/bin/pytest -q`):
+```text
+385 passed in 120.43s (0:02:00)
+```
+
+### Arquivos gerados
+- `src/gold/__init__.py`
+- `src/gold/leitura.py`
+- `tests/unidade/test_gold_leitura.py`
+- `specs/tasks.md` (T-29 marcada como concluída, com nota)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Plano aprovado. Leitura da silver de todas as coleções só com list e get, nos prefixos silver/<tabela>/, com DESCRIBE de cada arquivo em hive_partitioning desligado e comparação com o contrato da silver. Coleção com arquivo fora do contrato, ilegível ou com tabela faltando sai inteira, com alerta; a 24325 fora do contrato sinaliza erro para a gold não ser publicada. Regras do adendo ao RF-27 e ao RF-28 implementadas. Testes falharam antes pelo motivo esperado e passaram depois.
