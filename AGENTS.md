@@ -55,7 +55,7 @@
 
 ## Convenção de commits
 - Formato: `tipo(T-xx): descrição [RF-yy]`, por exemplo `feat(T-03): coleta diária de preços do TCGCSV [RF-02]`.
-- Tipos: `feat`, `fix`, `test`, `docs`, `refactor`, `chore`.
+- Tipos: `feat`, `fix`, `test`, `docs`, `refactor`, `chore`, `ci` (mudanças no workflow do GitHub Actions; já usado na T-10).
 - Tarefas de implementação sempre citam o RF; tarefas de método ou infraestrutura (ex.: T-00) podem omitir o `[RF-yy]`.
 - Cada commit referencia uma única tarefa; com mais de um requisito, use `[RF-01, RF-02]`.
 

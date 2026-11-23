@@ -3099,3 +3099,99 @@ pytest tests/unidade/test_evidencias.py -q
 
 ### Decisão humana
 Primeira silver real aprovada: duas execuções com código 0 e as mesmas contagens, raw intocado, DESCRIBE igual ao contrato nas cinco tabelas e nenhuma partição de preço em 20/11. Conferência manual do RF-15: os 27 selados e as 331 cartas (7 Code Cards) estão corretos; regra validada com dados reais. Registrado que 20/11 é feriado nacional (sem PTAX nem CDI) e que a coleção não tem booster box, a tratar na carteira da spec v3.
+## 2026-11-23 — Etapa: implementação da T-27 (job silver no workflow)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados que configura pipelines agendados no GitHub Actions com cuidado com segredos. Executa uma única tarefa e para.
+
+[R] Pedido
+Implemente somente a T-27 de specs/tasks.md: o job silver no workflow .github/workflows/coleta.yml. Siga esta ordem:
+1. mostre o plano e o trecho completo do workflow que vai mudar. Se o plano precisar de alguma regra que ainda não está escrita na spec, liste essas regras numa seção separada "Regras fora da spec" e espere minha decisão, sem implementá-las; espere minha confirmação;
+2. escreva primeiro os testes novos em tests/unidade/test_workflow.py, rode e mostre que falham pelo motivo esperado;
+3. altere o workflow;
+4. valide o YAML localmente e rode o pytest inteiro, mostrando a saída real;
+5. marque a T-27 como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit.
+
+[E] Exemplos
+Elementos esperados, conforme o specs/plan.md:
+  um job silver separado do job coleta, com needs: coleta e if: always(), para que uma falha da coleta não impeça a silver e uma falha da silver não marque a coleta como falha;
+  os mesmos secrets e os mesmos valores públicos do job coleta;
+  passo que roda PYTHONPATH=src python -m silver;
+  o job silver fica vermelho quando o comando sai com código diferente de zero;
+  nada no job silver escreve em raw/ (a guarda do código já garante; o teste confere que o job não chama o coletor);
+  quando a opção forcar_falha estiver marcada, o comportamento do job silver vai no plano.
+Commit proposto: ci(T-27): silver no workflow depois da coleta [RF-22, RNF-05]
+
+[A] Ajustes
+- Faça só a T-27; não altere o job coleta além do necessário.
+- Nenhum valor de segredo no workflow; só referências a secrets.
+- Não rode o coletor nem a silver contra o bucket e não dispare o workflow.
+- Não leia nem imprima o .env.
+- Não rode git add, git commit nem git push.
+- Não declare sucesso sem mostrar a saída dos comandos.
+
+[T] Tipo de saída
+O trecho alterado do workflow, os testes, a saída da validação e do pytest e um resumo de até cinco linhas com a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/plan.md, specs/tasks.md, .github/workflows/coleta.yml e tests/unidade/test_workflow.py antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2 (literal)
+
+```text
+Plano aprovado. Decisões:
+1. timeout-minutes: 15 no job silver, com o comentário "hipótese, validação pendente (a geração real da T-26 levou cerca de 20 s)".
+2. Mantenha if: always().
+3. Use o tipo ci: acrescente "ci" à lista de tipos de commit do AGENTS.md (seção de convenção de commits), registrando que ele já foi usado na T-10 e serve para mudanças no workflow. Não altere mais nada no AGENTS.md.
+Validação só com yaml.safe_load e os testes; não instale nenhuma ferramenta nova. Pode seguir.
+```
+
+### Saída dos testes
+
+Antes de alterar o workflow (`pytest tests/unidade/test_workflow.py -q`):
+
+```text
+E       KeyError: 'silver'
+tests/unidade/test_workflow.py:84: KeyError
+E       KeyError: 'silver'
+tests/unidade/test_workflow.py:96: KeyError
+FAILED tests/unidade/test_workflow.py::test_job_silver_depois_da_coleta_mesmo_com_falha
+FAILED tests/unidade/test_workflow.py::test_job_silver_usa_secrets_e_nenhum_valor_literal
+FAILED tests/unidade/test_workflow.py::test_job_silver_roda_python_m_silver
+3 failed, 4 passed in 0.12s
+```
+
+(O primeiro falhou em `set(jobs) == {"coleta", "silver"}`, sem o job `silver`.)
+
+Validação do YAML (`yaml.safe_load`) depois da alteração:
+
+```text
+yaml.safe_load: ok
+gatilhos: ['schedule', 'workflow_dispatch']
+job coleta: needs=None if=None timeout=15 passos=['Checkout', 'Python 3.14', 'Instalar dependencias', 'Rodar o coletor']
+job silver: needs=coleta if=always() timeout=15 passos=['Checkout', 'Python 3.14', 'Instalar dependencias', 'Gerar a silver']
+codigo: 0
+```
+
+Depois da alteração:
+
+```text
+pytest tests/unidade/test_workflow.py -q
+7 passed in 0.08s
+pytest -q
+362 passed in 125.43s (0:02:05)
+```
+
+### Arquivos gerados
+- `.github/workflows/coleta.yml` (job `silver` depois da coleta; cabeçalho com RF-22 e RNF-05; job coleta sem mudança)
+- `tests/unidade/test_workflow.py` (três testes do job silver com `yaml.safe_load`; docstring cita a T-27; os quatro testes atuais sem mudança)
+- `AGENTS.md` (tipo de commit `ci` na lista, já usado na T-10)
+- `specs/tasks.md` (T-27 concluída, com nota)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Plano aprovado. Job silver separado no workflow, com needs: coleta e if: always(), os mesmos secrets e valores públicos do job coleta e o comando PYTHONPATH=src python -m silver; não lê a opção forcar_falha e não chama o coletor. Timeout de 15 minutos como hipótese. Tipo de commit ci acrescentado ao AGENTS.md, coerente com o commit da T-10. Testes novos falharam antes pelo motivo esperado e passaram depois.

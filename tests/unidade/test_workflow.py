@@ -1,11 +1,14 @@
-"""T-10 e T-13: workflow do GitHub Actions [RF-11, RF-12, RNF-03].
+"""T-10, T-13 e T-27: workflow do GitHub Actions [RF-11, RF-12, RF-22, RNF-03, RNF-05].
 
-Le o YAML como texto (sem dependencia nova). Sem rede e sem .env.
+Le o YAML como texto e, nos testes do job silver (T-27), com yaml.safe_load (PyYAML ja vem
+com o vcrpy e e usado em tests/unidade/cassetes.py; sem dependencia nova). Sem rede e sem .env.
 O RF-25 (janela de coleta) foi substituido pela nova D na T-28; os quatro horarios do RF-12 continuam.
 """
 
 import re
 from pathlib import Path
+
+import yaml
 
 RAIZ = Path(__file__).resolve().parents[2]
 WORKFLOW = (RAIZ / ".github" / "workflows" / "coleta.yml").read_text(encoding="utf-8")
@@ -53,3 +56,48 @@ def test_workflow_falha_quando_o_coletor_falha():
     assert "continue-on-error" not in WORKFLOW
     assert "|| true" not in WORKFLOW
     assert "set +e" not in WORKFLOW
+
+
+# --- T-27: job silver [RF-22, RNF-05] ---
+
+
+def _jobs() -> dict:
+    return yaml.safe_load(WORKFLOW)["jobs"]
+
+
+def _env_do_passo(job: dict, comando: str) -> dict:
+    (passo,) = [p for p in job["steps"] if comando in str(p.get("run", ""))]
+    return passo["env"]
+
+
+def test_job_silver_depois_da_coleta_mesmo_com_falha():
+    jobs = _jobs()
+    assert set(jobs) == {"coleta", "silver"}
+    assert jobs["silver"]["needs"] == "coleta"
+    assert jobs["silver"]["if"] == "always()"
+    assert "needs" not in jobs["coleta"] and "if" not in jobs["coleta"]
+
+
+def test_job_silver_usa_secrets_e_nenhum_valor_literal():
+    env_example = _env_example()
+    jobs = _jobs()
+    env_silver = _env_do_passo(jobs["silver"], "python -m silver")
+    env_coleta = _env_do_passo(jobs["coleta"], "python -m coleta")
+    for nome in SEGREDOS:
+        assert env_silver[nome] == "${{ secrets.%s }}" % nome, nome
+    for nome in PUBLICAS:
+        assert str(env_silver[nome]) == env_example[nome] == str(env_coleta[nome]), nome
+    assert set(env_silver) == set(SEGREDOS) | set(PUBLICAS)
+    assert env_example["S3_ENDPOINT_URL"] not in WORKFLOW
+    assert not re.search(r"\b(?:AKIA|ASIA)[A-Z0-9]{16}\b", WORKFLOW)
+
+
+def test_job_silver_roda_python_m_silver():
+    silver = _jobs()["silver"]
+    comandos = [str(p.get("run", "")) for p in silver["steps"]]
+    assert "PYTHONPATH=src python -m silver" in [c.strip() for c in comandos]
+    texto = yaml.safe_dump(silver)
+    assert "python -m coleta" not in texto  # o job nao chama o coletor nem escreve em raw/ (RNF-05)
+    assert "forcar_falha" not in texto.lower()  # a falha forcada (RF-11) e so do coletor
+    assert "continue-on-error" not in texto  # codigo diferente de zero deixa o job vermelho (RF-22)
+    assert silver["timeout-minutes"] == 15
