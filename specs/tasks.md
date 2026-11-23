@@ -302,12 +302,13 @@ Comando base da gold: `PYTHONPATH=src python -m gold`. Dashboard: `PYTHONPATH=sr
 - Depende de: T-31
 - Nota (2026-11-23): segue o segundo adendo de 2026-11-23 ao RF-28, RF-29 e RF-31 (commit e7c4a10). O contrato da gold tem nesta tarefa só as quatro dimensões (as fatos entram na T-33 e na T-34), e a dim_data inclui semana INTEGER (semana ISO). `conferir_grao` tira a coleção com grão quebrado (colecao com zero ou mais de uma linha, produto com product_id repetido) antes de montar as dimensões, com "grão quebrado" no alerta. Além dos sete testes acima, o arquivo cobre os tipos de cada dimensão por DESCRIBE (test_tipos_das_dimensoes_iguais_ao_contrato), a dim_data vazia sem preços (test_dim_data_vazia_sem_preco_diario), o grão quebrado de colega nos três casos (test_grao_quebrado_de_colega_tira_a_colecao) e na 24325 (test_grao_quebrado_na_24325_vira_erro). A silver sintética das coleções está em `tests/unidade/silver_turma.py`, helper reaproveitável pelas próximas tarefas; o teste da T-29 não mudou.
 
-## T-33 fato_cambio_diario
+## T-33 fato_cambio_diario — concluída (2026-11-23)
 - Requisitos: RF-33, RF-35
 - Arquivos: `src/gold/fatos.py`, `tests/unidade/test_gold_fato_cambio.py`
 - Teste: test_semana_09_a_13_10_2026_data_ptax_por_dia; test_20_11_2026_usa_ptax_de_19_11_e_cdi_zero; test_boletim_posterior_nunca_usado; test_data_sem_boletim_anterior_fica_nula; test_uma_linha_por_dia_de_calendario
 - Comando: pytest tests/unidade/test_gold_fato_cambio.py -q
 - Depende de: T-32
+- Nota (2026-11-23): `montar_fato_cambio` em `src/gold/fatos.py` faz ASOF LEFT JOIN da dim_data com a cambio_diario da 24325 (data_ptax ≤ data, nunca posterior; nulos antes do primeiro boletim) e LEFT JOIN com a cdi_diario da 24325 (zero em dia sem taxa). O contrato da gold ganhou a fato_cambio_diario (chave data). `montar_dimensoes` (T-32) passou a criar só as quatro dimensões, e não todas as tabelas do contrato, para a fato ser criada pela própria função; os testes da T-32 não mudaram. Além dos cinco testes acima, o arquivo cobre os tipos por DESCRIBE (test_tipos_da_fato_cambio_iguais_ao_contrato) e o CDI do dia (test_cdi_do_dia_e_zero_sem_taxa). Nenhuma regra nova na spec.
 
 ## T-34 fato_preco_diario em reais
 - Requisitos: RF-34, RF-35

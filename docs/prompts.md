@@ -3779,3 +3779,90 @@ Suíte inteira, com a integração (`.venv/bin/pytest -q`):
 
 ### Decisão humana
 Plano aprovado. Contrato da gold com as quatro dimensões; dim_colecao com série pelo prefixo SV ou ME e alerta para série nula; dim_produto sem alterar a silver; dim_data de calendário sem buraco da menor à maior data da preco_diario, com ano, mes, dia, semana ISO, dia da semana e dia_util pela cambio_diario da 24325; dim_acabamento distinta e sem nulo. Grão quebrado na silver de colega tira a coleção. Nenhuma coluna de dias desde o lançamento. Testes falharam antes pelo motivo esperado e passaram depois.
+
+## 2026-11-23 — Etapa: T-33 (fato_cambio_diario)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados Python que pratica desenvolvimento orientado a testes. Executa uma única tarefa, prova que ela funciona com a saída real do terminal e para.
+
+[R] Pedido
+Implemente somente a tarefa T-33 de specs/tasks.md (fato_cambio_diario), seguindo a ADR 0001. Siga esta ordem:
+1. mostre o plano: arquivos, colunas e grão da fato, como o ASOF JOIN escolhe a PTAX (data_ptax menor ou igual à data, nunca posterior), de onde vem o CDI do dia e o que acontece em dia sem taxa, e o comando de verificação. Se o plano precisar de alguma regra que ainda não está escrita na spec, liste essas regras numa seção separada "Regras fora da spec" e espere minha decisão, sem implementá-las; espere minha confirmação;
+2. escreva primeiro os testes da tarefa, rode e mostre que falham pelo motivo esperado (função ou módulo ainda inexistente, e não falta de dependência);
+3. implemente o mínimo para os testes passarem;
+4. rode a verificação da tarefa e o pytest inteiro e mostre a saída real;
+5. marque a T-33 como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit.
+
+[E] Exemplos
+Casos que os testes precisam cobrir:
+  uma linha por dia de calendário da dim_data;
+  semana de 09/10 a 13/10/2026: sábado 10/10, domingo 11/10 e o feriado de 12/10 usam a PTAX de 09/10 (data_ptax = 09/10); 13/10 usa a do próprio dia;
+  uma PTAX posterior nunca é usada, mesmo existindo (por exemplo, a de 13/10 nunca aparece em 12/10);
+  ptax de compra e de venda aplicadas, com a data do boletim de origem;
+  CDI do dia quando há taxa publicada e zero em dia sem taxa (fim de semana, feriado);
+  dia anterior ao primeiro boletim disponível: o comportamento esperado vai no plano.
+Commit proposto: feat(T-33): fato_cambio_diario com ptax por asof [RF-33, RF-35]
+
+[A] Ajustes
+- Faça só a T-33; a fato_preco_diario é da T-34.
+- DuckDB em memória com ASOF JOIN; tipos vindos do contrato da gold.
+- Use só a cambio_diario e a cdi_diario da 24325, como diz a ADR 0001.
+- Siga a spec e a ADR 0001 ao pé da letra; regras novas só depois da minha decisão.
+- Sem rede nos testes. Não leia nem imprima o .env.
+- Não rode git add, git commit nem git push.
+- Se a verificação falhar, tente corrigir no máximo duas vezes; depois disso, pare e explique.
+- Não declare sucesso sem mostrar a saída do comando.
+
+[T] Tipo de saída
+Os arquivos da tarefa, a saída do pytest antes e depois e um resumo de até cinco linhas com o que mudou e a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/plan.md, specs/tasks.md, docs/adr/0001-gold-modelagem-estrela.md e src/gold/ antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2 (literal)
+
+```text
+Plano da T-33 aprovado. Pode seguir.
+```
+
+### Observação do agente
+- O plano não precisou de nenhuma regra nova. O ASOF com data_ptax ≤ data, os nulos antes do primeiro boletim, o CDI zero em dia sem taxa e o uso só da silver da 24325 já estão no RF-33, no RF-35 e na ADR 0001.
+- Os testes foram escritos antes do código. Na primeira execução falharam na coleta com `ModuleNotFoundError: No module named 'gold.fatos'`.
+- Ajuste no código da T-32: `montar_dimensoes` criava uma tabela para cada entrada de `CONTRATO_GOLD`. Com a fato no contrato, passaria a criá-la também. Agora cria só as quatro dimensões (constante `DIMENSOES`). Os testes da T-32 continuam passando sem mudança.
+- A colega dos testes tem uma PTAX própria em 10/10 e 12/10, com valores dez vezes maiores. Ela nunca aparece na fato, o que mostra que só a silver da 24325 é usada.
+
+### Saída dos testes
+Antes da implementação (`.venv/bin/pytest tests/unidade/test_gold_fato_cambio.py -q`):
+```text
+tests/unidade/test_gold_fato_cambio.py:14: in <module>
+    from gold.fatos import montar_fato_cambio
+E   ModuleNotFoundError: No module named 'gold.fatos'
+ERROR tests/unidade/test_gold_fato_cambio.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.70s
+```
+
+Depois (`.venv/bin/pytest tests/unidade/test_gold_fato_cambio.py -q`):
+```text
+7 passed in 3.60s
+```
+
+Suíte inteira, com a integração (`.venv/bin/pytest -q`):
+```text
+408 passed in 136.97s (0:02:16)
+```
+
+### Arquivos gerados
+- `src/gold/fatos.py`
+- `src/gold/contrato.py` (fato_cambio_diario no contrato)
+- `src/gold/dimensoes.py` (cria só as quatro dimensões)
+- `tests/unidade/test_gold_fato_cambio.py`
+- `specs/tasks.md` (T-33 concluída, com nota)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Plano aprovado. fato_cambio_diario com uma linha por dia da dim_data; PTAX de compra e de venda por ASOF LEFT JOIN com data_ptax menor ou igual à data, nunca posterior, e data do boletim de origem; dia anterior ao primeiro boletim com PTAX nula; CDI do dia ou zero em dia sem taxa; só a silver da 24325. Testes com a semana de 09/10 a 13/10/2026 e com o feriado de 20/11/2026. Testes falharam antes pelo motivo esperado e passaram depois.

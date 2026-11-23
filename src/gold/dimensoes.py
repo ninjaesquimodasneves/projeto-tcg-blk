@@ -23,6 +23,7 @@ log = logging.getLogger("gold")
 GRAO_QUEBRADO = "grão quebrado"
 SERIE_INDEFINIDA = "serie indefinida"
 SERIES = (("SV", "Scarlet & Violet"), ("ME", "Mega Evolution"))  # prefixo com maiusculas (RF-29)
+DIMENSOES = ("dim_colecao", "dim_produto", "dim_data", "dim_acabamento")
 
 Aprovadas = dict[int, dict[str, list[Path]]]
 
@@ -86,7 +87,7 @@ def montar_dimensoes(con, aprovadas: Aprovadas) -> list[AlertaDimensao]:
     """Cria as quatro dimensoes em con; devolve os alertas de serie indefinida (RF-29)."""
     if GROUP_ID_PROPRIO not in aprovadas:
         raise ValueError(f"colecao {GROUP_ID_PROPRIO} fora das aprovadas: a gold nao pode ser montada")
-    for tabela in CONTRATO_GOLD:
+    for tabela in DIMENSOES:
         _criar(con, tabela)
 
     con.execute(
