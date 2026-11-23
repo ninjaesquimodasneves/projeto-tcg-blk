@@ -3730,3 +3730,52 @@ Antes do código, edite apenas specs/spec.md, como adendo ao RF-28, RF-29 e RF-3
 
 ### Decisão humana
 Regras encontradas no plano da T-32 escritas na spec antes do código: coluna semana na dim_data, conforme o enunciado; grão quebrado na silver de colega tira a coleção inteira (RF-28); série por prefixo SV ou ME com maiúsculas e alerta para nome nulo; dim_data vazia sem erro quando não há preço.Regras encontradas no plano da T-32 escritas na spec antes do código: coluna semana na dim_data, conforme o enunciado; grão quebrado na silver de colega tira a coleção inteira (RF-28); série por prefixo SV ou ME com maiúsculas e alerta para nome nulo; dim_data vazia sem erro quando não há preço.
+
+## 2026-11-23 — Etapa: implementação da T-32 (contrato da gold e dimensões)
+
+### Prompt (literal)
+
+```text
+Spec commitada (e7c4a10). Pode implementar a T-32 conforme o plano aprovado, com as quatro regras agora escritas no RF-28, RF-29 e RF-31 (incluindo a coluna semana na dim_data e a conferência do grão quebrado antes de montar as dimensões). Ao final, mostre a saída do pytest antes e depois e um resumo de até cinco linhas com o que mudou e a mensagem de commit proposta. Não acesse o bucket real. Não rode git add, git commit nem git push.
+```
+
+O pedido original da T-32 (prompt 1) e as decisões sobre as quatro regras (prompt 2) estão na entrada anterior, "segundo adendo ao RF-28, RF-29 e RF-31 (plano da T-32)".
+
+### Observação do agente
+- Os testes foram escritos antes do código. Na primeira execução falharam na coleta com `ModuleNotFoundError: No module named 'gold.contrato'`. O helper `silver_turma`, o duckdb e o `gold.leitura` importaram normalmente.
+- A silver sintética tem duas coleções: a 24325 ("SV: Black Bolt") e uma colega ("ME: Colega"). A colega tem preços em datas diferentes, um acabamento a mais, um acabamento nulo e uma PTAX própria em 10/10 e 12/10, que precisa ser ignorada no dia_util. A leitura passa por `ler_silver_da_turma` (T-29) com um S3 falso.
+- `montar_dimensoes` cria as tabelas com CREATE TABLE nos tipos do contrato da gold e preenche com INSERT ... SELECT e CAST explícito. As fontes são lidas com `read_parquet([...], hive_partitioning = false, union_by_name = true)`.
+- `conferir_grao` reaproveita o formato de alerta da T-29 (`_alertar` de `gold.leitura`). O código da T-29 não mudou.
+- Ajuste depois da primeira execução verde: o `import duckdb` de `dimensoes.py` subiu para o topo do módulo. Os testes rodaram de novo.
+
+### Saída dos testes
+Antes da implementação (`.venv/bin/pytest tests/unidade/test_gold_dimensoes.py -q`):
+```text
+tests/unidade/test_gold_dimensoes.py:14: in <module>
+    from gold.contrato import CHAVES_GOLD, CONTRATO_GOLD
+E   ModuleNotFoundError: No module named 'gold.contrato'
+ERROR tests/unidade/test_gold_dimensoes.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.22s
+```
+
+Depois (`.venv/bin/pytest tests/unidade/test_gold_dimensoes.py -q`):
+```text
+13 passed in 6.13s
+```
+
+Suíte inteira, com a integração (`.venv/bin/pytest -q`):
+```text
+401 passed in 116.98s (0:01:56)
+```
+
+### Arquivos gerados
+- `src/gold/contrato.py`
+- `src/gold/dimensoes.py`
+- `tests/unidade/silver_turma.py`
+- `tests/unidade/test_gold_dimensoes.py`
+- `specs/tasks.md` (T-32 concluída, com nota)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Plano aprovado. Contrato da gold com as quatro dimensões; dim_colecao com série pelo prefixo SV ou ME e alerta para série nula; dim_produto sem alterar a silver; dim_data de calendário sem buraco da menor à maior data da preco_diario, com ano, mes, dia, semana ISO, dia da semana e dia_util pela cambio_diario da 24325; dim_acabamento distinta e sem nulo. Grão quebrado na silver de colega tira a coleção. Nenhuma coluna de dias desde o lançamento. Testes falharam antes pelo motivo esperado e passaram depois.

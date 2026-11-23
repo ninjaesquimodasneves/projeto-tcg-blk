@@ -294,12 +294,13 @@ Comando base da gold: `PYTHONPATH=src python -m gold`. Dashboard: `PYTHONPATH=sr
 - Depende de: T-29. Só documento; commit antes de qualquer código das tabelas da gold.
 - Nota (2026-11-23): a descrição do teste passou das quatro seções do plano para as nove do formato da Aula 01, a pedido da aluna; as ADRs 0002 a 0005 da T-39 seguem o mesmo formato. A ADR cita as perguntas P1 a P5 e a carteira como agregações das duas fatos, as quatro alternativas descartadas, o achado do group_id BIGINT da T-22 e as três coleções aprovadas na T-30. Nenhum código de produção mudou.
 
-## T-32 Contrato da gold e dimensões
+## T-32 Contrato da gold e dimensões — concluída (2026-11-23)
 - Requisitos: RF-29, RF-30, RF-31, RF-32, RF-36
 - Arquivos: `src/gold/contrato.py`, `src/gold/dimensoes.py`, `tests/unidade/test_gold_dimensoes.py`
 - Teste: test_serie_sv_me_e_indefinida_com_alerta; test_dim_colecao_uma_linha_por_group_id; test_dim_produto_de_duas_colecoes_sem_repetir_chave; test_dim_data_09_a_13_10_2026_com_dia_util (falso em 10/10, 11/10 e 12/10); test_dim_data_sem_buraco_da_menor_a_maior_data_da_preco_diario; test_dim_acabamento_valores_distintos_sem_nulo; test_contrato_da_gold_sem_coluna_de_dias_desde_o_lancamento
 - Comando: pytest tests/unidade/test_gold_dimensoes.py -q
 - Depende de: T-31
+- Nota (2026-11-23): segue o segundo adendo de 2026-11-23 ao RF-28, RF-29 e RF-31 (commit e7c4a10). O contrato da gold tem nesta tarefa só as quatro dimensões (as fatos entram na T-33 e na T-34), e a dim_data inclui semana INTEGER (semana ISO). `conferir_grao` tira a coleção com grão quebrado (colecao com zero ou mais de uma linha, produto com product_id repetido) antes de montar as dimensões, com "grão quebrado" no alerta. Além dos sete testes acima, o arquivo cobre os tipos de cada dimensão por DESCRIBE (test_tipos_das_dimensoes_iguais_ao_contrato), a dim_data vazia sem preços (test_dim_data_vazia_sem_preco_diario), o grão quebrado de colega nos três casos (test_grao_quebrado_de_colega_tira_a_colecao) e na 24325 (test_grao_quebrado_na_24325_vira_erro). A silver sintética das coleções está em `tests/unidade/silver_turma.py`, helper reaproveitável pelas próximas tarefas; o teste da T-29 não mudou.
 
 ## T-33 fato_cambio_diario
 - Requisitos: RF-33, RF-35
