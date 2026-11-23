@@ -3659,3 +3659,74 @@ tests/unidade/test_adr.py::test_adr_0001_cita_p1_a_p5_a_carteira_e_as_quatro_alt
 
 ### Decisão humana
 ADR 0001 aprovada antes do código da gold: esquema estrela com dim_colecao, dim_produto, dim_data, dim_acabamento, fato_cambio_diario e fato_preco_diario, um Parquet por tabela; P1 a P5 e a carteira mostradas como agregações das duas fatos; quatro alternativas descartadas com motivo (tabela larga, tabela por coleção, arquivo .duckdb e silver direto). Risco das datas de colegas anteriores a 17/11 sem PTAX registrado para conferir na T-44. Teste exige as nove seções em toda ADR e as citações da ADR 0001.
+
+## 2026-11-23 — Etapa: segundo adendo ao RF-28, RF-29 e RF-31 (plano da T-32)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados Python que pratica desenvolvimento orientado a testes. Executa uma única tarefa, prova que ela funciona com a saída real do terminal e para.
+
+[R] Pedido
+Implemente somente a tarefa T-32 de specs/tasks.md (contrato da gold e as dimensões dim_colecao, dim_produto, dim_data e dim_acabamento), seguindo a ADR 0001. Siga esta ordem:
+1. mostre o plano: arquivos, o dicionário do contrato da gold, as colunas e o grão de cada dimensão, de onde vem cada coluna, como a série é derivada e como dia_util é calculado, e o comando de verificação. Se o plano precisar de alguma regra que ainda não está escrita na spec, liste essas regras numa seção separada "Regras fora da spec" e espere minha decisão, sem implementá-las; espere minha confirmação;
+2. escreva primeiro os testes da tarefa, rode e mostre que falham pelo motivo esperado (função ou módulo ainda inexistente, e não falta de dependência);
+3. implemente o mínimo para os testes passarem;
+4. rode a verificação da tarefa e o pytest inteiro e mostre a saída real;
+5. marque a T-32 como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit.
+
+[E] Exemplos
+Casos que os testes precisam cobrir (silver sintética de duas coleções em diretório temporário, lida pela função da T-29):
+  dim_colecao: uma linha por group_id, com a série "Scarlet & Violet" para nome iniciado por "SV" e "Mega Evolution" para "ME";
+  dim_produto: uma linha por (group_id, product_id), sem alterar os atributos da silver;
+  dim_data: um dia de calendário, sem buraco, da menor à maior data da preco_diario das coleções aprovadas, com dia da semana, semana, mês e dia_util; teste com a semana de 09/10 a 13/10/2026 (sábado, domingo e o feriado de 12/10 sem dia_util);
+  dim_acabamento: valores distintos da preco_diario, sem nulo;
+  nenhuma coluna de dias desde o lançamento no contrato da gold (RF-36).
+Commit proposto: feat(T-32): contrato da gold e dimensoes [RF-29, RF-30, RF-31, RF-32, RF-36]
+
+[A] Ajustes
+- Faça só a T-32; as fatos são da T-33 e da T-34, e a publicação da T-36.
+- DuckDB em memória, com hive_partitioning desligado em toda leitura; tipos vindos do contrato da gold, não de inferência.
+- Funções puras sobre arquivos locais, sem S3.
+- Siga a spec e a ADR 0001 ao pé da letra; regras novas só depois da minha decisão.
+- Não leia nem imprima o .env.
+- Não rode git add, git commit nem git push.
+- Se a verificação falhar, tente corrigir no máximo duas vezes; depois disso, pare e explique.
+- Não declare sucesso sem mostrar a saída do comando.
+
+[T] Tipo de saída
+Os arquivos da tarefa, a saída do pytest antes e depois e um resumo de até cinco linhas com o que mudou e a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/plan.md, specs/tasks.md, docs/adr/0001-gold-modelagem-estrela.md, src/silver/contrato.py e src/gold/ antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2 (literal)
+
+```text
+Decisões:
+1. Inclua a coluna semana INTEGER (semana ISO) na dim_data: o enunciado descreve a dim_data com "data, dia da semana, semana, mês". Acrescente ao RF-31.
+2. Aprovada: grão quebrado na silver de um colega (colecao com zero ou mais de uma linha, produto com product_id repetido) tira a coleção inteira pela regra do RF-28, com "alerta: colecao fora do contrato" e motivo "grão quebrado", código 0; se for a 24325, nada é publicado.
+3. Aprovada: prefixo "SV" e "ME" diferenciando maiúsculas; nome nulo dá série nula, com alerta.
+4. Aprovada: sem nenhuma linha de preco_diario nas coleções aprovadas, a dim_data fica vazia, sem erro.
+Antes do código, edite apenas specs/spec.md, como adendo ao RF-28, RF-29 e RF-31, acrescente esta mudança em docs/prompts.md e pare. Não rode git add, git commit nem git push.
+```
+
+### Observação do agente
+- O prompt 1 pedia a T-32 inteira. Nesta etapa saiu só o plano, com quatro "Regras fora da spec". O prompt 2 decidiu as quatro e pediu o adendo antes do código.
+- Segundo adendo de 2026-11-23 na spec:
+  - RF-28: grão quebrado (colecao com zero ou mais de uma linha, produto com product_id repetido) tira a coleção pela mesma regra, com o motivo "grão quebrado".
+  - RF-29: o prefixo da série diferencia maiúsculas, e nome nulo dá série nula com alerta.
+  - RF-31: coluna semana INTEGER (semana ISO 8601), intervalo da menor à maior data da preco_diario das coleções aprovadas e dim_data vazia sem preços.
+  - Cada requisito ganhou o motivo e os testes na Verificação, e o cabeçalho cita o adendo.
+- Também escrito no RF-31, como esclarecimento: "da menor à maior data das fatos" é o intervalo da preco_diario. Essa decisão da aluna já estava no plano v3 e na ADR 0001, mas não no requisito. Isso foi necessário para a regra 4 ter sentido.
+- No RF-31 ficou registrado ainda que a semana ISO pode pertencer ao ano vizinho nos primeiros e últimos dias do ano, enquanto ano continua sendo o ano civil. Semanas conferidas: 09/10/2026 está na semana 41 e 13/10/2026 na semana 42.
+- A T-32 (testes e código) continua pendente até o commit deste adendo.
+
+### Arquivos gerados
+- `specs/spec.md` (segundo adendo de 2026-11-23 ao RF-28, RF-29 e RF-31, e menção no cabeçalho)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Regras encontradas no plano da T-32 escritas na spec antes do código: coluna semana na dim_data, conforme o enunciado; grão quebrado na silver de colega tira a coleção inteira (RF-28); série por prefixo SV ou ME com maiúsculas e alerta para nome nulo; dim_data vazia sem erro quando não há preço.Regras encontradas no plano da T-32 escritas na spec antes do código: coluna semana na dim_data, conforme o enunciado; grão quebrado na silver de colega tira a coleção inteira (RF-28); série por prefixo SV ou ME com maiúsculas e alerta para nome nulo; dim_data vazia sem erro quando não há preço.
