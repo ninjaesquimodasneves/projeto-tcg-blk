@@ -3195,3 +3195,51 @@ pytest -q
 
 ### Decisão humana
 Plano aprovado. Job silver separado no workflow, com needs: coleta e if: always(), os mesmos secrets e valores públicos do job coleta e o comando PYTHONPATH=src python -m silver; não lê a opção forcar_falha e não chama o coletor. Timeout de 15 minutos como hipótese. Tipo de commit ci acrescentado ao AGENTS.md, coerente com o commit da T-10. Testes novos falharam antes pelo motivo esperado e passaram depois.
+## 2026-11-23 — Etapa: evidências do Actions da T-10 e da T-27
+
+### Prompt (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados que registra evidências de execuções reais com precisão. Nesta etapa você só lê logs e escreve documentação; não altera código.
+
+[R] Pedido
+Monte as evidências pendentes da T-10 e da T-27 a partir dos logs reais do GitHub Actions, usando só leitura com o gh CLI (por exemplo gh run list --workflow coleta.yml e gh run view <id> --log). Crie:
+1. docs/evidencias/T-10_workflow.md com: a lista das execuções do workflow coleta (número, evento, data e hora, resultado); o log do passo "Rodar o coletor" da execução manual #1 (quatro ja_existia), da falha forçada #2 (código 2) e da primeira execução agendada que gravou um dia novo (#8, dia 19/11); e o resumo de uma execução agendada que deu ja_existia de madrugada sem "fora da janela" (#9 ou #10).
+2. docs/evidencias/T-27_silver_workflow.md com o log da execução manual #24: os dois jobs (coleta com quatro ja_existia, silver com as cinco tabelas, a verificação aprovada e código 0).
+Se o gh não estiver autenticado ou não conseguir ler algum log, pare e me diga qual, sem inventar conteúdo.
+Remova a pendência de evidência da T-10 e da T-27 em specs/tasks.md.
+
+[A] Ajustes
+- Só comandos de leitura do gh; não dispare nenhum workflow.
+- Antes de salvar, confira que nenhum valor de credencial aparece (o GitHub mascara os secrets com ***; mantenha assim) e rode pytest tests/unidade/test_evidencias.py -q.
+- Não altere nenhum código. Não leia nem imprima o .env.
+- Não rode git add, git commit nem git push.
+
+[T] Tipo de saída
+Os dois arquivos de evidência, a saída do test_evidencias.py e a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/tasks.md e docs/evidencias/ antes de começar. Ao gravar, acrescente o prompt em docs/prompts.md. Pare ao final.
+```
+
+### Observação do agente
+- Todos os logs pedidos foram lidos com `gh run view <id> --log` (#1, #2, #8, #9, #10, #24). Também foram lidos #3, #4 e #20 para conferência.
+- A #8 não é a primeira execução agendada que gravou um dia novo: a #4 (2026-11-19 02:33 UTC) gravou o dia 18/11 (`"gravado": 4`). A evidência registra a #8 como a primeira com a nova definição de D (T-28) e cita o resumo literal da #4.
+- Para a madrugada, foi usada a #9 (03:45 UTC), com o resumo da #10 em seguida.
+
+### Saída dos testes
+
+```text
+pytest tests/unidade/test_evidencias.py -q
+15 passed in 0.05s
+```
+
+### Arquivos gerados
+- `docs/evidencias/T-10_workflow.md`
+- `docs/evidencias/T-27_silver_workflow.md`
+- `specs/tasks.md` (pendência de evidência da T-10 e da T-27 removida)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Aprovado. Evidências da T-10 e da T-27 montadas a partir dos logs reais do GitHub Actions lidos com o gh CLI: execução manual, falha forçada, primeira gravação agendada de um dia novo, execução de madrugada com ja_existia e a execução #24 com os jobs coleta e silver. Nenhuma credencial nos arquivos.

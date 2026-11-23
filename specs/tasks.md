@@ -68,9 +68,9 @@ Comando base: `.venv/bin/pytest` com `pythonpath = src` no `pytest.ini`.
 - Depende de: T-08. Exige autorização explícita para gravar no bucket.
 - Nota: `tests/unidade/test_evidencias.py` não foi criado na T-09 (o prompt proibia alterar código); a conferência de segredos foi feita à mão e o teste entrou na T-10.
 
-## T-10 Workflow do GitHub Actions — concluída (2026-11-17); evidência do Actions pendente até o push e os disparos
+## T-10 Workflow do GitHub Actions — concluída (2026-11-17); evidência do Actions registrada em 2026-11-23
 - Requisitos: RF-12, RF-11, RNF-03
-- Arquivos: `.github/workflows/coleta.yml`, `tests/unidade/test_workflow.py`, `tests/unidade/test_evidencias.py` (pendente da T-09), `docs/evidencias/T-10_workflow.md` (entra depois, num commit `docs(T-10)`)
+- Arquivos: `.github/workflows/coleta.yml`, `tests/unidade/test_workflow.py`, `tests/unidade/test_evidencias.py` (pendente da T-09), `docs/evidencias/T-10_workflow.md` (commit `docs(T-10)` de 2026-11-23)
 - Teste: test_workflow_tem_cron_17_21_e_dispatch; test_workflow_usa_secrets_e_nenhum_valor_literal; test_workflow_tem_concurrency_e_python_314; test_workflow_falha_quando_o_coletor_falha (leitura do YAML como texto, sem dependência nova); test_evidencia_sem_segredos e testes do detector em `test_evidencias.py`
 - Comando: pytest tests/unidade/test_workflow.py tests/unidade/test_evidencias.py -q. Depois do push autorizado: `gh workflow run coleta.yml` e `gh run list --workflow coleta.yml`.
 - Depende de: T-09. Secrets cadastrados pela aluna no GitHub. A falha forçada do RF-11 usa um dispatch com uma variável obrigatória vazia, que falha antes de qualquer chamada HTTP ou S3. No workflow, isso é a opção `forcar_falha` do workflow_dispatch, que esvazia `SIGLA`.
@@ -232,7 +232,8 @@ Comando base da silver: `PYTHONPATH=src python -m silver`.
 - Teste: test_job_silver_depois_da_coleta_mesmo_com_falha (`needs: coleta` e `if: always()`); test_job_silver_usa_secrets_e_nenhum_valor_literal; test_job_silver_roda_python_m_silver; os testes atuais do workflow da coleta continuam passando sem mudança
 - Comando: pytest tests/unidade/test_workflow.py -q. Depois do push autorizado: `gh workflow run coleta.yml` e `gh run list --workflow coleta.yml`.
 - Depende de: T-26
-- Nota (2026-11-23): job `silver` com `needs: coleta`, `if: always()` e os mesmos secrets e valores públicos do job coleta; o job coleta não mudou. Com `forcar_falha`, só o coletor falha e a silver roda normalmente (decisão do plano). `timeout-minutes: 15` é hipótese, validação pendente (a geração real da T-26 levou cerca de 20 s). Validação local só com `yaml.safe_load` e os testes; o disparo com `gh workflow run` fica para depois do push autorizado. O tipo de commit `ci` entrou na lista do AGENTS.md (já usado na T-10).
+- Nota (2026-11-23): job `silver` com `needs: coleta`, `if: always()` e os mesmos secrets e valores públicos do job coleta; o job coleta não mudou. Com `forcar_falha`, só o coletor falha e a silver roda normalmente (decisão do plano). `timeout-minutes: 15` é hipótese, validação pendente (a geração real da T-26 levou cerca de 20 s). Validação local só com `yaml.safe_load` e os testes; o disparo com `gh workflow run` ficou para depois do push autorizado (feito na execução #24). O tipo de commit `ci` entrou na lista do AGENTS.md (já usado na T-10).
+- Nota (2026-11-23): evidência do Actions registrada em `docs/evidencias/T-27_silver_workflow.md`, com o log da execução manual #24 (job coleta com quatro ja_existia; job silver com as cinco tabelas, verificação aprovada e código 0).
 
 ## Rastreabilidade da silver: requisito → tarefa → teste
 | Requisito | Tarefa | Teste |
