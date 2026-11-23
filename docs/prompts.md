@@ -3242,4 +3242,72 @@ pytest tests/unidade/test_evidencias.py -q
 - `docs/prompts.md` (esta entrada)
 
 ### Decisão humana
-Aprovado. Evidências da T-10 e da T-27 montadas a partir dos logs reais do GitHub Actions lidos com o gh CLI: execução manual, falha forçada, primeira gravação agendada de um dia novo, execução de madrugada com ja_existia e a execução #24 com os jobs coleta e silver. Nenhuma credencial nos arquivos.
+Aprovado. Evidências da T-10 e da T-27 montadas a partir dos logs reais do GitHub Actions lidos com o gh CLI: execução manual, falha forçada, primeira gravação agendada de um dia novo (#4, dia 18/11, corrigindo o prompt, que citava a #8), primeira gravação depois da nova data D (#8), madrugada com ja_existia (#9 e #10) e a execução #24 com os jobs coleta e silver. Um commit só para as duas evidências. Nenhuma credencial nos arquivos.
+
+## 2026-11-23 — Etapa: spec v3 (gold, dashboard e carteira)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de requisitos de dados. Escreve requisitos verificáveis, cada um com critério de aceite Dado/Quando/Então que um teste ou comando confirma. Não escreve código.
+
+[R] Pedido
+Atualize specs/spec.md para a versão 3, cobrindo o que a seção "Próximas versões" deixou para depois, sem alterar os requisitos existentes (continue a numeração a partir do último RF e RNF). Origem de todos os itens: enunciado do projeto (página de direcionamentos e Aula 08), salvo indicação.
+1. Leitura da silver da turma: a gold lê a silver de todas as coleções do bucket (curinga em silver/<tabela>/*/...), só leitura; registre como fato o achado da T-22: ao ler caminhos com group_id=<id>/, o DuckDB cria group_id a partir do caminho como BIGINT; a leitura precisa declarar como trata isso e garantir os tipos do contrato. Uma silver de colega fora do contrato não pode derrubar a gold inteira: defina o comportamento.
+2. Gold em esquema estrela no DuckDB, em gold/group_id=24325/: fato_preco_diario (grão: um produto, num acabamento, num dia; com market_price_brl, a cotação aplicada e data_ptax), fato_cambio_diario (um dia de calendário: PTAX aplicada, data do boletim de origem e CDI do dia, zero em dia sem taxa), dim_produto, dim_colecao (com série Scarlet & Violet ou Mega Evolution), dim_data e dim_acabamento. Dias desde o lançamento calculados na consulta, não guardados. Teste do grão.
+3. Conversão para reais: o preço do dia D usa a PTAX de fechamento de D ou do dia útil anterior mais próximo, nunca uma posterior (ASOF JOIN); teste com a semana de 09/10 a 13/10/2026 (fim de semana e feriado de 12/10); 20/11 é feriado nacional.
+4. Decomposição da variação em reais: (1 + r_brl) = (1 + r_usd) × (1 + r_cambio), em efeito da carta, efeito do câmbio e efeito cruzado.
+5. Dashboard em Streamlit com as cinco perguntas, valores em reais e chave para ver em dólar, imagem das cartas citadas e link para a página do produto:
+   P1 cartas que mais valorizaram e desvalorizaram desde o início da coleta, em reais, com a decomposição, só cartas acima de US$ 1 no primeiro dia, dois rankings de 10;
+   P2 índice base 100: média dos selados contra a soma das cartas de raridade Double Rare em diante;
+   P3 valor da coleção no dia em reais (um exemplar de cada carta) em base 100 por coleção da turma, com a PTAX em base 100;
+   P4 participação de cada raridade no valor total no último dia e número de cartas que somam 80% do valor, por coleção;
+   P5 retorno contra volatilidade (desvio-padrão dos retornos diários) das cartas da turma acima de US$ 5;
+   filtros de preço mínimo em dólar; raridade Code Card fora de P1, P3 e P4; nulo não entra em média; lacunas aparecem como lacunas, sem interpolar; aviso sobre os limites do dado.
+6. Desafio da carteira de R$ 1.000 no primeiro dia de coleta, avaliada todo dia pelo valor de liquidação: carteiras selado (booster box em unidades inteiras; esta coleção não tem booster box na tabela produto, então vale "o selado de maior preço com preço no primeiro dia", com a escolha registrada em ADR), cesta_raras (R$ 100 em cada uma das 10 cartas de maior market_price no primeiro dia, unidades inteiras), propria (regra registrada em ADR com commit anterior ao primeiro cálculo), dolar e cdi (juros compostos só em dia útil); compra pela PTAX de venda e liquidação pela PTAX de compra; taxa de venda como parâmetro (15% como hipótese em ADR), resultado com e sem taxa; sobra em caixa rende CDI; sem informação do futuro (a composição usa só o primeiro dia, com teste); preço ausente usa o último observado, marcado no painel, sem gravar nada na silver; métricas retorno acumulado, excesso sobre o CDI, perda máxima e dias com preço carregado.
+7. Resultado diário das cinco carteiras em gold_turma/carteira/group_id=24325/carteira.parquet no contrato comum: data DATE, group_id INTEGER, carteira VARCHAR, valor_brl DOUBLE, retorno_acumulado DOUBLE, taxa_venda DOUBLE; placar da turma no dashboard.
+8. Reprocessamento da gold a partir da silver com um comando, idempotente; escrita só em gold/ e gold_turma/ com group_id=24325.
+9. Lacunas conhecidas da série (20/11 sem coleta) e o primeiro dia de coleta (17/11) como fatos.
+
+[E] Exemplos
+Use o formato dos requisitos existentes, com Origem, Dado/Quando/Então e Verificação.
+
+[A] Ajustes
+- Números sem fonte entram como "hipótese, validação pendente".
+- Não escolha bibliotecas além do que o enunciado já fixa (DuckDB para a gold, Streamlit ou outra biblioteca Python para o dashboard); detalhes ficam para o plano.
+- Atualize a rastreabilidade e a seção "Fatos, lacunas e suposições".
+- Não escreva código. Não rode git add, git commit nem git push.
+
+[T] Tipo de saída
+Somente specs/spec.md. Mostre primeiro a lista dos novos requisitos (só títulos) e as decisões que precisam de mim, espere minha confirmação, depois as seções novas e alteradas.
+
+[E] Extras
+Leia AGENTS.md, docs/00_persona.md, docs/01_objetivos_negocio.md, specs/spec.md, specs/plan.md e docs/evidencias/T-26_primeira_silver.md. Ao gravar, acrescente o prompt em docs/prompts.md. Pare ao final.
+```
+
+### Prompt 2 (literal)
+
+```text
+As evidências da T-10 e da T-27 já foram commitadas (668e164). Lista de requisitos aprovada. Decisões:
+1. Aprovada: hive_partitioning desligado, DESCRIBE com tipos exatos e exclusão da coleção inteira fora do contrato, com alerta e código 0; silver desta coleção fora do contrato dá código diferente de zero.
+2. Aprovada: fatos e dimensões em gold/group_id=24325/ com todas as coleções aprovadas, identificadas pelo group_id.
+3. PTAX de venda no market_price_brl, como no exemplo do ASOF JOIN do enunciado.
+4. Aprovada como você recomendou.
+5. Leitura literal das unidades inteiras na cesta_raras, com a sobra em caixa rendendo CDI; Code Cards fora da cesta, porque o enunciado diz que não são colecionáveis. Registre em ADR.
+6, 7 e 9: aprovadas como você recomendou.
+8. Aprovada a lista como hipótese, validação pendente, a conferir contra os valores distintos de raridade na silver na primeira tarefa da gold; P2 só para a BLK.
+Suposições aprovadas, com uma mudança no selado: como esta coleção não tem booster box e o selado de maior preço provavelmente é uma "Case" acima de R$ 1.000 (o que zeraria a carteira), a regra da carteira selado passa a ser "o selado de maior preço com preço no primeiro dia, excluindo os produtos de distribuidor cujo nome termina em Case ou Display", com a escolha registrada em ADR (o enunciado permite). Se mesmo assim custar mais de R$ 1.000, compra 0 unidades e fica em caixa, como você propôs.
+Pode escrever as seções novas e alteradas. Não rode git add, git commit nem git push.
+```
+
+### Observação do agente
+- Os ADRs (carteira selado, cesta_raras, carteira propria e taxa de venda de 15%) foram registrados na spec como exigência anterior ao primeiro cálculo da carteira. Os arquivos em `docs/adr/` não foram criados nesta etapa, porque a saída pedida é só `specs/spec.md`.
+- Interpretações registradas como suposição na spec: P1 só para a coleção 24325; PTAX e CDI da gold só da silver desta coleção; taxa de venda só sobre produtos (não sobre dólar nem caixa); P2 usa um exemplar de cada carta, como P3 e P4.
+
+### Arquivos gerados
+- `specs/spec.md` (versão 3: RF-27 a RF-50 e RNF-07; cabeçalho, RNF-06, "Próximas versões", rastreabilidade e "Fatos, lacunas e suposições" atualizados; requisitos anteriores sem mudança)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Aprovada a spec v3 (RF-27 a RF-50 e RNF-07): leitura da silver da turma com tipos do contrato e exclusão de coleção fora do contrato; gold em estrela com todas as coleções aprovadas; conversão pela PTAX de venda via ASOF JOIN; decomposição carta x câmbio; dashboard com P1 a P5 e as regras gerais; carteira com cinco estratégias e contrato comum em gold_turma. Cesta_raras com unidades inteiras literais e sem Code Cards; carteira selado sem produtos Case ou Display, por a coleção não ter booster box; escolhas a registrar em ADR. Lista de raridades da P2 como hipótese a validar na silver.
