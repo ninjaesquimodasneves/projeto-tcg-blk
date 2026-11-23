@@ -2854,3 +2854,57 @@ codigo: 2
 
 ### Decisão humana
 Plano aprovado. Comando python -m silver sem parâmetros, com a configuração lida antes de qualquer chamada e gerado_em lido uma vez em UTC; usa reprocessar da T-23, com dois observadores opcionais que não mudam a publicação. Log JSON com uma linha por tabela, alertas do CDI, resultado da verificação e resumo, sem credenciais. Códigos de saída conforme o adendo ao RF-22: 0 com tudo publicado (mesmo com quarentena), 1 nas falhas de contrato, leitura, publicação, guarda, listagem ou exceção inesperada, e 2 com configuração inválida. Testes falharam antes pelo motivo esperado e passaram depois.
+## 2026-11-23 — Etapa: documentação (README: coleção e lacunas da série)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados que documenta o projeto com precisão. Nesta etapa você só escreve documentação; não altera código.
+
+[R] Pedido
+Atualize o README.md com duas seções iniciais (o README completo, com instruções de execução, fica para o fim do projeto):
+1. "Coleção": SV: Black Bolt, sigla BLK, groupId 24325, lançamento em 18/07/2025, responsável Gabriel_Cabral, primeiro dia de coleta 17/11/2026 (origem: enunciado e docs/evidencias/T-09_primeira_execucao.md).
+2. "Lacunas da série": uma tabela com data, motivo e evidência. Primeira linha: 2026-11-20, sem coleta porque o lake da turma ficou fora do ar (erro TLSV1_ALERT_INTERNAL_ERROR no endpoint) de pelo menos 20/11 às 09:11 UTC até depois das 20:00 UTC de 21/11, prazo em que o dia 20 ainda poderia ser coletado pela regra da data D; evidência: execuções #11 a #15 do workflow coleta com erro de SSL e listagem do raw em 23/11 sem a partição data=2026-11-20. Registre que o dia não foi preenchido com nenhum dado (enunciado: lacuna declarada, nunca inventada).
+Acrescente a listagem de 23/11 em docs/evidencias/lacuna_2026-11-20.md: as chaves de raw/tcgplayer/group_id=24325/ presentes (17, 18, 19, 21 e 22/11), sem nenhuma credencial.
+
+[A] Ajustes
+- Não altere nenhum outro arquivo além de README.md, docs/evidencias/lacuna_2026-11-20.md e docs/prompts.md.
+- Não acesse o bucket; use os dados deste prompt.
+- Não leia nem imprima o .env.
+- Não rode git add, git commit nem git push.
+
+[T] Tipo de saída
+Os dois arquivos, mostrados antes de gravar, e a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, README.md e docs/evidencias/ antes de começar. Ao gravar, acrescente o prompt em docs/prompts.md. Pare ao final.
+```
+
+### Prompt 2 (literal)
+
+```text
+Pode gravar, com dois ajustes:
+1. A saída real da listagem que rodei em 23/11 é literalmente esta, seguida da linha "conexao ok":
+raw/tcgplayer/group_id=24325/data=2026-11-17/prices.json
+raw/tcgplayer/group_id=24325/data=2026-11-17/products.json
+raw/tcgplayer/group_id=24325/data=2026-11-18/prices.json
+raw/tcgplayer/group_id=24325/data=2026-11-18/products.json
+raw/tcgplayer/group_id=24325/data=2026-11-19/prices.json
+raw/tcgplayer/group_id=24325/data=2026-11-19/products.json
+raw/tcgplayer/group_id=24325/data=2026-11-21/prices.json
+raw/tcgplayer/group_id=24325/data=2026-11-21/products.json
+raw/tcgplayer/group_id=24325/data=2026-11-22/prices.json
+raw/tcgplayer/group_id=24325/data=2026-11-22/products.json
+Troque "transcrita, saída literal pendente" por "saída literal da listagem executada pela aluna em 2026-11-23".
+2. Sobre as execuções, escreva só o que foi conferido: a #11 (20/11, 09:11 UTC) terminou com erro de SSL TLSV1_ALERT_INTERNAL_ERROR, conferido no log; a #15 (21/11, 08:45 UTC) também terminou com falha; nenhuma execução gravou a partição data=2026-11-20. Ajuste o README e a evidência com essa redação.
+Mensagem de commit sem T-xx está certa. Não rode git add, git commit nem git push.
+```
+
+### Arquivos gerados
+- `README.md` (seções "Coleção" e "Lacunas da série", com a lacuna de 2026-11-20)
+- `docs/evidencias/lacuna_2026-11-20.md` (novo: janela de D, execuções #11 e #15, saída literal da listagem de 23/11)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Aprovado. README passa a declarar a coleção (BLK, groupId 24325, primeiro dia de coleta 17/11/2026) e a lacuna de 20/11/2026, causada pela queda do lake da turma, sem nenhum dado preenchido; listagem do raw de 23/11 salva como evidência.
