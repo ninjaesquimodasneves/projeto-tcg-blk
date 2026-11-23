@@ -3397,3 +3397,70 @@ Pode gravar specs/plan.md e specs/tasks.md, com a tabela requisito → tarefa �
 
 ### Decisão humana
 Aprovados o plano e as tarefas da v3 (T-29 a T-54), com os ajustes de sequência propostos: conferência das raridades separada da leitura, publicação da gold em duas tarefas, carteira em três, gold real e workflow antes do dashboard, painel da carteira e conferência visual acrescentados. Silver da turma lida com boto3 e DuckDB local com hive_partitioning desligado; gold em Parquet por tabela com contrato próprio e publicação com guarda; dashboard Streamlit só local, lendo a gold publicada com cache. dim_data a partir de 17/11. Regra da carteira própria a decidir na T-39.
+
+## 2026-11-23 — Etapa: adendo ao RF-27 e ao RF-28 (plano da T-29)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados Python que pratica desenvolvimento orientado a testes. Executa uma única tarefa, prova que ela funciona com a saída real do terminal e para.
+
+[R] Pedido
+Implemente somente a tarefa T-29 de specs/tasks.md (leitura da silver da turma). Siga esta ordem:
+1. mostre o plano: arquivos, funções, como os Parquet de cada coleção são listados e baixados (só leitura), como o DESCRIBE é feito com hive_partitioning desligado, como se confere que o group_id do arquivo é igual ao do caminho, o que acontece com uma coleção fora do contrato e com a própria coleção 24325 fora do contrato, e o comando de verificação. Se o plano precisar de alguma regra que ainda não está escrita na spec, liste essas regras numa seção separada "Regras fora da spec" e espere minha decisão, sem implementá-las; espere minha confirmação;
+2. escreva primeiro os testes da tarefa, rode e mostre que falham pelo motivo esperado (função ou módulo ainda inexistente, e não falta de dependência);
+3. implemente o mínimo para os testes passarem;
+4. rode a verificação da tarefa e o pytest inteiro e mostre a saída real;
+5. marque a T-29 como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit.
+
+[E] Exemplos
+Casos que os testes precisam cobrir (S3 falso em memória, com Parquet gerados pelas funções da silver):
+  duas coleções no contrato são lidas, com group_id INTEGER vindo do arquivo, e não BIGINT do caminho;
+  uma coleção com uma tabela fora do contrato (coluna faltando ou tipo diferente) sai inteira, com alerta, e as outras seguem;
+  um arquivo cujo group_id interno é diferente do segmento group_id= do caminho é tratado como fora do contrato;
+  se a coleção 24325 estiver fora do contrato, a leitura sinaliza erro (a gold não pode ser publicada);
+  a leitura só chama list_objects_v2 e get_object; nenhum put, delete ou copy;
+  prefixos fora de silver/ nunca são listados.
+Commit proposto: feat(T-29): leitura da silver da turma com contrato [RF-27, RF-28, RNF-06]
+
+[A] Ajustes
+- Faça só a T-29; a conferência das raridades com o bucket real é a T-30.
+- Reaproveite silver.contrato e as funções de leitura de esquema da T-22.
+- Testes só com S3 falso; nenhum acesso ao bucket real.
+- Siga o RF-27, o RF-28 e o RNF-06 ao pé da letra; regras novas só depois da minha decisão.
+- Não leia nem imprima o .env.
+- Não rode git add, git commit nem git push.
+- Se a verificação falhar, tente corrigir no máximo duas vezes; depois disso, pare e explique.
+- Não declare sucesso sem mostrar a saída do comando.
+
+[T] Tipo de saída
+Os arquivos da tarefa, a saída do pytest antes e depois e um resumo de até cinco linhas com o que mudou e a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/plan.md, specs/tasks.md, src/silver/ e src/coleta/ antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2 (literal)
+
+```text
+Plano da T-29 aprovado, e as cinco regras também, como você propôs. Antes do código, edite apenas specs/spec.md, como adendo ao RF-27 e ao RF-28:
+1. chave fora do padrão (sem group_id=, com dois segmentos, com valor que não é inteiro simples ou com "..") é ignorada com "alerta: chave fora do padrao", sem tirar nenhuma coleção;
+2. objeto que não termina em .parquet no prefixo de uma coleção é ignorado com o mesmo alerta, sem tirar a coleção;
+3. a conferência de que o group_id do arquivo é igual ao do caminho vale só para colecao, produto e preco_diario, que têm essa coluna; em cambio_diario e cdi_diario a coleção é identificada só pelo caminho;
+4. group_id nulo em qualquer linha conta como diferente do caminho (arquivo fora do contrato); arquivo com zero linhas passa;
+5. falha na listagem do bucket faz a leitura inteira falhar, com o prefixo e a classe do erro, e o comando sai com código 1.
+Acrescente esta mudança em docs/prompts.md e pare, sem criar código. Não rode git add, git commit nem git push.
+```
+
+### Observação do agente
+- O prompt 1 pedia a T-29 inteira. Nesta etapa saiu só o plano, com a seção "Regras fora da spec". O prompt 2 aprovou o plano e as cinco regras, e pediu que entrassem na spec antes do código.
+- Adendo de 2026-11-23 no RF-27: regras 3, 4 e 5. Adendo no RF-28: regras 1 e 2. Cada requisito ganhou o motivo do adendo e os testes na Verificação. O cabeçalho da spec cita o adendo. Nenhuma outra linha mudou.
+- A T-29 (testes e código) continua pendente e será implementada depois do commit deste adendo, conforme o gate do AGENTS.md (nenhum código sem requisito commitado antes).
+
+### Arquivos gerados
+- `specs/spec.md` (adendo de 2026-11-23 ao RF-27 e ao RF-28, e menção no cabeçalho)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Regras encontradas no plano da T-29 escritas como adendo ao RF-27 e ao RF-28 antes do código: chave fora do padrão e objeto que não é Parquet ignorados com alerta; conferência do group_id só nas tabelas que têm a coluna; group_id nulo tira o arquivo do contrato e arquivo vazio passa; falha na listagem derruba a leitura com código 1.
