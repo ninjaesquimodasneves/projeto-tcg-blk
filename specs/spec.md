@@ -134,7 +134,7 @@ Verificação: teste de unidade da transformação com o cassete de products; te
 Origem: OBJ-04
 - Dado um produto do products.json
 - Quando tipo_produto é atribuído
-- Então é "carta" se extendedData tem o item Rarity (o que inclui os Code Cards, que têm Rarity e não têm Number) e "selado" se extendedData não tem nem Rarity nem Number (hipótese, validação pendente: regra proposta a partir dos campos de extendedData do cassete, a conferir nos dados reais)
+- Então é "carta" se extendedData tem o item Rarity (o que inclui os Code Cards, que têm Rarity e não têm Number) e "selado" se extendedData não tem nem Rarity nem Number (regra proposta a partir dos campos de extendedData do cassete; validada com os dados reais em 2026-11-23 (docs/evidencias/T-26_primeira_silver.md))
 - E um produto que não se encaixa em nenhum dos dois casos (por exemplo, com Number e sem Rarity) vai para a quarentena (RF-21) com o motivo "tipo_produto indefinido"
 Verificação: teste de unidade com os três formatos de extendedData observados no cassete e com o caso indefinido; conferência manual da lista de selados na primeira geração com dados reais, registrada em `docs/evidencias/`.
 
@@ -372,7 +372,7 @@ Verificação: teste de integração com MinIO contendo silver sintética de out
 - **Fato:** no cassete do prices, os campos são productId, lowPrice, midPrice, highPrice, marketPrice, directLowPrice e subTypeName; directLowPrice vem nulo em parte dos registros. Origem: `tests/contrato/cassettes/test_contrato_prices.yaml`.
 - **Fato:** no cassete do CDI, data vem como DD/MM/AAAA e valor vem como texto. Origem: `tests/contrato/cassettes/test_contrato_cdi_janela.yaml`.
 - **Hipótese, validação pendente:** janela do CDI de 10 dias corridos; 5 tentativas; timeout de conexão de 10 s e de leitura de 30 s; teto de espera de 60 s.
-- **Hipótese, validação pendente:** regra do tipo_produto do RF-15 (carta se tem Rarity; selado se não tem Rarity nem Number), a conferir nos dados reais.
+- **Fato:** a regra do tipo_produto do RF-15 (carta se tem Rarity; selado se não tem Rarity nem Number) foi validada com os dados reais em 2026-11-23: os 27 selados são produtos lacrados e as 331 cartas, incluindo os 7 Code Cards, são cartas. Origem: conferência manual da aluna em `docs/evidencias/T-26_primeira_silver.md`.
 - **Hipótese, validação pendente:** no CDI repetido entre raw, chave_raw do raw mais recente e alerta quando o valor diverge (RF-18).
 - **Hipótese, validação pendente:** rótulo fonte = "tcgcsv" na preco_diario, a confirmar com o contrato da turma.
 - **Fato:** a execução agendada de 17/11/2026, marcada para 21:17 UTC, começou às 02:54 UTC de 18/11 (23:54 em São Paulo), com quase 6 horas de atraso. Um atraso que passe da meia-noite de São Paulo grava os preços do dia anterior com a D seguinte, e a execução correta da noite encontra a chave ocupada. Origem: aba Actions do repositório.
@@ -381,6 +381,8 @@ Verificação: teste de integração com MinIO contendo silver sintética de out
 - **Fato:** a nova D é compatível com os dias já gravados. As execuções que gravaram 17/11 e 18/11, entre 20:00 e 02:59 UTC, dão a mesma D pelas duas regras. Entre 20:00 e 23:59 UTC do dia X, São Paulo marca X e instante − 20 h também cai em X. Entre 00:00 e 02:59 UTC do dia X+1, São Paulo marca X e instante − 20 h cai em X, das 04:00 às 06:59. Origem: cálculo pelas duas definições; execuções na aba Actions.
 - **Fato:** o TCGCSV deve ser coletado no máximo uma vez por dia; com vários horários na noite, o RF-26 evita baixar de novo uma fonte já gravada. Origem: `AGENTS.md`.
 - **Hipótese, validação pendente:** horários 21:17, 22:47, 00:17 e 01:47 UTC (RF-12), escolhidos fora da hora cheia e espaçados em 1h30 para que o atraso de uma execução não impeça as outras.
+- **Fato:** 20/11 é feriado nacional (Dia da Consciência Negra), então não há PTAX nem CDI nessa data, independentemente da lacuna de coleta; a lacuna de 20/11/2026 afeta só os preços do TCGplayer. Origem: Lei 14.759/2023; ausência de 20/11 na cambio_diario e na cdi_diario em `docs/evidencias/T-26_primeira_silver.md`.
+- **Fato:** a coleção não tem produto "Booster Box" na tabela produto; isso será tratado na spec v3, na carteira "selado". Origem: lista de selados em `docs/evidencias/T-26_primeira_silver.md`.
 - **Suposição:** a data da cambio_diario é a data civil de dataHoraCotacao, que a fonte publica no horário de Brasília.
 - **Lacuna:** formato do log (arquivo, saída padrão ou ambos) e onde ele fica guardado; fica para o plano.
 - **Lacuna:** nome e formato dos arquivos dentro de quarentena/<tabela>/group_id=24325/data=D/; fica para o plano.

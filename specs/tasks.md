@@ -218,12 +218,13 @@ Comando base da silver: `PYTHONPATH=src python -m silver`.
 - Depende de: T-24. Exige Docker.
 - Nota (2026-11-23): os dois últimos testes foram acrescentados a pedido, como testes separados. O raw é gravado no próprio teste com `gravar_raw` (cassetes de products, prices, PTAX de dia útil e CDI em D1, mais um CDI sintético em D2 com uma data repetida, que gera a quarentena lida no teste do RF-21); `main` roda com o cliente boto3 real criado do ambiente do contêiner. As fixtures da T-11 não mudaram e nenhum código de produção mudou.
 
-## T-26 Primeira geração real, conferência dos selados e evidência
+## T-26 Primeira geração real, conferência dos selados e evidência — concluída (2026-11-23)
 - Requisitos: RF-15, RF-22, RF-24
 - Arquivos: `docs/evidencias/T-26_primeira_silver.md`
 - Teste: test_evidencia_sem_segredos (`tests/unidade/test_evidencias.py`). A evidência registra o log das duas execuções (mesmas contagens), a listagem das chaves de silver/ e quarentena/ com group_id=24325, o DESCRIBE de cada tabela e a lista dos produtos classificados como selado, conferida à mão (RF-15).
 - Comando: PYTHONPATH=src .venv/bin/python -m silver (duas vezes) && pytest tests/unidade/test_evidencias.py -q
 - Depende de: T-25. Exige autorização explícita para gravar em silver/ e quarentena/ no bucket.
+- Nota (2026-11-23): duas execuções reais com código 0 e as mesmas contagens por tabela; 9 objetos em silver/ (preco_diario em 17, 18, 19, 21 e 22/11, sem 20/11), nenhum em quarentena/; raw/ com as mesmas 20 chaves e ETags antes e depois; DESCRIBE igual ao contrato em todas as tabelas (extra direct_low_price em preco_diario). Conferência manual (RF-15) concluída pela aluna em 2026-11-23: os 27 selados e as 331 cartas (incluindo os 7 Code Cards) estão corretos; regra de tipo_produto validada e registrada na spec. Também registrados na spec e na evidência: 20/11 é feriado nacional (sem PTAX nem CDI) e a coleção não tem "Booster Box" (tratado na v3). Evidência em `docs/evidencias/T-26_primeira_silver.md`.
 
 ## T-27 Job da silver no workflow
 - Requisitos: RF-22, RF-24, RNF-05

@@ -3000,3 +3000,102 @@ Nenhum teste falhou; as fixtures da T-11 e o código de produção não mudaram.
 
 ### Decisão humana
 Plano aprovado, com os seis testes separados e os dois nomes novos acrescentados ao tasks.md e à rastreabilidade. Silver testada contra MinIO real com o raw dos cassetes gravado pelo gravador do coletor: duas execuções com as mesmas chaves e linhas (quarentena igual exceto gerado_em), raw intocado, silver de outro group_id intocada, contrato divergente sem alterar nada, partição antiga de preco_diario apagada e DESCRIBE de cada Parquet publicado igual ao contrato. Fixtures da T-11 reaproveitadas sem mudança.
+## 2026-11-23 — Etapa: execução da T-26 (primeira geração real da silver)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados que opera o pipeline com cuidado. Executa uma única tarefa, prova o resultado com a saída real do terminal e para.
+
+[R] Pedido
+Execute somente a tarefa T-26 de specs/tasks.md: a primeira geração real da silver no bucket da turma. Eu autorizo explicitamente, nesta tarefa, os comandos que gravam e apagam no bucket via python -m silver (só em silver/ e quarentena/ com group_id=24325). Siga esta ordem:
+1. mostre o plano dos comandos e espere minha confirmação;
+2. rode PYTHONPATH=src .venv/bin/python -m silver e mostre o log completo e o código de saída;
+3. rode uma segunda vez e mostre que o resultado é o mesmo (mesmas contagens por tabela, código 0);
+4. liste, só lendo, as chaves publicadas em silver/*/group_id=24325/ e quarentena/*/group_id=24325/;
+5. baixe, só lendo, os Parquet publicados e mostre o DESCRIBE de cada um (com hive_partitioning desligado), comparando com o contrato;
+6. para a conferência manual do RF-15, mostre a lista de todos os produtos com tipo_produto "selado" (product_id e nome) e a contagem de cartas, Code Cards e selados; não decida sozinho se a regra está certa, eu confiro;
+7. salve as saídas dos passos 2 a 6 em docs/evidencias/T-26_primeira_silver.md, sem nenhum valor de credencial;
+8. marque a T-26 como concluída em specs/tasks.md (com a conferência dos selados pendente da minha resposta), acrescente este prompt em docs/prompts.md e proponha a mensagem de commit.
+
+[E] Exemplos
+Resultado esperado: código 0 nas duas execuções; preco_diario com uma partição para cada data do raw (17, 18, 19, 21 e 22/11, sem 20/11); cambio_diario com os dias úteis do período; DESCRIBE igual ao contrato em todas as tabelas.
+Commit proposto: docs(T-26): primeira silver real e evidencia [RF-13 a RF-24]
+
+[A] Ajustes
+- Não leia nem imprima o .env; o próprio comando carrega as variáveis.
+- Não altere nenhum código; se algo falhar, pare, mostre o log e explique, sem tentar corrigir.
+- Nenhuma gravação ou remoção fora de silver/ e quarentena/ com group_id=24325; nada em raw/.
+- Antes de salvar a evidência, confira que nenhum valor de credencial aparece nela.
+- Não rode git add, git commit nem git push.
+
+[T] Tipo de saída
+O arquivo de evidência, as saídas reais, a lista de selados para a minha conferência e um resumo de até cinco linhas com a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/tasks.md e src/silver/ antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2 (literal)
+
+```text
+Plano aprovado, incluindo o passo 0. Use a mensagem de commit com os requisitos do tasks.md: docs(T-26): primeira silver real e evidencia [RF-15, RF-22, RF-24]. Pode seguir.
+```
+
+### Saída dos comandos
+
+As saídas completas das duas execuções, da listagem, do DESCRIBE e da lista de selados estão em `docs/evidencias/T-26_primeira_silver.md`. Resumo das execuções:
+
+```text
+1ª: {"tipo": "resumo", "gerado_em": "2026-11-23T13:39:38+00:00", "publicado": true, "objetos_publicados": 9, "objetos_apagados": 0, "erro": null, "codigo_saida": 0}
+2ª: {"tipo": "resumo", "gerado_em": "2026-11-23T13:40:01+00:00", "publicado": true, "objetos_publicados": 9, "objetos_apagados": 0, "erro": null, "codigo_saida": 0}
+diff das linhas por tabela: linhas por tabela identicas
+```
+
+Conferência de segredos da evidência:
+
+```text
+grep -inE "authorization|signature|x-amz-credential|akia|secret|password|token|access_key|endpoint" docs/evidencias/T-26_primeira_silver.md
+6:- Bucket: o bucket da turma (nome e endpoint omitidos; vêm de `BUCKET` e `S3_ENDPOINT_URL`).
+320:Este arquivo não contém valores de ... (texto da própria conferência)
+pytest tests/unidade/test_evidencias.py -q
+15 passed in 0.04s
+```
+
+Comparação dos valores de configuração com o texto da evidência, num processo que imprime só booleanos (nenhum valor exibido): S3_ENDPOINT_URL, S3_ACCESS_KEY e S3_SECRET_KEY não aparecem; o valor de BUCKET é o nome público `tcg` do AGENTS.md e só aparece dentro de `tcgplayer`, nunca como palavra isolada.
+
+### Arquivos gerados
+- `docs/evidencias/T-26_primeira_silver.md` (novo: listagem antes, log das duas execuções, listagem depois, DESCRIBE, tabelas pequenas, contagem por tipo e lista dos 27 selados)
+- `specs/tasks.md` (T-26 concluída, com a conferência dos selados pendente)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Plano aprovado, com os seis testes separados e os dois nomes novos acrescentados ao tasks.md e à rastreabilidade. Silver testada contra MinIO real com o raw dos cassetes gravado pelo gravador do coletor: duas execuções com as mesmas chaves e linhas (quarentena igual exceto gerado_em), raw intocado, silver de outro group_id intocada, contrato divergente sem alterar nada, partição antiga de preco_diario apagada e DESCRIBE de cada Parquet publicado igual ao contrato. Fixtures da T-11 reaproveitadas sem mudança.
+
+## 2026-11-23 — Etapa: T-26, conferência do RF-15 e fatos da primeira silver
+
+### Prompt (literal)
+
+```text
+Conferência do RF-15 feita: os 27 selados estão corretos (todos são produtos lacrados), e as 331 cartas, incluindo os 7 Code Cards, também. Regra de tipo_produto validada com dados reais em 23/11; registre isso na evidência e troque, na spec, o "hipótese, validação pendente" do RF-15 por "validada com os dados reais em 2026-11-23 (docs/evidencias/T-26_primeira_silver.md)".
+Registre também na evidência e na seção de fatos da spec: 20/11 é feriado nacional (Dia da Consciência Negra, Lei 14.759/2023), então não há PTAX nem CDI nessa data, independentemente da lacuna de coleta; a lacuna de 20/11 afeta só os preços do TCGplayer.
+Registre como fato na spec que a coleção não tem produto "Booster Box" na tabela produto; isso será tratado na spec v3, na carteira "selado".
+Atualize a nota da T-26 em specs/tasks.md (conferência concluída). Não rode git add, git commit nem git push.
+```
+
+### Saída dos testes
+
+```text
+pytest tests/unidade/test_evidencias.py -q
+15 passed in 0.04s
+```
+
+### Arquivos gerados
+- `specs/spec.md` (RF-15: regra validada com os dados reais em 2026-11-23; em "Fatos, lacunas e suposições", a hipótese do tipo_produto vira fato e entram os fatos do feriado de 20/11 e da ausência de "Booster Box")
+- `docs/evidencias/T-26_primeira_silver.md` (seções 5 e 6: feriado de 20/11, resultado da conferência dos selados e ausência de "Booster Box")
+- `specs/tasks.md` (nota da T-26: conferência concluída)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Primeira silver real aprovada: duas execuções com código 0 e as mesmas contagens, raw intocado, DESCRIBE igual ao contrato nas cinco tabelas e nenhuma partição de preço em 20/11. Conferência manual do RF-15: os 27 selados e as 331 cartas (7 Code Cards) estão corretos; regra validada com dados reais. Registrado que 20/11 é feriado nacional (sem PTAX nem CDI) e que a coleção não tem booster box, a tratar na carteira da spec v3.
