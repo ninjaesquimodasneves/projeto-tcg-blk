@@ -210,12 +210,13 @@ Comando base da silver: `PYTHONPATH=src python -m silver`.
 - Depende de: T-23
 - Nota (2026-11-20): segue o adendo de 2026-11-20 do RF-22. Além dos oito testes acima, o arquivo cobre a linha de verificação e a de resumo, a falha num put (publicados só dos puts que deram certo) e num delete, a chave proibida, a falha na listagem e a exceção inesperada (código 1), a configuração inválida (código 2, sem cliente S3 e antes do relógio) e gerado_em lido uma vez em UTC (mesmo valor no resumo e na quarentena). `reprocessar` ganhou três parâmetros opcionais que só observam (`ao_gerar`, `ao_verificar`, `ao_publicar`), para o log sair mesmo quando um put ou um delete interrompe a publicação; os testes da T-23 não mudaram. Os 20 testes levam cerca de 37 s, pela mesma causa da pendência de tempo da T-22.
 
-## T-25 Integração da silver com Testcontainers
+## T-25 Integração da silver com Testcontainers — concluída (2026-11-23)
 - Requisitos: RF-21, RF-23, RF-24, RNF-05, RNF-06
 - Arquivos: `tests/integracao/test_silver_minio.py` (reaproveita as fixtures de `tests/integracao/conftest.py`)
-- Teste: test_reprocessamento_duas_vezes_mesmas_linhas (tabelas comparadas com todos os campos; quarentena comparada com todos os campos exceto gerado_em, nota do RF-24; chaves, ETag e sha256 do raw iguais antes e depois); test_quarentena_lida_do_minio_com_entrada_original_e_motivo; test_silver_de_outro_group_id_intocada (chaves e sha256 antes e depois); test_contrato_divergente_nao_altera_a_silver_publicada
+- Teste: test_reprocessamento_duas_vezes_mesmas_linhas (tabelas comparadas com todos os campos; quarentena comparada com todos os campos exceto gerado_em, nota do RF-24; chaves, ETag e sha256 do raw iguais antes e depois); test_quarentena_lida_do_minio_com_entrada_original_e_motivo; test_silver_de_outro_group_id_intocada (chaves e sha256 antes e depois); test_contrato_divergente_nao_altera_a_silver_publicada; test_particao_antiga_de_preco_sem_raw_apagada; test_describe_dos_parquet_publicados_bate_com_contrato
 - Comando: pytest -m integracao -q
 - Depende de: T-24. Exige Docker.
+- Nota (2026-11-23): os dois últimos testes foram acrescentados a pedido, como testes separados. O raw é gravado no próprio teste com `gravar_raw` (cassetes de products, prices, PTAX de dia útil e CDI em D1, mais um CDI sintético em D2 com uma data repetida, que gera a quarentena lida no teste do RF-21); `main` roda com o cliente boto3 real criado do ambiente do contêiner. As fixtures da T-11 não mudaram e nenhum código de produção mudou.
 
 ## T-26 Primeira geração real, conferência dos selados e evidência
 - Requisitos: RF-15, RF-22, RF-24
@@ -244,8 +245,8 @@ Comando base da silver: `PYTHONPATH=src python -m silver`.
 | RF-20 | T-14, T-16 a T-20 | test_modelo_valido_por_tabela, test_preco_negativo_recusado, test_chave_obrigatoria_nula_recusada |
 | RF-21 | T-14, T-16, T-17, T-19, T-21, T-25 | test_rejeitado_guarda_entrada_motivo_e_chave_raw, test_linha_tem_motivo_chave_raw_gerado_em_e_entrada_original, test_quarentena_lida_do_minio_com_entrada_original_e_motivo |
 | RF-22 | T-21, T-24, T-26, T-27 | test_contagem_por_motivo, test_log_por_tabela_com_lidos_publicados_descartados_e_quarentena, test_saida_diferente_de_zero_com_raw_ilegivel, evidência da T-26 |
-| RF-23 | T-14, T-22, T-23, T-25 | test_coluna_faltando_reprovada, test_tipo_diferente_reprovado, test_contrato_divergente_nada_publicado_nem_apagado, test_contrato_divergente_nao_altera_a_silver_publicada |
-| RF-24 | T-23, T-24, T-25, T-26, T-27 | test_apaga_so_objetos_antigos_nao_regravados, test_ordem_verifica_publica_e_depois_apaga, test_reprocessamento_duas_vezes_mesmas_linhas, evidência da T-26 |
+| RF-23 | T-14, T-22, T-23, T-25 | test_coluna_faltando_reprovada, test_tipo_diferente_reprovado, test_contrato_divergente_nada_publicado_nem_apagado, test_contrato_divergente_nao_altera_a_silver_publicada, test_particao_antiga_de_preco_sem_raw_apagada, test_describe_dos_parquet_publicados_bate_com_contrato |
+| RF-24 | T-23, T-24, T-25, T-26, T-27 | test_apaga_so_objetos_antigos_nao_regravados, test_ordem_verifica_publica_e_depois_apaga, test_reprocessamento_duas_vezes_mesmas_linhas, test_particao_antiga_de_preco_sem_raw_apagada, evidência da T-26 |
 | RNF-05 | T-23, T-25, T-27 | test_chave_em_raw_recusada_antes_do_put, test_chave_sem_group_id_recusada, test_job_silver_usa_secrets_e_nenhum_valor_literal |
 | RNF-06 | T-15, T-23, T-25 | test_lista_so_prefixos_da_colecao, test_leitor_so_faz_list_e_get, test_chave_de_outro_group_id_recusada_antes_do_put_e_do_delete, test_silver_de_outro_group_id_intocada |
 

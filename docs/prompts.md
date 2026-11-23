@@ -2923,3 +2923,80 @@ Os arquivos já foram commitados (3687602). Faça só esta correção de redaç�
 
 ### Decisão humana
 Correção aprovada: o motivo da lacuna passa a dizer só o que foi registrado (falha em todas as execuções dentro do prazo do dia 20, a última às 08:45 UTC de 21/11, e próxima execução já depois do prazo), sem afirmar até quando o lake ficou fora.
+## 2026-11-23 — Etapa: implementação da T-25 (integração da silver com MinIO em Testcontainers)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados Python que pratica desenvolvimento orientado a testes. Executa uma única tarefa, prova que ela funciona com a saída real do terminal e para.
+
+[R] Pedido
+Implemente somente a tarefa T-25 de specs/tasks.md (integração da silver com Testcontainers). Siga esta ordem:
+1. confirme que o Docker responde e mostre o plano: arquivos, fixtures (reaproveite as da T-11 em tests/integracao/conftest.py), testes e comando de verificação. Se o plano precisar de alguma regra que ainda não está escrita na spec, liste essas regras numa seção separada "Regras fora da spec" e espere minha decisão, sem implementá-las; espere minha confirmação;
+2. escreva os testes e rode;
+3. ajuste o mínimo necessário nas fixtures para os testes passarem; se algum teste revelar defeito no código de produção, pare e me mostre antes de corrigir;
+4. rode a verificação da tarefa, os testes de integração e o pytest inteiro e mostre a saída real;
+5. marque a T-25 como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit.
+
+[E] Exemplos
+Casos que os testes precisam cobrir, contra um MinIO real em contêiner, com o raw dos cassetes gravado no próprio teste:
+  python -m silver (main) rodado duas vezes: as mesmas chaves e as mesmas linhas em cada tabela; a quarentena igual, exceto gerado_em (RF-24);
+  chaves e sha256 do raw iguais antes e depois das duas execuções (nada em raw/ é escrito ou apagado);
+  silver sintética de outro group_id no mesmo prefixo de tabela intacta, comparada por chave e sha256 (RNF-06);
+  contrato divergente forçado: nenhum objeto da silver alterado (RF-23);
+  partição antiga de preco_diario sem raw correspondente é apagada na reexecução;
+  o DESCRIBE de cada Parquet publicado, lido do MinIO, bate com o contrato.
+Commit proposto: test(T-25): integracao da silver com minio em testcontainers [RF-21, RF-23, RF-24, RNF-05, RNF-06]
+
+[A] Ajustes
+- Faça só a T-25; a primeira geração real é da T-26.
+- Imagem coollabsio/minio:RELEASE.2025-10-15T17-29-55Z, credenciais geradas na hora, como na T-11.
+- Marque os testes com @pytest.mark.integracao e pule com motivo explícito se o Docker não responder.
+- Nada do .env e nada do bucket da turma.
+- Siga o RF-21, o RF-23, o RF-24, o RNF-05 e o RNF-06 ao pé da letra; regras novas só depois da minha decisão.
+- Não rode git add, git commit nem git push.
+- Se a verificação falhar, tente corrigir no máximo duas vezes; depois disso, pare e explique.
+- Não declare sucesso sem mostrar a saída do comando.
+
+[T] Tipo de saída
+Os arquivos da tarefa, a saída do pytest e um resumo de até cinco linhas com o que mudou e a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/plan.md, specs/tasks.md, src/silver/ e tests/integracao/ antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2 (literal)
+
+```text
+Plano aprovado. Prefiro testes separados: escreva os seis testes como estão na tabela e, ao marcar a T-25 como concluída, acrescente os dois nomes novos à linha "Teste:" da T-25 e às linhas de RF-23 e RF-24 da rastreabilidade. Pode seguir.
+```
+
+### Saída dos testes
+
+Docker antes do plano (`docker version --format '{{.Server.Version}}'`):
+
+```text
+29.9.2-2
+```
+
+Verificação da tarefa:
+
+```text
+pytest tests/integracao/test_silver_minio.py -q
+6 passed in 35.95s
+pytest -m integracao -q
+11 passed, 348 deselected in 31.96s
+pytest -q
+359 passed in 126.48s (0:02:06)
+```
+
+Nenhum teste falhou; as fixtures da T-11 e o código de produção não mudaram. "Regras fora da spec" do plano: nenhuma.
+
+### Arquivos gerados
+- `tests/integracao/test_silver_minio.py` (novo, 6 testes com `@pytest.mark.integracao`, MinIO em Testcontainers pelas fixtures da T-11)
+- `specs/tasks.md` (T-25 concluída, com dois testes novos na linha "Teste:", nota e rastreabilidade de RF-23 e RF-24)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Plano aprovado, com os seis testes separados e os dois nomes novos acrescentados ao tasks.md e à rastreabilidade. Silver testada contra MinIO real com o raw dos cassetes gravado pelo gravador do coletor: duas execuções com as mesmas chaves e linhas (quarentena igual exceto gerado_em), raw intocado, silver de outro group_id intocada, contrato divergente sem alterar nada, partição antiga de preco_diario apagada e DESCRIBE de cada Parquet publicado igual ao contrato. Fixtures da T-11 reaproveitadas sem mudança.
