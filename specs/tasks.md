@@ -278,12 +278,13 @@ Comando base da gold: `PYTHONPATH=src python -m gold`. Dashboard: `PYTHONPATH=sr
 - Depende de: T-27. Reaproveita `CONTRATO` de `silver.contrato` e `ler_esquema` e `comparar_esquema` de `silver.parquet`.
 - Nota (2026-11-23): segue o adendo de 2026-11-23 ao RF-27 e ao RF-28 (commit e72d901). Além dos sete testes acima, o arquivo cobre coluna faltando (test_coluna_faltando_fica_fora_com_alerta), arquivo ilegível no get e Parquet corrompido sem o texto do erro (test_arquivo_ilegivel_tira_a_colecao), 24325 ausente do bucket (test_sem_silver_da_24325_vira_erro), group_id nulo (test_group_id_nulo_fora_do_contrato), arquivo com zero linhas (test_arquivo_com_zero_linhas_passa), cambio_diario e cdi_diario identificados só pelo caminho (test_cambio_e_cdi_de_outra_colecao_sem_group_id_aprovados_pelo_caminho), falha na listagem (test_falha_na_listagem_vira_erro_com_prefixo_e_classe), seis chaves fora do padrão e três objetos que não são .parquet. A 24325 fora do contrato não lança exceção: `propria_aprovada` fica falso e as demais coleções aparecem no resultado, para o log da T-37 mostrar todas; o comando da T-37 transforma isso em código diferente de zero. Nenhum código da silver nem da coleta mudou.
 
-## T-30 Conferência da lista de raridades da P2 contra a silver real
+## T-30 Conferência da lista de raridades da P2 contra a silver real — concluída (2026-11-23)
 - Requisitos: RF-40
-- Arquivos: `docs/evidencias/T-30_raridades.md`
+- Arquivos: `docs/evidencias/T-30_raridades_e_turma.md`
 - Teste: test_evidencia_sem_segredos (`tests/unidade/test_evidencias.py`). A evidência registra os valores distintos de raridade da silver/produto da 24325, com contagem, e a lista "Double Rare em diante" confirmada ou corrigida pela aluna; se mudar, a spec é ajustada antes da T-48.
 - Comando: leitura com `gold.leitura` só da coleção 24325 (sem put nem delete) e `SELECT raridade, count(*) ... GROUP BY raridade` no DuckDB && pytest tests/unidade/test_evidencias.py -q
 - Depende de: T-29. Só leitura no bucket da turma.
+- Nota (2026-11-23): leitura real só com `list_objects_v2`, `head_object` e `get_object` (cliente envolvido que recusa outras operações), por script local fora do repositório; nenhum código mudou. A silver/produto da 24325 tem 331 cartas em 9 raridades e 27 selados; as cinco raridades da hipótese existem (92 cartas, 69 delas Illustration Rare) e ficam de fora Common, Uncommon, Rare e Code Card. A pedido, a evidência também registra `ler_silver_da_turma` contra o bucket real: 24269, 24325 e 24541 aprovadas, nenhum alerta. O nome da evidência passou de `T-30_raridades.md` para `T-30_raridades_e_turma.md` a pedido da aluna. Conferência da lista da P2 concluída pela aluna em 2026-11-23: as cinco raridades estão corretas e Common, Uncommon, Rare e Code Card ficam fora; a lista não mudou, e o RF-40 passou a citar a validação com os dados reais.
 
 ## T-31 ADR 0001: modelagem em estrela da gold
 - Requisitos: RF-29, RF-30, RF-31, RF-32, RF-33, RF-34, RF-36

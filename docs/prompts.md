@@ -3515,3 +3515,78 @@ Suíte inteira, com a integração (`.venv/bin/pytest -q`):
 
 ### Decisão humana
 Plano aprovado. Leitura da silver de todas as coleções só com list e get, nos prefixos silver/<tabela>/, com DESCRIBE de cada arquivo em hive_partitioning desligado e comparação com o contrato da silver. Coleção com arquivo fora do contrato, ilegível ou com tabela faltando sai inteira, com alerta; a 24325 fora do contrato sinaliza erro para a gold não ser publicada. Regras do adendo ao RF-27 e ao RF-28 implementadas. Testes falharam antes pelo motivo esperado e passaram depois.
+
+## 2026-11-23 — Etapa: T-30 (raridades da BLK e silver da turma conferidas no bucket real)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados que confere dados reais antes de construir em cima deles. Nesta tarefa você só lê o bucket; não grava nada.
+
+[R] Pedido
+Execute somente a tarefa T-30 de specs/tasks.md. Siga esta ordem:
+1. mostre o plano dos comandos (só leitura) e espere minha confirmação;
+2. leia, só lendo, silver/produto/group_id=24325/produto.parquet e mostre os valores distintos de raridade com a contagem de produtos de cada uma, separando cartas de selados;
+3. mostre a lista hipotética da P2 (Double Rare, Ultra Rare, Illustration Rare, Special Illustration Rare, Black White Rare) ao lado dos valores reais, marcando quais existem e quais não, e quais raridades reais ficariam de fora; não decida sozinho, eu confiro;
+4. rode ler_silver_da_turma (T-29) contra o bucket real, só lendo, e mostre quais group_id foram aprovados, quais ficaram fora do contrato e por quê (alertas), sem copiar dados dos colegas além das chaves e dos motivos;
+5. salve as saídas dos passos 2 a 4 em docs/evidencias/T-30_raridades_e_turma.md, sem nenhum valor de credencial;
+6. marque a T-30 como concluída em specs/tasks.md (com a conferência da lista pendente da minha resposta), acrescente este prompt em docs/prompts.md e proponha a mensagem de commit.
+
+[E] Exemplos
+Saída esperada no passo 3, como tabela: raridade | existe na BLK | número de cartas | entra na P2 pela hipótese.
+Commit proposto: docs(T-30): raridades da BLK e silver da turma conferidas [RF-40, RF-27, RF-28]
+
+[A] Ajustes
+- Só list_objects_v2, head_object e get_object; nenhum put, delete ou copy.
+- Use as funções de configuração e de cliente S3 do projeto; não leia nem imprima o .env.
+- Não altere nenhum código.
+- Antes de salvar a evidência, rode pytest tests/unidade/test_evidencias.py -q.
+- Não rode git add, git commit nem git push.
+
+[T] Tipo de saída
+O arquivo de evidência, as saídas reais e um resumo de até cinco linhas com a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/tasks.md e src/gold/leitura.py antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2 (literal)
+
+```text
+Pode executar. Use o nome T-30_raridades_e_turma.md e atualize a linha "Arquivos" da T-30 no tasks.md.
+```
+
+### Prompt 3 (literal)
+
+```text
+Conferência da lista da P2 concluída: as cinco raridades (Double Rare, Ultra Rare, Illustration Rare, Special Illustration Rare e Black White Rare) estão corretas para "Double Rare em diante"; Common, Uncommon, Rare e Code Card ficam fora. Atualize o RF-40 em specs/spec.md, trocando "hipótese, validação pendente" por "validada com os dados reais em 2026-11-23 (docs/evidencias/T-30_raridades_e_turma.md)", registre a conferência na evidência e atualize a nota da T-30 em specs/tasks.md (conferência concluída). Não rode git add, git commit nem git push.
+```
+
+### Observação do agente
+- O script de conferência ficou fora do repositório, no scratchpad da sessão. Ele usa `carregar_env_local`, `carregar_config` e `criar_cliente_s3` do projeto. O cliente vai envolvido num objeto que só repassa `list_objects_v2`, `head_object` e `get_object`. Nenhum valor do `.env` foi lido ou impresso pelo agente.
+- Chamadas ao S3 na execução: 5 list, 1 head e 38 get. Código 0 e stderr vazio.
+- As cinco raridades da hipótese existem na BLK. Illustration Rare tem 69 das 92 cartas da lista, um ponto a considerar na conferência da aluna.
+- Três coleções da turma estão no bucket (24269, 24325 e 24541), todas aprovadas, sem alertas.
+- Nenhum código mudou.
+- Prompt 3: a aluna confirmou a lista da P2 sem mudanças. Para a spec não se contradizer, a linha de hipóteses da v3 em "Fatos, lacunas e suposições" também foi ajustada: a lista saiu das hipóteses e entrou como fato, com a mesma origem.
+- O nome da evidência em `specs/tasks.md` foi atualizado de `T-30_raridades.md` para `T-30_raridades_e_turma.md`.
+
+### Saída dos testes
+Antes de salvar a evidência (`.venv/bin/pytest tests/unidade/test_evidencias.py -q`):
+```text
+15 passed in 0.03s
+```
+Depois de salvar:
+```text
+15 passed in 0.03s
+```
+
+### Arquivos gerados
+- `docs/evidencias/T-30_raridades_e_turma.md`
+- `specs/tasks.md` (T-30 concluída e conferência da lista registrada; linha "Arquivos" atualizada)
+- `specs/spec.md` (RF-40: lista validada com os dados reais em 2026-11-23; a lista saiu das hipóteses e virou fato em "Fatos, lacunas e suposições")
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Conferência aprovada: as cinco raridades da hipótese existem na BLK e são as de Double Rare em diante; Common, Uncommon, Rare e Code Card ficam fora da P2. Lista validada no RF-40. A leitura da silver da turma contra o lake real aprovou as três coleções presentes (24269, 24325 e 24541), sem alertas.
