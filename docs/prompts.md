@@ -3590,3 +3590,72 @@ Depois de salvar:
 
 ### Decisão humana
 Conferência aprovada: as cinco raridades da hipótese existem na BLK e são as de Double Rare em diante; Common, Uncommon, Rare e Code Card ficam fora da P2. Lista validada no RF-40. A leitura da silver da turma contra o lake real aprovou as três coleções presentes (24269, 24325 e 24541), sem alertas.
+
+## 2026-11-23 — Etapa: T-31 (ADR 0001, modelagem em estrela da gold)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um arquiteto de software de dados que registra decisões de forma honesta, com alternativas reais e custos. Nesta tarefa você só escreve documentação; não escreve código de produção.
+
+[R] Pedido
+Execute somente a tarefa T-31 de specs/tasks.md: escreva docs/adr/0001-gold-modelagem-estrela.md. Siga esta ordem:
+1. mostre o rascunho completo da ADR e, se a T-31 prevê um teste (por exemplo test_adr_tem_secoes_e_cita_requisito), o plano desse teste; espere minha confirmação;
+2. grave a ADR e, se previsto, escreva o teste, rode e mostre a saída real;
+3. marque a T-31 como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit.
+
+[E] Exemplos
+Seções esperadas (formato da Aula 01): Status; Contexto e forças; Requisitos e cenários relacionados; Alternativas consideradas; Decisão e tática; Consequências positivas e negativas; Riscos; Evidência necessária; Condição de revisão.
+A ADR precisa citar as cinco perguntas do dashboard (P1 a P5) e o desafio da carteira, mostrando que cada uma é uma agregação de fato_preco_diario ou de fato_cambio_diario por alguma dimensão.
+Alternativas a discutir, com o motivo de cada uma ter sido descartada: tabela larga única (preço já com todos os atributos do produto), uma tabela por coleção, arquivo .duckdb único em vez de Parquet por tabela, e consultar a silver diretamente sem gold.
+Commit proposto: docs(T-31): adr da modelagem em estrela da gold [RF-29, RF-30, RF-31, RF-32, RF-33, RF-34, RF-36]
+
+[A] Ajustes
+- Use só fatos da spec, do plano e das evidências; números sem fonte marcados como "hipótese, validação pendente".
+- Cite o achado do group_id BIGINT da T-22 e as três coleções aprovadas na T-30 onde forem pertinentes.
+- Não escreva código da gold nesta tarefa.
+- Não leia nem imprima o .env.
+- Não rode git add, git commit nem git push.
+
+[T] Tipo de saída
+A ADR, a saída do teste (se houver) e um resumo de até cinco linhas com a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/plan.md, specs/tasks.md, docs/evidencias/T-30_raridades_e_turma.md e docs/adr/ antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2 (literal)
+
+```text
+Rascunho da ADR 0001 e plano do teste aprovados, incluindo as nove seções no teste e a atualização da descrição em specs/tasks.md. Pode gravar e seguir.
+```
+
+### Observação do agente
+- A ADR foi gravada igual ao rascunho aprovado.
+- O teste exige as nove seções do formato da Aula 01 em todas as ADRs de `docs/adr/`. A descrição da T-31 em `specs/tasks.md` foi atualizada; antes citava só quatro seções.
+- O risco "coleção de colega com datas anteriores a 17/11" se apoia na contagem de arquivos da T-30 (13 na 24269 contra 5 na 24325). As datas não foram lidas, por isso o risco está marcado como hipótese, validação pendente na T-44.
+- Nenhum código de produção mudou.
+
+### Saída dos testes
+`.venv/bin/pytest tests/unidade/test_adr.py -v`:
+```text
+tests/unidade/test_adr.py::test_pasta_adr_nao_vazia PASSED               [ 33%]
+tests/unidade/test_adr.py::test_adr_tem_secoes_e_cita_requisito[0001-gold-modelagem-estrela.md] PASSED [ 66%]
+tests/unidade/test_adr.py::test_adr_0001_cita_p1_a_p5_a_carteira_e_as_quatro_alternativas PASSED [100%]
+
+============================== 3 passed in 0.03s ===============================
+```
+`.venv/bin/pytest -m "not integracao and not vcr" -q`:
+```text
+370 passed, 18 deselected in 85.09s (0:01:25)
+```
+
+### Arquivos gerados
+- `docs/adr/0001-gold-modelagem-estrela.md`
+- `tests/unidade/test_adr.py`
+- `specs/tasks.md` (T-31 concluída, descrição do teste com as nove seções e nota)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+ADR 0001 aprovada antes do código da gold: esquema estrela com dim_colecao, dim_produto, dim_data, dim_acabamento, fato_cambio_diario e fato_preco_diario, um Parquet por tabela; P1 a P5 e a carteira mostradas como agregações das duas fatos; quatro alternativas descartadas com motivo (tabela larga, tabela por coleção, arquivo .duckdb e silver direto). Risco das datas de colegas anteriores a 17/11 sem PTAX registrado para conferir na T-44. Teste exige as nove seções em toda ADR e as citações da ADR 0001.

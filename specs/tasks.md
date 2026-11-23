@@ -286,12 +286,13 @@ Comando base da gold: `PYTHONPATH=src python -m gold`. Dashboard: `PYTHONPATH=sr
 - Depende de: T-29. Só leitura no bucket da turma.
 - Nota (2026-11-23): leitura real só com `list_objects_v2`, `head_object` e `get_object` (cliente envolvido que recusa outras operações), por script local fora do repositório; nenhum código mudou. A silver/produto da 24325 tem 331 cartas em 9 raridades e 27 selados; as cinco raridades da hipótese existem (92 cartas, 69 delas Illustration Rare) e ficam de fora Common, Uncommon, Rare e Code Card. A pedido, a evidência também registra `ler_silver_da_turma` contra o bucket real: 24269, 24325 e 24541 aprovadas, nenhum alerta. O nome da evidência passou de `T-30_raridades.md` para `T-30_raridades_e_turma.md` a pedido da aluna. Conferência da lista da P2 concluída pela aluna em 2026-11-23: as cinco raridades estão corretas e Common, Uncommon, Rare e Code Card ficam fora; a lista não mudou, e o RF-40 passou a citar a validação com os dados reais.
 
-## T-31 ADR 0001: modelagem em estrela da gold
+## T-31 ADR 0001: modelagem em estrela da gold — concluída (2026-11-23)
 - Requisitos: RF-29, RF-30, RF-31, RF-32, RF-33, RF-34, RF-36
 - Arquivos: `docs/adr/0001-gold-modelagem-estrela.md`, `tests/unidade/test_adr.py`
-- Teste: test_adr_tem_secoes_e_cita_requisito (Status, Contexto, Decisão, Consequências e pelo menos um RF citado em cada arquivo de `docs/adr/`)
+- Teste: test_adr_tem_secoes_e_cita_requisito (as nove seções do formato da Aula 01, na ordem e sem seção vazia: Status; Contexto e forças; Requisitos e cenários relacionados; Alternativas consideradas; Decisão e tática; Consequências positivas e negativas; Riscos; Evidência necessária; Condição de revisão; título com o número do arquivo e pelo menos um RF ou RNF citado em cada arquivo de `docs/adr/`); test_pasta_adr_nao_vazia; test_adr_0001_cita_p1_a_p5_a_carteira_e_as_quatro_alternativas
 - Comando: pytest tests/unidade/test_adr.py -q
 - Depende de: T-29. Só documento; commit antes de qualquer código das tabelas da gold.
+- Nota (2026-11-23): a descrição do teste passou das quatro seções do plano para as nove do formato da Aula 01, a pedido da aluna; as ADRs 0002 a 0005 da T-39 seguem o mesmo formato. A ADR cita as perguntas P1 a P5 e a carteira como agregações das duas fatos, as quatro alternativas descartadas, o achado do group_id BIGINT da T-22 e as três coleções aprovadas na T-30. Nenhum código de produção mudou.
 
 ## T-32 Contrato da gold e dimensões
 - Requisitos: RF-29, RF-30, RF-31, RF-32, RF-36
