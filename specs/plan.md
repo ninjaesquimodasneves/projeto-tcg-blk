@@ -179,3 +179,110 @@ Notas:
 - As transformações vêm antes da escrita do Parquet (T-22), porque são funções puras testáveis com os cassetes.
 - A publicação (T-23) é a primeira tarefa que escreve no S3 e só entra depois da verificação do contrato (T-22).
 - A primeira geração real (T-26) vem antes do job no workflow (T-27), para conferir os selados (RF-15) e o log antes de agendar.
+
+# Gold, carteira e dashboard (spec v3)
+
+Cobre RF-27 a RF-50 e RNF-07 de `specs/spec.md` v3. Tarefas T-29 a T-54 em `specs/tasks.md`. Nada do que está acima (coleta e silver) muda: a gold só reaproveita funções dos pacotes coleta e silver.
+
+## Diagrama C4 de contêineres e componentes da gold, da carteira e do dashboard
+
+Nomes usados no texto: Job gold, Comando gold, Leitor da silver da turma, Contrato da gold, Dimensões, Fatos, Decomposição, Carteira, Escritor e verificador da gold, Publicador da gold, Dashboard, Consultas do painel, Leitor da gold publicada, Aluna operadora, Colecionador, Silver dos colegas, RustFS da turma.
+
+```mermaid
+C4Component
+  title Contêineres e componentes da gold, da carteira e do dashboard
+  Person(colecionador, "Colecionador", "P-01 lê as perguntas P1 a P5 e a carteira")
+  Person(operadora, "Aluna operadora", "P-02 roda o dashboard localmente e acompanha o job")
+  System_Ext(colegas, "Silver dos colegas", "silver e gold_turma de outros group_id, só leitura")
+  System_Ext(rustfs, "RustFS da turma", "Bucket tcg com silver, gold e gold_turma")
+  Container_Boundary(gha, "GitHub Actions") {
+    Component(job, "Job gold", ".github/workflows/coleta.yml", "Roda depois do job silver, só se a silver terminar com sucesso")
+  }
+  Container_Boundary(pacote, "Pacote src/gold") {
+    Component(cli, "Comando gold", "__main__.py e reprocessamento.py", "Reconstrói a gold e a carteira, loga e define o código de saída")
+    Component(leitor, "Leitor da silver da turma", "leitura.py", "Baixa silver de todas as coleções, DESCRIBE por arquivo e exclusão da coleção fora do contrato")
+    Component(contrato, "Contrato da gold", "contrato.py", "Colunas e tipos das tabelas da gold e do carteira.parquet")
+    Component(dims, "Dimensões", "dimensoes.py", "dim_colecao, dim_produto, dim_data e dim_acabamento em SQL no DuckDB")
+    Component(fatos, "Fatos", "fatos.py", "fato_cambio_diario e fato_preco_diario com ASOF JOIN da PTAX")
+    Component(decomp, "Decomposição", "decomposicao.py", "Efeito da carta, do câmbio e cruzado, função pura")
+    Component(carteira, "Carteira", "carteira.py", "Composição em d0, liquidação diária, preço carregado e métricas")
+    Component(escritor, "Escritor e verificador da gold", "parquet.py", "COPY TO local e DESCRIBE comparado com o contrato")
+    Component(pub, "Publicador da gold", "publicador.py", "Guarda chave_gold_permitida antes de cada put e delete")
+  }
+  Container_Boundary(painel, "Dashboard Streamlit local") {
+    Component(app, "Dashboard", "dashboard/app.py", "Chave reais ou dólar, filtros, aviso dos limites, P1 a P5, carteira e placar")
+    Component(consultas, "Consultas do painel", "src/painel/consultas.py", "Consultas puras em DuckDB sobre os Parquet da gold")
+    Component(leitorgold, "Leitor da gold publicada", "src/painel/leitura.py", "get_object com cache, sem put nem delete")
+  }
+  Rel(job, cli, "python -m gold")
+  Rel(cli, leitor, "Pede a silver aprovada")
+  Rel(leitor, rustfs, "list_objects_v2 e get_object em silver", "S3")
+  Rel(leitor, colegas, "Lê sem escrever")
+  Rel(cli, dims, "Monta as dimensões")
+  Rel(cli, fatos, "Monta as fatos")
+  Rel(cli, carteira, "Calcula as cinco carteiras")
+  Rel(cli, escritor, "Grava e confere cada tabela localmente")
+  Rel(escritor, contrato, "Compara o esquema")
+  Rel(cli, pub, "Publica e apaga os antigos")
+  Rel(pub, rustfs, "put_object e delete_object só em gold e gold_turma com group_id=24325", "S3")
+  Rel(operadora, app, "streamlit run dashboard/app.py")
+  Rel(colecionador, app, "Consulta as perguntas e a carteira")
+  Rel(app, consultas, "Pede cada pergunta")
+  Rel(consultas, decomp, "Decompõe a variação da P1")
+  Rel(app, leitorgold, "Pede a gold e os carteira.parquet")
+  Rel(leitorgold, rustfs, "get_object em gold e gold_turma", "S3")
+```
+
+## Escolhas técnicas da gold, da carteira e do dashboard
+
+| Escolha | Alternativa descartada | Requisito |
+|---|---|---|
+| Silver de todas as coleções lida com boto3 (`list_objects_v2` em `silver/<tabela>/` e `get_object`) para um diretório temporário e consultada localmente no DuckDB | DuckDB httpfs com `s3://` e curinga (credenciais dentro do DuckDB, sem controle de só leitura) | RF-27, RNF-06 |
+| `read_parquet(..., hive_partitioning = false)` em toda leitura de Parquet da turma | Detecção automática de partição (group_id BIGINT vindo do caminho, achado da T-22) | RF-27, RF-49 |
+| DESCRIBE de cada arquivo comparado com `CONTRATO` de `silver.contrato` (reaproveitado), mais group_id do arquivo igual ao do segmento `group_id=<id>` do caminho | `union_by_name` sobre todos os arquivos | RF-27, RF-28 |
+| Coleção fora do contrato sai inteira, com "alerta: colecao fora do contrato" e código 0; se for a 24325, nada é publicado e o código é 1 | Derrubar a gold inteira | RF-28, RF-50 |
+| Um Parquet por tabela em `gold/group_id=24325/<tabela>.parquet` (fecha a lacuna de formato da spec) | Arquivo `.duckdb` único (binário, preso à versão do DuckDB, colegas precisam do DuckDB para ler) | RF-29 a RF-34, RF-50 |
+| Contrato da gold e do carteira.parquet num dicionário em `src/gold/contrato.py`, fonte do CREATE TABLE e da verificação, como na silver | Tipos inferidos do SELECT | RF-29 a RF-34, RF-48 |
+| Gold em SQL no DuckDB em memória; PTAX por `ASOF JOIN` com data_ptax ≤ data | pandas `merge_asof` | RF-33, RF-34, RF-35 |
+| dim_data com `generate_series` da menor à maior data da preco_diario das coleções aprovadas (decisão da aluna em 2026-11-23) | Intervalo do câmbio e do CDI (a janela do CDI começa 10 dias antes de d0) | RF-31, RF-33 |
+| Dias desde o lançamento como expressão na consulta (`data - data_lancamento`) | Coluna guardada na gold | RF-36 |
+| Decomposição em função Python pura sobre números | Coluna na gold ou cálculo dentro da página | RF-37 |
+| Carteira em funções Python puras; a composição recebe só as linhas de d0, e taxa_venda é parâmetro | SQL com acesso à série inteira (permitiria usar o futuro sem perceber) | RF-44, RF-45, RF-47 |
+| Preço carregado só em memória no cálculo da carteira | Preencher a fato_preco_diario ou a silver | RF-46 |
+| Gold e gold_turma gravadas localmente com COPY TO, verificadas com DESCRIBE e publicadas na ordem verificar, publicar, apagar, como a silver | Escrita direta no S3 | RF-48, RF-50 |
+| Guarda `chave_gold_permitida` (só `gold/group_id=24325/` e `gold_turma/carteira/group_id=24325/`) dentro das únicas funções de put e delete da gold | Reaproveitar `chave_silver_permitida` (permitiria silver/ e quarentena/) | RNF-07 |
+| `python -m gold` (pacote `src/gold`), sem parâmetro, que gera a gold e a carteira, com log JSON e códigos 0, 1 e 2 como a silver | Comando separado para a carteira (dois comandos, duas publicações) | RF-50 |
+| Dashboard em Streamlit, só local (`streamlit run dashboard/app.py`, credenciais do ambiente; decisão da aluna em 2026-11-23) | Streamlit Community Cloud (segredos num serviço externo) | RF-38 |
+| Consultas puras em `src/painel/consultas.py` sobre DuckDB, testadas sem Streamlit; a página só exibe; a chave reais ou dólar testada com `streamlit.testing.v1.AppTest` | Lógica dentro da página | RF-38 a RF-43, RF-49 |
+| Dashboard lê a gold publicada com boto3 e `st.cache_data` (ttl de 1 h; hipótese, validação pendente), sem nenhum put nem delete | Ler a gold gerada localmente | RF-38, RF-49, RNF-06 |
+| Gráficos em Altair (versão fixada no `requirements.txt`) com linha nula no dia sem coleta, que quebra a linha | Interpolar; plotly (outra dependência) | RF-38 |
+| Placar com a mesma leitura do RF-27 em `gold_turma/carteira/*/`, conferindo o contrato do RF-48 | Ler sem conferir o esquema | RF-49 |
+| Job `gold` com `needs: silver` e `if: always() && needs.silver.result == 'success'`, mesmos secrets | Rodar mesmo com a silver falhando (leria uma silver mista, RF-24) | RF-50, RNF-07 |
+| Testes de unidade com Parquet sintético em `tmp_path` e S3 falso; integração com MinIO em Testcontainers | Bucket real | RNF-06, RNF-07, verificação dos RF |
+
+Notas:
+- streamlit e altair entram no `requirements.txt` na T-46, com versões fixadas e wheel para Python 3.14. O pandas vem como dependência do Streamlit; na mesma tarefa, o tempo da suíte é medido de novo (pendência da T-22).
+- **Idempotência (RF-50):** as linhas de cada tabela são ordenadas pelas chaves antes do COPY, como na silver. A gold não tem campo de data de geração.
+- A PTAX e o CDI vêm só da silver desta coleção (suposição da spec v3), também para converter os preços das outras coleções.
+- A gold nunca escreve em raw/, silver/ nem quarentena/: o Leitor da silver da turma não recebe funções de escrita e o Publicador da gold recusa qualquer chave fora dos dois prefixos do RNF-07.
+
+## Onde a gold e o dashboard rodam
+- **Comando próprio:** `PYTHONPATH=src python -m gold`, separado da coleta e da silver. Gera as tabelas da gold e o carteira.parquet num diretório temporário, verifica tudo, publica e só então apaga os objetos antigos não regravados (RF-50).
+- **No workflow:** um job `gold` depois do job silver, só com a silver em sucesso. Uma falha da gold deixa só esse job vermelho; a coleta e a silver não mudam.
+- **Dashboard:** só local, `PYTHONPATH=src streamlit run dashboard/app.py`, com as credenciais do ambiente, lendo a gold publicada.
+
+## ADRs exigidas pela spec v3
+Todas em `docs/adr/`, no formato Status, Contexto, Decisão, Consequências e Requisitos:
+- `0001-gold-modelagem-estrela.md` (T-31): fatos e dimensões, grão de cada fato, coleções aprovadas, um Parquet por tabela, dias desde o lançamento na consulta (RF-29 a RF-34, RF-36). Commit antes do código da gold.
+- `0002-carteira-selado-sem-case-display.md` (T-39): selado de maior market_price_usd com preço em d0, sem produtos cujo nome termina em "Case" ou "Display"; acima de R$ 1.000, 0 unidades (RF-44).
+- `0003-cesta-raras-unidades-inteiras-sem-code-cards.md` (T-39): R$ 100 por par, unidades inteiras, sobra em caixa rendendo CDI, Code Cards fora, desempate (RF-44).
+- `0004-taxa-de-venda-15.md` (T-39): taxa_venda como parâmetro, 15% como hipótese, só sobre produtos, resultados com 0 e 0,15 (RF-45).
+- `0005-carteira-propria.md` (T-39): regra da carteira "propria", decidida pela aluna na T-39 e ainda não definida neste plano; só informação de d0 (RF-44).
+- Os ADRs 0002 a 0005 são commitados antes de qualquer cálculo da carteira (T-40).
+
+## Decisão de ordem das tarefas da gold
+- A conferência das raridades da P2 (T-30) fica separada da leitura da silver (T-29): uma é execução real com evidência e a outra é código com testes de unidade.
+- O ADR da estrela (T-31) vem antes de qualquer código da gold; os ADRs da carteira (T-39) vêm antes de qualquer cálculo da carteira.
+- Escrita e publicação (T-36) ficam separadas do comando e do log (T-37), como na silver (T-22 a T-24); liquidação com CDI (T-41) fica separada de preço carregado e métricas (T-42).
+- A primeira gold real (T-44) e o job no workflow (T-45) vêm antes do dashboard: confirmam com dados reais a data_ptax de 21/11 e 22/11 e quantas coleções da turma passam no contrato (lacuna da spec), antes de P3 a P5, e deixam a gold atualizada todo dia enquanto o dashboard é feito. A ordem "execução real, depois workflow" é a da silver (T-26, T-27).
+- O painel da carteira (T-52) e a conferência visual (T-54) cobrem as marcas e conferências pedidas pelo RF-38 e pelo RF-46.

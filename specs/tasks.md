@@ -264,3 +264,220 @@ Comando base da silver: `PYTHONPATH=src python -m silver`.
 - Comando: pytest tests/unidade/test_urls.py tests/unidade/test_orquestrador.py -q && pytest -m "not integracao and not vcr" -q && pytest -m integracao -q (test_coleta_completa_duas_vezes_com_minio continua passando)
 - Depende de: T-13. Prioridade: vem antes da T-21, que fica pausada. O workflow não muda.
 - Nota (2026-11-19): a pedido, a docstring de `tests/unidade/test_workflow.py` deixou de citar o RF-25 como vigente; nenhum teste desse arquivo mudou.
+
+# Gold, carteira e dashboard (spec v3)
+
+Origem: `specs/spec.md` v3 (RF-27 a RF-50, RNF-07) e a seção "Gold, carteira e dashboard (spec v3)" de `specs/plan.md`. Mesmas regras de cima: uma tarefa por vez, cerca de 30 minutos, testes de unidade sem rede e sem Docker (Parquet sintético em `tmp_path` e S3 falso em memória), integração com MinIO em Testcontainers.
+Comando base da gold: `PYTHONPATH=src python -m gold`. Dashboard: `PYTHONPATH=src streamlit run dashboard/app.py`.
+
+## T-29 Leitura da silver da turma com os tipos do contrato e exclusão da coleção fora do contrato
+- Requisitos: RF-27, RF-28, RNF-06
+- Arquivos: `src/gold/__init__.py`, `src/gold/leitura.py`, `tests/unidade/test_gold_leitura.py`
+- Teste: test_lista_e_baixa_silver_de_todas_as_colecoes_so_com_list_e_get (S3 falso registra put e delete e espera nenhum); test_group_id_integer_vindo_do_arquivo_com_hive_desligado (Parquet local em caminho group_id=<id>/); test_group_id_do_arquivo_diferente_do_caminho_fora_do_contrato; test_tres_colecoes_terceira_com_tipo_errado_fica_fora_com_alerta; test_colecao_sem_cdi_diario_fica_fora_com_alerta; test_silver_da_24325_fora_do_contrato_vira_erro; test_coluna_extra_aceita
+- Comando: pytest tests/unidade/test_gold_leitura.py -q
+- Depende de: T-27. Reaproveita `CONTRATO` de `silver.contrato` e `ler_esquema` e `comparar_esquema` de `silver.parquet`.
+
+## T-30 Conferência da lista de raridades da P2 contra a silver real
+- Requisitos: RF-40
+- Arquivos: `docs/evidencias/T-30_raridades.md`
+- Teste: test_evidencia_sem_segredos (`tests/unidade/test_evidencias.py`). A evidência registra os valores distintos de raridade da silver/produto da 24325, com contagem, e a lista "Double Rare em diante" confirmada ou corrigida pela aluna; se mudar, a spec é ajustada antes da T-48.
+- Comando: leitura com `gold.leitura` só da coleção 24325 (sem put nem delete) e `SELECT raridade, count(*) ... GROUP BY raridade` no DuckDB && pytest tests/unidade/test_evidencias.py -q
+- Depende de: T-29. Só leitura no bucket da turma.
+
+## T-31 ADR 0001: modelagem em estrela da gold
+- Requisitos: RF-29, RF-30, RF-31, RF-32, RF-33, RF-34, RF-36
+- Arquivos: `docs/adr/0001-gold-modelagem-estrela.md`, `tests/unidade/test_adr.py`
+- Teste: test_adr_tem_secoes_e_cita_requisito (Status, Contexto, Decisão, Consequências e pelo menos um RF citado em cada arquivo de `docs/adr/`)
+- Comando: pytest tests/unidade/test_adr.py -q
+- Depende de: T-29. Só documento; commit antes de qualquer código das tabelas da gold.
+
+## T-32 Contrato da gold e dimensões
+- Requisitos: RF-29, RF-30, RF-31, RF-32, RF-36
+- Arquivos: `src/gold/contrato.py`, `src/gold/dimensoes.py`, `tests/unidade/test_gold_dimensoes.py`
+- Teste: test_serie_sv_me_e_indefinida_com_alerta; test_dim_colecao_uma_linha_por_group_id; test_dim_produto_de_duas_colecoes_sem_repetir_chave; test_dim_data_09_a_13_10_2026_com_dia_util (falso em 10/10, 11/10 e 12/10); test_dim_data_sem_buraco_da_menor_a_maior_data_da_preco_diario; test_dim_acabamento_valores_distintos_sem_nulo; test_contrato_da_gold_sem_coluna_de_dias_desde_o_lancamento
+- Comando: pytest tests/unidade/test_gold_dimensoes.py -q
+- Depende de: T-31
+
+## T-33 fato_cambio_diario
+- Requisitos: RF-33, RF-35
+- Arquivos: `src/gold/fatos.py`, `tests/unidade/test_gold_fato_cambio.py`
+- Teste: test_semana_09_a_13_10_2026_data_ptax_por_dia; test_20_11_2026_usa_ptax_de_19_11_e_cdi_zero; test_boletim_posterior_nunca_usado; test_data_sem_boletim_anterior_fica_nula; test_uma_linha_por_dia_de_calendario
+- Comando: pytest tests/unidade/test_gold_fato_cambio.py -q
+- Depende de: T-32
+
+## T-34 fato_preco_diario em reais
+- Requisitos: RF-34, RF-35
+- Arquivos: `src/gold/fatos.py`, `tests/unidade/test_gold_fato_preco.py`
+- Teste: test_grao_maximo_uma_linha_por_group_id_product_id_acabamento_data; test_precos_de_09_a_13_10_2026_com_ptax_aplicada (preço de 12/10 não usa o boletim de 13/10); test_preco_usd_nulo_da_brl_nulo; test_sem_ptax_anterior_brl_ptax_e_data_ptax_nulos; test_dia_sem_coleta_sem_linha; test_integridade_referencial_com_dim_produto_e_dim_acabamento
+- Comando: pytest tests/unidade/test_gold_fato_preco.py -q
+- Depende de: T-33
+
+## T-35 Decomposição da variação em reais
+- Requisitos: RF-37
+- Arquivos: `src/gold/decomposicao.py`, `tests/unidade/test_gold_decomposicao.py`
+- Teste: test_r_usd_10_r_cambio_menos_5_da_r_brl_4_5_e_cruzado_menos_0_5; test_soma_dos_efeitos_igual_r_brl_dos_precos_em_reais (diferença menor que 1e-9); test_preco_ou_ptax_nulo_sem_decomposicao
+- Comando: pytest tests/unidade/test_gold_decomposicao.py -q
+- Depende de: T-34
+
+## T-36 Escrita, verificação e publicação da gold
+- Requisitos: RF-50, RNF-07
+- Arquivos: `src/gold/parquet.py`, `src/gold/publicador.py`, `tests/unidade/test_gold_publicador.py`
+- Teste: test_parquet_da_gold_tem_os_tipos_do_contrato (DESCRIBE das seis tabelas); test_esquema_divergente_nada_publicado_nem_apagado; test_chave_em_silver_recusada; test_chave_em_raw_recusada; test_gold_de_outro_group_id_recusada; test_gold_turma_sem_group_id_recusada; test_ordem_verifica_publica_e_depois_apaga; test_falha_num_put_para_sem_apagar; test_falha_num_delete_para_e_informa_a_chave; test_linhas_ordenadas_pelas_chaves
+- Comando: pytest tests/unidade/test_gold_publicador.py -q
+- Depende de: T-35
+
+## T-37 Comando python -m gold e log
+- Requisitos: RF-50, RF-28
+- Arquivos: `src/gold/__main__.py`, `src/gold/reprocessamento.py`, `tests/unidade/test_gold_cli.py`
+- Teste: test_log_por_tabela_com_linhas_publicadas; test_log_por_colecao_aprovada_ou_fora_do_contrato; test_saida_zero_com_colega_fora_do_contrato; test_saida_diferente_de_zero_com_24325_fora_do_contrato; test_config_invalida_sai_com_2_sem_s3; test_saida_diferente_de_zero_com_esquema_divergente; test_log_sem_credenciais; test_cli_sem_parametro_de_data
+- Comando: pytest tests/unidade/test_gold_cli.py -q && pytest -m "not integracao and not vcr" -q
+- Depende de: T-36
+
+## T-38 Integração da gold com Testcontainers
+- Requisitos: RF-27, RF-50, RNF-06, RNF-07
+- Arquivos: `tests/integracao/test_gold_minio.py` (reaproveita as fixtures de `tests/integracao/conftest.py`)
+- Teste: test_gold_duas_vezes_mesmas_linhas; test_raw_silver_e_quarentena_intocados (chaves e sha256 antes e depois); test_silver_de_duas_colecoes_lida_sem_escrita; test_chaves_alteradas_so_em_gold_group_id_24325; test_describe_dos_parquet_publicados_bate_com_contrato_da_gold
+- Comando: pytest -m integracao -q
+- Depende de: T-37. Exige Docker.
+
+## T-39 ADRs da carteira
+- Requisitos: RF-44, RF-45
+- Arquivos: `docs/adr/0002-carteira-selado-sem-case-display.md`, `docs/adr/0003-cesta-raras-unidades-inteiras-sem-code-cards.md`, `docs/adr/0004-taxa-de-venda-15.md`, `docs/adr/0005-carteira-propria.md`
+- Teste: test_adr_tem_secoes_e_cita_requisito (`tests/unidade/test_adr.py`, da T-31)
+- Comando: pytest tests/unidade/test_adr.py -q
+- Depende de: T-38. A regra da carteira "propria" é decidida pela aluna nesta tarefa; o agente não a propõe sem pedido. Commit antes de qualquer cálculo da carteira (T-40), conferido com `git log --format="%h %ad" -- docs/adr/0005-carteira-propria.md src/gold/carteira.py`.
+
+## T-40 Composição das cinco carteiras em d0
+- Requisitos: RF-44
+- Arquivos: `src/gold/carteira.py`, `tests/unidade/test_gold_carteira_composicao.py`
+- Teste: test_unidades_inteiras_e_sobra_em_caixa; test_selado_exclui_case_e_display; test_selado_acima_de_1000_reais_zero_unidades; test_cesta_sem_code_card; test_cesta_carta_acima_de_100_reais_zero_unidades; test_cesta_desempate_por_product_id_e_acabamento; test_dolar_sem_unidade_inteira; test_propria_segue_o_adr_0005; test_sem_futuro_alterar_precos_e_ptax_depois_de_d0_nao_muda_a_composicao
+- Comando: pytest tests/unidade/test_gold_carteira_composicao.py -q
+- Depende de: T-39 (ADRs commitados)
+
+## T-41 Valor de liquidação diário e CDI
+- Requisitos: RF-45
+- Arquivos: `src/gold/carteira.py`, `tests/unidade/test_gold_carteira_valor.py`
+- Teste: test_valor_em_d0_com_taxa_zero_pela_ptax_de_compra_mais_caixa; test_juros_do_cdi_so_em_dia_util; test_caixa_rende_cdi; test_taxa_de_venda_so_sobre_produtos; test_dois_resultados_por_carteira_e_dia; test_cdi_nao_publicado_conta_zero
+- Comando: pytest tests/unidade/test_gold_carteira_valor.py -q
+- Depende de: T-40
+
+## T-42 Preço carregado e métricas
+- Requisitos: RF-46, RF-47
+- Arquivos: `src/gold/carteira.py`, `tests/unidade/test_gold_carteira_metricas.py`
+- Teste: test_dia_sem_coleta_usa_preco_anterior_e_marca; test_preco_nulo_usa_preco_anterior_e_marca; test_retorno_acumulado; test_excesso_zero_na_carteira_cdi; test_perda_maxima_com_queda_e_recuperacao; test_dias_com_preco_carregado
+- Comando: pytest tests/unidade/test_gold_carteira_metricas.py -q
+- Depende de: T-41
+
+## T-43 Publicação de gold_turma/carteira no contrato comum
+- Requisitos: RF-48, RF-50, RNF-07, RF-46
+- Arquivos: `src/gold/contrato.py`, `src/gold/reprocessamento.py`, `tests/unidade/test_gold_carteira_publicacao.py`, `tests/integracao/test_gold_minio.py`
+- Teste: test_carteira_parquet_tem_os_tipos_do_contrato; test_grao_uma_linha_por_data_carteira_e_taxa_venda; test_esquema_divergente_da_carteira_nada_publicado; test_carteira_publicada_em_gold_turma_group_id_24325; test_carteira_nao_altera_silver_nem_fato_preco_diario (integração)
+- Comando: pytest tests/unidade/test_gold_carteira_publicacao.py -q && pytest -m integracao -q
+- Depende de: T-42. Exige Docker para a integração.
+
+## T-44 Primeira gold real, primeira carteira e evidência
+- Requisitos: RF-35, RF-50, RF-28
+- Arquivos: `docs/evidencias/T-44_primeira_gold.md`
+- Teste: test_evidencia_sem_segredos. A evidência registra o log das duas execuções (mesmas contagens), as coleções aprovadas e fora do contrato, as chaves de gold/ e gold_turma/ com group_id=24325, o DESCRIBE de cada tabela, a consulta de data_ptax de 21/11 e 22/11/2026 (esperado 2026-11-19) e as chaves e ETags de raw/ e silver/ antes e depois.
+- Comando: PYTHONPATH=src .venv/bin/python -m gold (duas vezes) && pytest tests/unidade/test_evidencias.py -q
+- Depende de: T-43. Exige autorização explícita para gravar em gold/ e gold_turma/ no bucket.
+
+## T-45 Job da gold no workflow
+- Requisitos: RF-50, RNF-07
+- Arquivos: `.github/workflows/coleta.yml`, `tests/unidade/test_workflow.py`
+- Teste: test_job_gold_depois_da_silver_so_com_sucesso (`needs: silver` e `if: always() && needs.silver.result == 'success'`); test_job_gold_usa_secrets_e_nenhum_valor_literal; test_job_gold_roda_python_m_gold; os testes atuais dos jobs coleta e silver continuam passando sem mudança
+- Comando: pytest tests/unidade/test_workflow.py -q. Depois do push autorizado: `gh workflow run coleta.yml` e `gh run list --workflow coleta.yml`.
+- Depende de: T-44
+
+## T-46 Base do dashboard
+- Requisitos: RF-38, RF-36
+- Arquivos: `requirements.txt` (streamlit e altair com versões fixadas e wheel para Python 3.14), `src/painel/__init__.py`, `src/painel/leitura.py`, `src/painel/consultas.py`, `dashboard/app.py`, `tests/unidade/test_painel_base.py`
+- Teste: test_leitura_da_gold_so_com_get (S3 falso sem put nem delete); test_chave_dolar_e_reais_com_ptax_aplicada (AppTest); test_filtro_de_preco_minimo_sobre_o_primeiro_dia; test_nulo_fora_da_media; test_lacuna_sem_linha_vira_ponto_nulo; test_aviso_dos_limites_do_dado_visivel (AppTest); test_dias_desde_o_lancamento_2025_07_18_a_2026_11_17_da_487
+- Comando: .venv/bin/pip install -r requirements.txt && pytest tests/unidade/test_painel_base.py -q && time pytest -q (nova medição do tempo da suíte, pendência da T-22, registrada nesta tarefa)
+- Depende de: T-45
+
+## T-47 P1: cartas que mais valorizaram e desvalorizaram em reais
+- Requisitos: RF-39, RF-37, RF-38
+- Arquivos: `src/painel/consultas.py`, `dashboard/app.py`, `tests/unidade/test_painel_p1.py`
+- Teste: test_carta_de_0_90_fora; test_code_card_fora; test_preco_nulo_no_ultimo_dia_fora; test_dois_rankings_de_10_com_decomposicao; test_desempate_por_product_id_e_acabamento; test_em_dolar_sem_decomposicao (AppTest); test_carta_citada_com_imagem_e_link
+- Comando: pytest tests/unidade/test_painel_p1.py -q
+- Depende de: T-46
+
+## T-48 P2: selados contra cartas de raridade alta
+- Requisitos: RF-40
+- Arquivos: `src/painel/consultas.py`, `dashboard/app.py`, `tests/unidade/test_painel_p2.py`
+- Teste: test_indice_100_no_primeiro_dia; test_selado_com_preco_nulo_fora_da_media; test_carta_rare_fora_da_soma; test_um_exemplar_no_acabamento_de_menor_preco_do_primeiro_dia; test_so_colecao_24325
+- Comando: pytest tests/unidade/test_painel_p2.py -q
+- Depende de: T-47 e lista de raridades conferida na T-30
+
+## T-49 P3: valor da coleção em base 100 por coleção da turma
+- Requisitos: RF-41
+- Arquivos: `src/painel/consultas.py`, `dashboard/app.py`, `tests/unidade/test_painel_p3.py`
+- Teste: test_base_no_primeiro_dia_em_comum; test_ptax_na_mesma_base; test_lacuna_sem_ponto; test_code_card_fora
+- Comando: pytest tests/unidade/test_painel_p3.py -q
+- Depende de: T-48
+
+## T-50 P4: concentração do valor por raridade
+- Requisitos: RF-42
+- Arquivos: `src/painel/consultas.py`, `dashboard/app.py`, `tests/unidade/test_painel_p4.py`
+- Teste: test_participacoes_somam_100_com_tolerancia_1e_9; test_contagem_ate_80_com_borda_exata; test_code_card_fora; test_ultimo_dia_de_cada_colecao
+- Comando: pytest tests/unidade/test_painel_p4.py -q
+- Depende de: T-49
+
+## T-51 P5: retorno contra volatilidade
+- Requisitos: RF-43
+- Arquivos: `src/painel/consultas.py`, `dashboard/app.py`, `tests/unidade/test_painel_p5.py`
+- Teste: test_desvio_padrao_conferido_a_mao; test_lacuna_sem_retorno; test_carta_com_4_retornos_fora; test_carta_de_4_99_fora
+- Comando: pytest tests/unidade/test_painel_p5.py -q
+- Depende de: T-50
+
+## T-52 Painel da carteira
+- Requisitos: RF-46, RF-47
+- Arquivos: `src/painel/consultas.py`, `dashboard/app.py`, `tests/unidade/test_painel_carteira.py`
+- Teste: test_series_das_cinco_carteiras_com_e_sem_taxa; test_metricas_exibidas; test_dias_com_preco_carregado_marcados (AppTest)
+- Comando: pytest tests/unidade/test_painel_carteira.py -q
+- Depende de: T-51
+
+## T-53 Placar da turma
+- Requisitos: RF-49
+- Arquivos: `src/painel/leitura.py`, `src/painel/consultas.py`, `dashboard/app.py`, `tests/unidade/test_painel_placar.py`
+- Teste: test_tres_arquivos_um_fora_do_contrato_fica_fora_com_aviso; test_ultimo_dia_em_comum; test_com_e_sem_taxa; test_group_id_do_arquivo_com_hive_desligado
+- Comando: pytest tests/unidade/test_painel_placar.py -q && pytest -m "not integracao and not vcr" -q
+- Depende de: T-52
+
+## T-54 Conferência visual do dashboard e evidência
+- Requisitos: RF-38, RF-46
+- Arquivos: `docs/evidencias/T-54_dashboard.md` (imagens da tela sem credenciais)
+- Teste: test_evidencia_sem_segredos. A evidência registra a imagem e o link das cartas citadas, o aviso dos limites, a lacuna de 20/11 nos gráficos de P1 a P5, a chave em dólar e em reais e a marca de preço carregado no painel da carteira.
+- Comando: PYTHONPATH=src .venv/bin/streamlit run dashboard/app.py && pytest tests/unidade/test_evidencias.py -q
+- Depende de: T-53. Só leitura no bucket.
+
+## Rastreabilidade da v3: requisito → tarefa → teste
+| Requisito | Tarefa | Teste |
+|---|---|---|
+| RF-27 | T-29, T-38 | test_group_id_integer_vindo_do_arquivo_com_hive_desligado, test_group_id_do_arquivo_diferente_do_caminho_fora_do_contrato, test_silver_de_duas_colecoes_lida_sem_escrita |
+| RF-28 | T-29, T-37, T-44 | test_tres_colecoes_terceira_com_tipo_errado_fica_fora_com_alerta, test_colecao_sem_cdi_diario_fica_fora_com_alerta, test_silver_da_24325_fora_do_contrato_vira_erro, test_saida_zero_com_colega_fora_do_contrato, evidência da T-44 |
+| RF-29 | T-31, T-32 | test_serie_sv_me_e_indefinida_com_alerta, test_dim_colecao_uma_linha_por_group_id |
+| RF-30 | T-31, T-32 | test_dim_produto_de_duas_colecoes_sem_repetir_chave |
+| RF-31 | T-31, T-32 | test_dim_data_09_a_13_10_2026_com_dia_util, test_dim_data_sem_buraco_da_menor_a_maior_data_da_preco_diario |
+| RF-32 | T-31, T-32 | test_dim_acabamento_valores_distintos_sem_nulo |
+| RF-33 | T-31, T-33 | test_20_11_2026_usa_ptax_de_19_11_e_cdi_zero, test_data_sem_boletim_anterior_fica_nula, test_uma_linha_por_dia_de_calendario |
+| RF-34 | T-31, T-34 | test_grao_maximo_uma_linha_por_group_id_product_id_acabamento_data, test_preco_usd_nulo_da_brl_nulo, test_integridade_referencial_com_dim_produto_e_dim_acabamento |
+| RF-35 | T-33, T-34, T-44 | test_semana_09_a_13_10_2026_data_ptax_por_dia, test_boletim_posterior_nunca_usado, test_precos_de_09_a_13_10_2026_com_ptax_aplicada, consulta de 21/11 e 22/11 na evidência da T-44 |
+| RF-36 | T-31, T-32, T-46 | test_contrato_da_gold_sem_coluna_de_dias_desde_o_lancamento, test_dias_desde_o_lancamento_2025_07_18_a_2026_11_17_da_487 |
+| RF-37 | T-35, T-47 | test_r_usd_10_r_cambio_menos_5_da_r_brl_4_5_e_cruzado_menos_0_5, test_soma_dos_efeitos_igual_r_brl_dos_precos_em_reais, test_dois_rankings_de_10_com_decomposicao |
+| RF-38 | T-46, T-47, T-54 | test_chave_dolar_e_reais_com_ptax_aplicada, test_nulo_fora_da_media, test_lacuna_sem_linha_vira_ponto_nulo, test_aviso_dos_limites_do_dado_visivel, test_carta_citada_com_imagem_e_link, evidência da T-54 |
+| RF-39 | T-47 | test_carta_de_0_90_fora, test_code_card_fora, test_preco_nulo_no_ultimo_dia_fora, test_desempate_por_product_id_e_acabamento |
+| RF-40 | T-30, T-48 | evidência da T-30, test_indice_100_no_primeiro_dia, test_selado_com_preco_nulo_fora_da_media, test_carta_rare_fora_da_soma |
+| RF-41 | T-49 | test_base_no_primeiro_dia_em_comum, test_ptax_na_mesma_base, test_lacuna_sem_ponto |
+| RF-42 | T-50 | test_participacoes_somam_100_com_tolerancia_1e_9, test_contagem_ate_80_com_borda_exata |
+| RF-43 | T-51 | test_desvio_padrao_conferido_a_mao, test_lacuna_sem_retorno, test_carta_com_4_retornos_fora, test_carta_de_4_99_fora |
+| RF-44 | T-39, T-40 | test_adr_tem_secoes_e_cita_requisito, test_selado_exclui_case_e_display, test_cesta_sem_code_card, test_sem_futuro_alterar_precos_e_ptax_depois_de_d0_nao_muda_a_composicao, conferência do commit do ADR 0005 |
+| RF-45 | T-39, T-41 | test_valor_em_d0_com_taxa_zero_pela_ptax_de_compra_mais_caixa, test_juros_do_cdi_so_em_dia_util, test_taxa_de_venda_so_sobre_produtos, test_dois_resultados_por_carteira_e_dia |
+| RF-46 | T-42, T-43, T-52, T-54 | test_dia_sem_coleta_usa_preco_anterior_e_marca, test_carteira_nao_altera_silver_nem_fato_preco_diario, test_dias_com_preco_carregado_marcados, evidência da T-54 |
+| RF-47 | T-42, T-52 | test_perda_maxima_com_queda_e_recuperacao, test_excesso_zero_na_carteira_cdi, test_metricas_exibidas |
+| RF-48 | T-43 | test_carteira_parquet_tem_os_tipos_do_contrato, test_grao_uma_linha_por_data_carteira_e_taxa_venda, test_esquema_divergente_da_carteira_nada_publicado |
+| RF-49 | T-53 | test_tres_arquivos_um_fora_do_contrato_fica_fora_com_aviso, test_ultimo_dia_em_comum |
+| RF-50 | T-36, T-37, T-38, T-43, T-44, T-45 | test_ordem_verifica_publica_e_depois_apaga, test_falha_num_put_para_sem_apagar, test_saida_diferente_de_zero_com_esquema_divergente, test_gold_duas_vezes_mesmas_linhas, test_raw_silver_e_quarentena_intocados, evidência da T-44, test_job_gold_depois_da_silver_so_com_sucesso |
+| RNF-06 (v3) | T-29, T-38, T-46 | test_lista_e_baixa_silver_de_todas_as_colecoes_so_com_list_e_get, test_silver_de_duas_colecoes_lida_sem_escrita, test_leitura_da_gold_so_com_get |
+| RNF-07 | T-36, T-38, T-43, T-45 | test_chave_em_silver_recusada, test_chave_em_raw_recusada, test_gold_de_outro_group_id_recusada, test_gold_turma_sem_group_id_recusada, test_chaves_alteradas_so_em_gold_group_id_24325, test_job_gold_usa_secrets_e_nenhum_valor_literal |

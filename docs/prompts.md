@@ -3310,4 +3310,90 @@ Pode escrever as seções novas e alteradas. Não rode git add, git commit nem g
 - `docs/prompts.md` (esta entrada)
 
 ### Decisão humana
-Aprovada a spec v3 (RF-27 a RF-50 e RNF-07): leitura da silver da turma com tipos do contrato e exclusão de coleção fora do contrato; gold em estrela com todas as coleções aprovadas; conversão pela PTAX de venda via ASOF JOIN; decomposição carta x câmbio; dashboard com P1 a P5 e as regras gerais; carteira com cinco estratégias e contrato comum em gold_turma. Cesta_raras com unidades inteiras literais e sem Code Cards; carteira selado sem produtos Case ou Display, por a coleção não ter booster box; escolhas a registrar em ADR. Lista de raridades da P2 como hipótese a validar na silver.
+Aprovada a spec v3 (RF-27 a RF-50 e RNF-07): leitura da silver da turma com tipos do contrato e exclusão de coleção fora do contrato; gold em estrela com todas as coleções aprovadas; conversão pela PTAX de venda via ASOF JOIN; decomposição carta x câmbio; dashboard com P1 a P5 e as regras gerais; carteira com cinco estratégias e contrato comum em gold_turma. Cesta_raras com unidades inteiras literais e se/m Code Cards; carteira selado sem produtos Case ou Display, por a coleção não ter booster box; escolhas a registrar em ADR. Lista de raridades da P2 como hipótese a validar na silver.
+
+## 2026-11-23 — Etapa: plano e tarefas da gold, da carteira e do dashboard (T-29 a T-54)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é arquiteto de software de dados e líder técnico. Justifica cada escolha técnica com um requisito e quebra o trabalho em tarefas pequenas, cada uma provada por um teste. Não escreve código nesta etapa.
+
+[R] Pedido
+Atualize specs/plan.md e specs/tasks.md para cobrir a v3 da spec (RF-27 a RF-50 e RNF-07), sem alterar o que já existe.
+1. No specs/plan.md, acrescente:
+   - diagrama C4 de contêineres e componentes em Mermaid da gold, da carteira e do dashboard, com a silver dos colegas e o lake da turma como sistemas externos;
+   - tabela de escolhas técnicas (escolha, alternativa descartada, requisito). Escolhas já decididas: a gold lê a silver de todas as coleções baixando os Parquet com boto3 (só leitura) e consultando localmente com DuckDB, com hive_partitioning desligado; a gold e a gold_turma são gravadas como Parquet localmente e publicadas com a mesma guarda e a mesma ordem da silver (verificar, publicar, apagar); comando próprio python -m gold, que também calcula a carteira; dashboard em Streamlit, que lê a gold publicada (com cache) e não grava nada no lake; um job gold no workflow, depois do job silver;
+   - onde ficam as ADRs exigidas pela spec v3 (modelagem em estrela, carteira selado sem Case/Display, cesta_raras com unidades inteiras e sem Code Cards, taxa de venda de 15%, regra da carteira própria).
+2. No specs/tasks.md, acrescente as tarefas a partir da T-29, em ordem, cada uma com requisitos, arquivos, teste que a prova, comando e dependências. Sugestão de sequência:
+   T-29 leitura da silver da turma (download, DESCRIBE com tipos exatos, exclusão da coleção fora do contrato) e conferência da lista de raridades da P2 contra os valores distintos da silver;
+   T-30 ADR da modelagem em estrela (documento, antes do código da gold);
+   T-31 dimensões (dim_colecao, dim_produto, dim_data, dim_acabamento);
+   T-32 fato_cambio_diario (PTAX aplicada por ASOF, CDI do dia);
+   T-33 fato_preco_diario (market_price_brl, cotação aplicada, data_ptax, teste do grão e teste de 09/10 a 13/10/2026);
+   T-34 decomposição da variação em reais (função pura);
+   T-35 escrita, verificação, publicação da gold e comando python -m gold;
+   T-36 integração da gold com Testcontainers;
+   T-37 ADRs da carteira (selado, cesta_raras, taxa de venda e regra da carteira própria), com commit antes de qualquer cálculo;
+   T-38 composição das cinco carteiras no primeiro dia, sem informação do futuro;
+   T-39 valor de liquidação diário, CDI, preço carregado e métricas;
+   T-40 publicação da gold_turma/carteira no contrato comum;
+   T-41 base do dashboard: dependência streamlit, leitura da gold, chave reais/dólar, aviso dos limites do dado e nova medição do tempo da suíte (pendência da T-22);
+   T-42 a T-46 perguntas P1 a P5;
+   T-47 placar da turma;
+   T-48 job gold no workflow;
+   T-49 primeira gold real, primeira carteira e evidência.
+   Ajuste a sequência se encontrar motivo, explicando.
+
+[E] Exemplos
+Use o formato das tarefas existentes, com Requisitos, Arquivos, Teste, Comando e Depende de.
+
+[A] Ajustes
+- Toda escolha do plano aponta para um RF ou RNF existente; nada sem requisito.
+- Testes de unidade sem rede e sem Docker; integração com Testcontainers.
+- Cada tarefa cabe em cerca de 30 minutos; cada requisito da v3 aparece em pelo menos uma tarefa (tabela final requisito → tarefa → teste).
+- Mermaid sem ponto e vírgula nos rótulos; nomes iguais no diagrama e no texto.
+- Não escreva código. Não rode git add, git commit nem git push.
+
+[T] Tipo de saída
+Somente specs/plan.md e specs/tasks.md. Mostre primeiro a lista de tarefas (títulos e requisitos) e a tabela de escolhas, espere minha confirmação, depois grave.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/plan.md, specs/tasks.md e requirements.txt. Ao gravar, acrescente o prompt em docs/prompts.md. Pare ao final.
+```
+
+### Prompt 2 (literal)
+
+```text
+Lista de tarefas e tabela de escolhas aprovadas, incluindo os ajustes de sequência (T-29 a T-54). Decisões:
+1. Dashboard só local, com streamlit run dashboard/app.py e as credenciais do ambiente.
+2. dim_data da menor à maior data da preco_diario das coleções aprovadas.
+3. A regra da carteira própria será decidida por mim na T-39; deixe o ADR 0005 previsto no plano, sem regra.
+4. Sequência aprovada.
+Pode gravar specs/plan.md e specs/tasks.md, com a tabela requisito → tarefa → teste, acrescentar o prompt em docs/prompts.md e parar. Não rode git add, git commit nem git push.
+```
+
+### Observação do agente
+- Ajustes de sequência em relação à sugestão, aprovados no prompt 2:
+  - a conferência das raridades virou a T-30, separada da leitura da silver (T-29);
+  - escrita e publicação (T-36) ficaram separadas do comando e do log (T-37);
+  - liquidação com CDI (T-41) ficou separada de preço carregado e métricas (T-42);
+  - a primeira gold real (T-44) e o job no workflow (T-45) vieram para antes do dashboard;
+  - entraram duas tarefas novas: o painel da carteira (T-52, RF-46 e RF-47) e a conferência visual do dashboard (T-54, RF-38 e RF-46).
+- Escolhas do plano que não estavam no prompt:
+  - um Parquet por tabela em gold/group_id=24325/;
+  - a guarda própria chave_gold_permitida;
+  - consultas do painel em src/painel/, testadas sem Streamlit, e AppTest para a página;
+  - Altair com versão fixada;
+  - o job gold só roda se a silver terminar com sucesso;
+  - ttl de 1 h do cache (hipótese, validação pendente).
+- O ADR 0005 está previsto sem regra. A regra fica para a aluna na T-39.
+
+### Arquivos gerados
+- `specs/plan.md` (seção "Gold, carteira e dashboard (spec v3)" acrescentada no fim; o conteúdo anterior não mudou)
+- `specs/tasks.md` (T-29 a T-54 e a tabela de rastreabilidade da v3 acrescentadas no fim; o conteúdo anterior não mudou)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Aprovados o plano e as tarefas da v3 (T-29 a T-54), com os ajustes de sequência propostos: conferência das raridades separada da leitura, publicação da gold em duas tarefas, carteira em três, gold real e workflow antes do dashboard, painel da carteira e conferência visual acrescentados. Silver da turma lida com boto3 e DuckDB local com hive_partitioning desligado; gold em Parquet por tabela com contrato próprio e publicação com guarda; dashboard Streamlit só local, lendo a gold publicada com cache. dim_data a partir de 17/11. Regra da carteira própria a decidir na T-39.
