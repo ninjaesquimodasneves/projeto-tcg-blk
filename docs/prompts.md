@@ -2907,4 +2907,19 @@ Mensagem de commit sem T-xx está certa. Não rode git add, git commit nem git p
 - `docs/prompts.md` (esta entrada)
 
 ### Decisão humana
-Aprovado. README passa a declarar a coleção (BLK, groupId 24325, primeiro dia de coleta 17/11/2026) e a lacuna de 20/11/2026, causada pela queda do lake da turma, sem nenhum dado preenchido; listagem do raw de 23/11 salva como evidência.
+Aprovado. README passa a declarar a coleção (BLK, groupId 24325, primeiro dia de coleta 17/11/2026) e a lacuna de 20/11/2026, sem nenhum dado preenchido; listagem do raw de 23/11 salva como evidência literal.
+## 2026-11-23 — Etapa: documentação (correção de redação do motivo da lacuna de 2026-11-20)
+
+### Prompt (literal)
+
+```text
+Os arquivos já foram commitados (3687602). Faça só esta correção de redação, no README.md e em docs/evidencias/lacuna_2026-11-20.md: troque o motivo por "todas as execuções que rodaram dentro do prazo de coleta do dia 20 (de 20/11 20:00 UTC a 21/11 19:59 UTC) falharam com o lake da turma inacessível; a última foi a #15, às 08:45 UTC de 21/11. A execução seguinte, a #16, rodou às 01:17 UTC de 22/11, já depois do prazo, e gravou o dia 21. Não há registro de quando o lake voltou." Acrescente esta correção em docs/prompts.md. Não altere mais nada. Não rode git add, git commit nem git push.
+```
+
+### Arquivos gerados
+- `README.md` (motivo da linha 2026-11-20 da tabela "Lacunas da série" substituído pela redação do prompt)
+- `docs/evidencias/lacuna_2026-11-20.md` (linha "Motivo" substituída pela mesma redação)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Correção aprovada: o motivo da lacuna passa a dizer só o que foi registrado (falha em todas as execuções dentro do prazo do dia 20, a última às 08:45 UTC de 21/11, e próxima execução já depois do prazo), sem afirmar até quando o lake ficou fora.
