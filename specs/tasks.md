@@ -350,12 +350,13 @@ Comando base da gold: `PYTHONPATH=src python -m gold`. Dashboard: `PYTHONPATH=sr
 - Depende de: T-37. Exige Docker.
 - Nota (2026-11-25): a silver é montada no próprio teste, só no MinIO do contêiner: raw dos cassetes gravado com `gravar_raw_base` (T-25), silver da 24325 gerada por `python -m silver` (`main`) e copiada para a colega 24326 com `colecao_de_colega` de `tests/unidade/silver_turma.py` (importado por `sys.path.insert`, decisão da aluna no plano da T-38); gold sintética da 99999 em `gold/` e em `gold_turma/carteira/`. `python -m gold` (`main`) roda com o cliente boto3 real criado do ambiente do contêiner. Além dos cinco testes acima, o arquivo cobre a colega 24327 sem cdi_diario (test_colega_fora_do_contrato_gold_publicada_sem_ela: código 0, gold publicada sem ela, RF-28), a pedido da aluna. O teste das chaves alteradas inclui um objeto antigo em `gold/group_id=24325/` que a gold apaga, e a gold da 99999 fica com o mesmo sha256. Nenhum código de produção nem fixture do conftest mudou.
 
-## T-39 ADRs da carteira
+## T-39 ADRs da carteira — concluída (2026-11-25)
 - Requisitos: RF-44, RF-45
 - Arquivos: `docs/adr/0002-carteira-selado-sem-case-display.md`, `docs/adr/0003-cesta-raras-unidades-inteiras-sem-code-cards.md`, `docs/adr/0004-taxa-de-venda-15.md`, `docs/adr/0005-carteira-propria.md`
 - Teste: test_adr_tem_secoes_e_cita_requisito (`tests/unidade/test_adr.py`, da T-31)
 - Comando: pytest tests/unidade/test_adr.py -q
 - Depende de: T-38. A regra da carteira "propria" é decidida pela aluna nesta tarefa; o agente não a propõe sem pedido. Commit antes de qualquer cálculo da carteira (T-40), conferido com `git log --format="%h %ad" -- docs/adr/0005-carteira-propria.md src/gold/carteira.py`.
+- Nota (2026-11-25): antes dos rascunhos, a silver real da 24325 de 17/11 (produto, preco_diario e cambio_diario) foi lida só com list_objects_v2 e get_object, com hive_partitioning desligado; nada foi escrito no bucket. PTAX de venda de 17/11 = 5,7851. Pelas regras literais do RF-44 (opção (a), decisão da aluna), a carteira "selado" escolhe o 630687 "Black Bolt Pokemon Center Elite Trainer Box (Exclusive)" (R$ 1.503,95) e fica 100% em caixa, e a "cesta_raras" também (carta mais barata do top 10 a R$ 245,81); isso foi consultado ao professor no canal da turma e está registrado em Consequências, Riscos e Condição de revisão das ADRs 0002 e 0003. A carteira "propria" (ADR 0005, decisão da aluna) compra 1 unidade do 630686 "Black Bolt Elite Trainer Box" (R$ 879,28), com R$ 120,72 em caixa; a ADR registra o viés de retrospectiva da escolha feita em 25/11. A taxa de venda de 15% é hipótese, validação pendente (ADR 0004). `src/gold/carteira.py` ainda não existe; nenhum código mudou.
 
 ## T-40 Composição das cinco carteiras em d0
 - Requisitos: RF-44

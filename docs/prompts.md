@@ -4451,3 +4451,87 @@ Suíte inteira (`.venv/bin/pytest -q`):
 
 ### Decisão humana
 Plano aprovado. Gold testada contra MinIO real, a partir da silver gerada pelo python -m silver com o raw dos cassetes e de duas coleções de colega (uma válida e uma sem cdi_diario): duas execuções com as mesmas chaves e linhas; raw, silver e quarentena intocados; colega fora do contrato excluída com código 0; só chaves de gold/group_id=24325/ alteradas, com a gold sintética de outro group_id intacta; DESCRIBE de cada Parquet publicado igual ao contrato da gold. Fixtures reaproveitadas sem mudança.
+
+## 2026-11-25 — Etapa: T-39 (ADRs 0002 a 0005 da carteira)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um arquiteto de software de dados que registra decisões de forma honesta, com alternativas reais e custos. Nesta tarefa você só escreve documentação e lê dados; não escreve código de produção.
+
+[R] Pedido
+Execute somente a tarefa T-39 de specs/tasks.md: as ADRs 0002 a 0005 da carteira, com commit antes de qualquer cálculo. Siga esta ordem:
+1. leia, só lendo, a silver real da 24325 (produto e preco_diario de 2026-11-17, com hive_partitioning desligado) e mostre:
+   - os selados com market_price em 17/11, em ordem decrescente de preço, marcando os que terminam em Case ou Display;
+   - qual produto a regra da carteira selado escolhe (o de maior preço sem Case nem Display) e quantas unidades inteiras R$ 1.000 compram pela PTAX de venda de 17/11;
+   - o market_price do Black Bolt Elite Trainer Box (product_id 630686) em 17/11 e quantas unidades R$ 1.000 compram;
+   - as 10 cartas de maior market_price em 17/11 sem Code Card e quantas unidades R$ 100 compram de cada;
+   espere minha confirmação;
+2. mostre os rascunhos completos das quatro ADRs e espere minha confirmação:
+   - 0002 carteira selado: o selado de maior preço com preço em 17/11, excluindo os produtos cujo nome termina em Case ou Display (a coleção não tem booster box);
+   - 0003 cesta_raras: R$ 100 em cada uma das 10 cartas de maior market_price em 17/11, em unidades inteiras, sem Code Cards, com a sobra em caixa rendendo CDI;
+   - 0004 taxa de venda: 15% como hipótese, com resultado também sem taxa;
+   - 0005 carteira própria, decisão da aluna: R$ 1.000 em unidades inteiras do Black Bolt Elite Trainer Box (product_id 630686, a versão de varejo, não a exclusiva do Pokémon Center), comprado pela PTAX de venda de 17/11, com a sobra em caixa rendendo CDI; motivo: é o selado de varejo mais comprado por colecionadores; se o 630686 não tiver preço em 17/11, a carteira fica toda em caixa rendendo CDI;
+3. grave as ADRs, rode o teste das ADRs (test_adr.py) e mostre a saída real;
+4. marque a T-39 como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit.
+
+[E] Exemplos
+Cada ADR segue as nove seções da Aula 01, já exigidas pelo test_adr.py, e cita os RF da carteira (RF-44 a RF-47).
+Commit proposto: docs(T-39): adrs da carteira [RF-44, RF-45]
+
+[A] Ajustes
+- Só leitura no bucket: list_objects_v2, head_object e get_object; nenhum put, delete ou copy. Use as funções de configuração e de cliente S3 do projeto.
+- Se a regra da carteira selado escolher o mesmo produto 630686 da carteira própria, pare e me avise antes de escrever as ADRs.
+- Nenhum código de cálculo da carteira nesta tarefa.
+- Não leia nem imprima o .env.
+- Não rode git add, git commit nem git push.
+
+[T] Tipo de saída
+Os dados do passo 1, os rascunhos das ADRs, a saída do teste e um resumo de até cinco linhas com a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/plan.md, specs/tasks.md, docs/adr/ e tests/unidade/test_adr.py antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2 (literal)
+
+```text
+Confirmo a opção (a): regras literais nos rascunhos. Registre nas ADRs 0002 e 0003, em Consequências e Riscos, que com os preços reais de 17/11 as carteiras selado e cesta_raras ficam 100% em caixa rendendo CDI (o selado escolhido custa R$ 1.503,95; a carta mais barata do top 10 custa R$ 245,81), que isso foi consultado ao professor no canal da turma, e na Condição de revisão: "se o professor definir outra regra, a spec ganha um adendo e esta ADR é revista antes da entrega". Pode mostrar os rascunhos das quatro ADRs.
+```
+
+### Prompt 3 (literal)
+
+```text
+Rascunhos aprovados, com uma correção na ADR 0004: em Riscos, troque "(RF-52, a definir no dashboard)" por "(painel da carteira, tarefa T-52, RF-46 e RF-47)", porque não existe RF-52. Pode gravar as quatro ADRs, rodar o test_adr.py, marcar a T-39 e registrar o prompt. Não rode git add, git commit nem git push.
+```
+
+### Observação do agente
+- **Leitura do bucket:** a silver real da 24325 foi lida só com list e get, por um script de rascunho fora do repositório. O script usa `carregar_env_local`, `carregar_config` e `criar_cliente_s3` do projeto, e o cliente fica embrulhado num proxy que recusa qualquer operação além de list_objects_v2, head_object e get_object. Os arquivos lidos foram `silver/produto/group_id=24325/produto.parquet`, `silver/preco_diario/group_id=24325/data=2026-11-17/preco.parquet` e `silver/cambio_diario/group_id=24325/cambio.parquet`, todos com hive_partitioning desligado. Nada da configuração foi impresso, e nada foi escrito no bucket.
+- **Dados de 17/11** (PTAX de venda de 5,7851):
+  - o selado escolhido pela regra do RF-44 é o 630687 "Black Bolt Pokemon Center Elite Trainer Box (Exclusive)", a US$ 259,97, ou R$ 1.503,95: 0 unidades e R$ 1.000 em caixa;
+  - o 630686 "Black Bolt Elite Trainer Box" custa US$ 151,99, ou R$ 879,28: 1 unidade e R$ 120,72 em caixa;
+  - o top 10 de cartas sem Code Card vai de R$ 3.477,66 a R$ 245,81: 0 unidades em todas e R$ 1.000 em caixa.
+- **Selado e própria:** a regra do selado não escolheu o 630686, então não foi preciso parar.
+- **Decisão da aluna:** regras literais do RF-44 (opção (a)). As ADRs 0002 e 0003 registram que selado e cesta_raras ficam 100% em caixa e que isso foi consultado ao professor no canal da turma.
+- **ADR 0005:** registra o viés de retrospectiva, porque a escolha foi feita em 25/11 com os preços de 17/11 a 25/11 visíveis.
+- **Correção da aluna:** o rascunho da ADR 0004 citava um "RF-52" que não existe na spec. Foi trocado por "(painel da carteira, tarefa T-52, RF-46 e RF-47)", e a T-52 foi conferida em `specs/tasks.md`.
+- Nenhum código de cálculo da carteira foi escrito, e `src/gold/carteira.py` não existe.
+
+### Saída do teste
+`.venv/bin/pytest tests/unidade/test_adr.py -q`:
+```text
+.......                                                                  [100%]
+7 passed in 0.03s
+```
+
+### Arquivos gerados
+- `docs/adr/0002-carteira-selado-sem-case-display.md`
+- `docs/adr/0003-cesta-raras-unidades-inteiras-sem-code-cards.md`
+- `docs/adr/0004-taxa-de-venda-15.md`
+- `docs/adr/0005-carteira-propria.md`
+- `specs/tasks.md` (T-39 concluída, com nota)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+ADRs 0002 a 0005 aprovadas antes de qualquer cálculo da carteira. Selado: maior selado com preço em d0 sem Case nem Display; cesta_raras: R$ 100 em cada um dos 10 pares mais caros sem Code Card, em unidades inteiras; taxa de venda de 15% como hipótese, com resultado também sem taxa; carteira própria, decisão da aluna: unidades inteiras do Black Bolt Elite Trainer Box de varejo (630686). Com os preços reais de 17/11, selado e cesta_raras ficam 100% em caixa pela regra literal; mantida a regra do enunciado e consultado o professor no canal da turma. Viés de retrospectiva da escolha da carteira própria registrado na ADR 0005.
