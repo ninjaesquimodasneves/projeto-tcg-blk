@@ -4365,3 +4365,89 @@ Suíte inteira, com a integração (`.venv/bin/pytest -q`):
 
 ### Decisão humana
 Plano aprovado. Comando python -m gold sem parâmetros, com a configuração lida antes de qualquer chamada e o instante lido uma vez em UTC; usa as funções das T-29 a T-36, com dois observadores opcionais na publicação que não mudam a ordem nem as falhas. Log JSON com uma linha por coleção, uma por tabela, a verificação e o resumo, sem credenciais. Código 0 com a gold publicada, mesmo com colega fora do contrato; 1 com a 24325 fora do contrato, esquema divergente, falha na listagem, num put ou num delete, guarda ou exceção inesperada; 2 com configuração inválida. Testes falharam antes pelo motivo esperado e passaram depois.
+
+## 2026-11-25 — Etapa: implementação da T-38 (integração da gold com Testcontainers)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados Python que pratica desenvolvimento orientado a testes. Executa uma única tarefa, prova que ela funciona com a saída real do terminal e para.
+
+[R] Pedido
+Implemente somente a tarefa T-38 de specs/tasks.md (integração da gold com Testcontainers). Siga esta ordem:
+1. confirme que o Docker responde e mostre o plano: arquivos, fixtures (reaproveite as de tests/integracao/conftest.py), testes e comando de verificação. Se o plano precisar de alguma regra que ainda não está escrita na spec, liste essas regras numa seção separada "Regras fora da spec" e espere minha decisão, sem implementá-las; espere minha confirmação;
+2. escreva os testes e rode;
+3. ajuste o mínimo necessário nas fixtures para os testes passarem; se algum teste revelar defeito no código de produção, pare e me mostre antes de corrigir;
+4. rode a verificação da tarefa, os testes de integração e o pytest inteiro e mostre a saída real;
+5. marque a T-38 como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit.
+
+[E] Exemplos
+Casos que os testes precisam cobrir, contra um MinIO real em contêiner, com a silver de duas coleções gravada no próprio teste (pode gerar a silver com python -m silver a partir do raw dos cassetes, mais uma coleção sintética de colega):
+  python -m gold (main) rodado duas vezes: as mesmas chaves e as mesmas linhas em cada tabela da gold;
+  chaves e sha256 de raw/ e silver/ iguais antes e depois das duas execuções;
+  gold sintética de outro group_id intacta (RNF-07);
+  coleção de colega fora do contrato: a gold é publicada sem ela, com código 0;
+  o DESCRIBE de cada Parquet da gold publicado, lido do MinIO com hive_partitioning desligado, bate com o contrato da gold.
+Commit proposto: test(T-38): integracao da gold com minio em testcontainers [RF-27, RF-28, RF-50, RNF-06, RNF-07]
+
+[A] Ajustes
+- Faça só a T-38; a carteira é das T-39 a T-43.
+- Imagem coollabsio/minio:RELEASE.2025-10-15T17-29-55Z, credenciais geradas na hora, como na T-11 e na T-25.
+- Marque os testes com @pytest.mark.integracao e pule com motivo explícito se o Docker não responder.
+- Nada do .env e nada do bucket da turma.
+- Siga a spec ao pé da letra; regras novas só depois da minha decisão.
+- Não rode git add, git commit nem git push.
+- Se a verificação falhar, tente corrigir no máximo duas vezes; depois disso, pare e explique.
+- Não declare sucesso sem mostrar a saída do comando.
+
+[T] Tipo de saída
+Os arquivos da tarefa, a saída do pytest e um resumo de até cinco linhas com o que mudou e a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/tasks.md, src/gold/, tests/integracao/ e tests/unidade/silver_turma.py antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2 (literal)
+
+```text
+Plano da T-38 aprovado, incluindo o sys.path.insert para importar o silver_turma e o sexto teste registrado na nota da tarefa. Pode seguir.
+```
+
+### Observação do agente
+- O Docker respondeu (servidor 29.9.2). O plano não trouxe nenhuma regra fora da spec.
+- **Montagem da silver:** feita no próprio teste, só no MinIO do contêiner:
+  - raw dos cassetes gravado com `gravar_raw_base` (T-25);
+  - silver da 24325 gerada por `python -m silver` (`main`);
+  - colega 24326 copiada da 24325 com `colecao_de_colega` (`tests/unidade/silver_turma.py`, importado por `sys.path.insert`);
+  - colega 24327 sem `cdi_diario`, fora do contrato;
+  - gold sintética da 99999 em `gold/` e em `gold_turma/carteira/`.
+- `python -m gold` (`main`) roda com o cliente boto3 real criado do ambiente do contêiner. O ambiente é um dicionário montado no teste, então o `.env` não é lido.
+- Os seis testes passaram na primeira execução. Nenhum defeito apareceu no código de produção, e nenhuma fixture do `conftest.py` mudou.
+- O sexto teste (`test_colega_fora_do_contrato_gold_publicada_sem_ela`) foi pedido no prompt 1 e está registrado na nota da T-38.
+- Nenhum teste acessa o bucket da turma.
+
+### Saída dos testes
+Verificação da tarefa (`.venv/bin/pytest tests/integracao/test_gold_minio.py -q`):
+```text
+......                                                                   [100%]
+6 passed in 27.31s
+```
+
+Testes de integração (`.venv/bin/pytest -m integracao -q`):
+```text
+17 passed, 465 deselected in 59.04s
+```
+
+Suíte inteira (`.venv/bin/pytest -q`):
+```text
+482 passed in 187.99s (0:03:07)
+```
+
+### Arquivos gerados
+- `tests/integracao/test_gold_minio.py`
+- `specs/tasks.md` (T-38 concluída, com nota)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Plano aprovado. Gold testada contra MinIO real, a partir da silver gerada pelo python -m silver com o raw dos cassetes e de duas coleções de colega (uma válida e uma sem cdi_diario): duas execuções com as mesmas chaves e linhas; raw, silver e quarentena intocados; colega fora do contrato excluída com código 0; só chaves de gold/group_id=24325/ alteradas, com a gold sintética de outro group_id intacta; DESCRIBE de cada Parquet publicado igual ao contrato da gold. Fixtures reaproveitadas sem mudança.

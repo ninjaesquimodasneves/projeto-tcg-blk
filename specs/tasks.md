@@ -342,12 +342,13 @@ Comando base da gold: `PYTHONPATH=src python -m gold`. Dashboard: `PYTHONPATH=sr
 - Depende de: T-36
 - Nota (2026-11-25): segue o quarto adendo de 2026-11-25 ao RF-50 (commit 5895bab). `main` em `src/gold/reprocessamento.py` lê a configuração antes de qualquer chamada (inválida → 2, sem S3 nem relógio), lê o instante uma única vez em UTC e encadeia `ler_silver_da_turma`, `conferir_grao`, `montar_dimensoes`, `montar_fato_cambio`, `montar_fato_preco`, `escrever_gold` e `publicar_gold`, sem reimplementar nenhuma delas. Com a 24325 fora do contrato, nada é gerado nem publicado (código 1). O log, no logger `gold`, traz os alertas das T-29 e T-32 durante a execução e, no fim, uma linha por coleção (aprovada ou fora do contrato, com os motivos), uma por tabela (linhas e linhas_publicadas, só dos puts que deram certo), a verificação e o resumo; quando nada é gerado, só as coleções e o resumo. `publicar_gold` (T-36) ganhou os observadores opcionais `ao_verificar` e `ao_publicar`, como o `reprocessar` da silver; a ordem e as falhas não mudaram, e os testes da T-36 continuam iguais. Além dos oito testes acima, o arquivo cobre falha na listagem da silver e da gold, falha num put, falha num delete, chave recusada pela guarda, exceção inesperada (só a classe no log), alertas de série indefinida e de chave fora do padrão, grão quebrado na 24325 e o instante lido uma vez em UTC.
 
-## T-38 Integração da gold com Testcontainers
+## T-38 Integração da gold com Testcontainers — concluída (2026-11-25)
 - Requisitos: RF-27, RF-50, RNF-06, RNF-07
 - Arquivos: `tests/integracao/test_gold_minio.py` (reaproveita as fixtures de `tests/integracao/conftest.py`)
 - Teste: test_gold_duas_vezes_mesmas_linhas; test_raw_silver_e_quarentena_intocados (chaves e sha256 antes e depois); test_silver_de_duas_colecoes_lida_sem_escrita; test_chaves_alteradas_so_em_gold_group_id_24325; test_describe_dos_parquet_publicados_bate_com_contrato_da_gold
 - Comando: pytest -m integracao -q
 - Depende de: T-37. Exige Docker.
+- Nota (2026-11-25): a silver é montada no próprio teste, só no MinIO do contêiner: raw dos cassetes gravado com `gravar_raw_base` (T-25), silver da 24325 gerada por `python -m silver` (`main`) e copiada para a colega 24326 com `colecao_de_colega` de `tests/unidade/silver_turma.py` (importado por `sys.path.insert`, decisão da aluna no plano da T-38); gold sintética da 99999 em `gold/` e em `gold_turma/carteira/`. `python -m gold` (`main`) roda com o cliente boto3 real criado do ambiente do contêiner. Além dos cinco testes acima, o arquivo cobre a colega 24327 sem cdi_diario (test_colega_fora_do_contrato_gold_publicada_sem_ela: código 0, gold publicada sem ela, RF-28), a pedido da aluna. O teste das chaves alteradas inclui um objeto antigo em `gold/group_id=24325/` que a gold apaga, e a gold da 99999 fica com o mesmo sha256. Nenhum código de produção nem fixture do conftest mudou.
 
 ## T-39 ADRs da carteira
 - Requisitos: RF-44, RF-45
