@@ -4226,3 +4226,75 @@ Suíte inteira, com a integração (`.venv/bin/pytest -q`):
 
 ### Decisão humana
 Plano aprovado em modo plan, com aprovação manual das edições. Gold escrita localmente em um Parquet por tabela, ordenado pela chave do grão, e verificada por DESCRIBE contra o contrato da gold. Publicação por uma única função de put e uma de delete, com a guarda restrita a gold/group_id=24325/ e gold_turma/carteira/group_id=24325/; ordem verificar, publicar e só então apagar; esquema divergente ou falha num put não apagam nada; falha num delete segue o RF-24. Reaproveita funções da silver sem alterá-la. Testes falharam antes pelo motivo esperado e passaram depois.
+
+## 2026-11-25 — Etapa: quarto adendo de 2026-11-25 ao RF-50 (plano da T-37)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados Python que pratica desenvolvimento orientado a testes. Executa uma única tarefa, prova que ela funciona com a saída real do terminal e para.
+
+[R] Pedido
+Implemente somente a tarefa T-37 de specs/tasks.md (comando python -m gold e log). Siga esta ordem:
+1. mostre o plano: arquivos, funções, a sequência do comando (configuração, leitura da silver da turma, grão, dimensões, fatos, escrita, verificação e publicação), o formato de cada linha do log, os códigos de saída para cada caso e o comando de verificação. Se o plano precisar de alguma regra que ainda não está escrita na spec, liste essas regras numa seção separada "Regras fora da spec" e espere minha decisão, sem implementá-las; espere minha confirmação;
+2. escreva primeiro os testes da tarefa, rode e mostre que falham pelo motivo esperado (função ou módulo ainda inexistente, e não falta de dependência);
+3. implemente o mínimo para os testes passarem;
+4. rode a verificação da tarefa e o pytest inteiro e mostre a saída real;
+5. marque a T-37 como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit.
+
+[E] Exemplos
+Casos que os testes precisam cobrir (S3 falso, relógio e diretório temporário injetados):
+  o comando não aceita parâmetros (como o coletor e a silver);
+  a configuração é lida antes de qualquer chamada; configuração inválida sai com 2, sem chamadas ao S3;
+  o log traz uma linha por coleção (aprovada ou fora do contrato, com o motivo), uma linha por tabela da gold com o número de linhas, os alertas (série indefinida, chave fora do padrão), o resultado da verificação e uma linha de resumo;
+  código 0 quando a gold é publicada, mesmo com coleção de colega fora do contrato;
+  código diferente de zero quando a 24325 está fora do contrato (nada publicado), quando a verificação reprova, quando a listagem falha e quando um put ou um delete falha;
+  nenhum valor de credencial no log;
+  o instante é lido uma única vez, em UTC.
+Commit proposto: feat(T-37): comando e log da gold [RF-28, RF-50]
+
+[A] Ajustes
+- Faça só a T-37; a integração com MinIO é da T-38 e a carteira entra na T-43.
+- Use as funções das T-29 a T-36; nada de reimplementar leitura, dimensões, fatos ou publicação.
+- Siga o padrão do comando e do log da silver (T-24).
+- Testes só com S3 falso; nenhum acesso ao bucket real.
+- Siga o RF-28 e o RF-50 ao pé da letra; regras novas só depois da minha decisão.
+- Não leia nem imprima o .env.
+- Não rode git add, git commit nem git push.
+- Se a verificação falhar, tente corrigir no máximo duas vezes; depois disso, pare e explique.
+- Não declare sucesso sem mostrar a saída do comando.
+
+[T] Tipo de saída
+Os arquivos da tarefa, a saída do pytest antes e depois, o comando para rodar a gold de verdade e um resumo de até cinco linhas com a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/plan.md, specs/tasks.md, src/silver/reprocessamento.py e src/gold/ antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2 (literal)
+
+```text
+Plano da T-37 aprovado. As três regras também, iguais às da silver: 1) chave recusada pela guarda e exceção inesperada saem com 1, sem publicar nem apagar nada, e a exceção inesperada aparece no log só com a classe; 2) linhas_publicadas conta só as linhas dos arquivos cujo put deu certo; 3) opção (a): quando nada é gerado, o log tem só as linhas por coleção (quando houver) e o resumo. Antes do código, redija o adendo de 2026-11-25 ao RF-50 em specs/spec.md com essas três regras, acrescente esta mudança em docs/prompts.md e pare. Não rode git add, git commit nem git push.
+```
+
+### Observação do agente
+- O prompt 1 pedia a T-37 inteira. Nesta etapa saiu só o plano, com três "Regras fora da spec". O prompt 2 aprovou o plano e as três regras e pediu o adendo antes do código.
+- O plano aprovado acrescenta a `publicar_gold` (T-36) dois parâmetros opcionais que só observam, `ao_verificar` e `ao_publicar`, como em `silver.reprocessamento.reprocessar`. Assim o comando registra a verificação e os puts feitos mesmo quando uma exceção interrompe a publicação. A ordem e as falhas da T-36 não mudam.
+- Os alertas de coleção fora do contrato, chave fora do padrão e série indefinida já saem no logger `gold` pelas funções das T-29 e T-32. O comando não os repete.
+- O adendo se chama "quarto adendo de 2026-11-25", porque o RF-28 e o RF-34, o RF-37 e o RF-50 (terceiro adendo, commit b6fdaa8) já receberam adendos nesta data.
+- No RF-50 entraram:
+  - chave recusada pela guarda do RNF-07 e exceção inesperada saem com código 1, sem publicar nem apagar nada, e a exceção aparece no log só com a classe;
+  - "linhas publicadas" conta só os puts que deram certo (0 com o esquema divergente; só os puts anteriores à falha num put; todos numa falha de delete);
+  - quando nada é gerado (configuração inválida, 24325 fora do contrato, falha na listagem da silver), o log traz só as linhas por coleção, quando houver, e o resumo;
+  - o motivo e os testes na Verificação.
+
+  O cabeçalho cita o adendo.
+- A T-37 (testes e código) continua pendente até o commit deste adendo.
+
+### Arquivos gerados
+- `specs/spec.md` (quarto adendo de 2026-11-25 ao RF-50, e menção no cabeçalho)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Regras encontradas no plano da T-37 escritas no RF-50 antes do código, iguais às da silver: chave recusada pela guarda e exceção inesperada saem com 1 sem publicar nem apagar; linhas_publicadas conta só os puts que deram certo; quando nada é gerado, o log tem só as linhas por coleção e o resumo.
