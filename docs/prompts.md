@@ -4168,3 +4168,61 @@ Plano da T-36 aprovado, e o R1 também, como você recomendou. Sobre a observaç
 
 ### Decisão humana
 Contradição encontrada no plano da T-36 corrigida no RF-50 antes do código: "sem apagar nada" vale para configuração inválida, silver fora do contrato, esquema divergente e falha num put; numa falha de delete, vale a regra do RF-24, como na silver.
+
+## 2026-11-25 — Etapa: implementação da T-36 (escrita, verificação e publicação da gold)
+
+O pedido original da T-36 (prompt 1) e a decisão sobre o R1 e o carteira.parquet (prompt 2) estão na entrada anterior, "terceiro adendo de 2026-11-25 ao RF-50 (plano da T-36)".
+
+### Prompt 3 (literal)
+
+```text
+Spec commitada (b6fdaa8). Pode implementar a T-36 conforme o plano aprovado, com a regra de falha num delete agora escrita no RF-50. Ao final, mostre a saída do pytest antes e depois e um resumo de até cinco linhas com o que mudou e a mensagem de commit proposta. Não acesse o bucket real. Não rode git add, git commit nem git push.
+```
+
+### Observação do agente
+- Os testes foram escritos antes do código. Na primeira execução falharam na coleta com `ModuleNotFoundError: No module named 'gold.publicador'`, o primeiro import do arquivo; `gold.parquet` também não existia.
+- **Primeira execução depois do código:** 19 testes passaram e 3 falharam. O erro estava nas expectativas de ordem dos testes, não no código: na ordenação de chaves, `gold/` vem antes de `gold_turma/`, porque `/` vem antes de `_`. Corrigi as expectativas, sem mudar o código (1ª das duas tentativas permitidas).
+- **Teste de falha num delete:** agora quem falha é o segundo delete. Assim ele mostra o anterior já feito e os restantes ainda no bucket, como manda o terceiro adendo ao RF-50.
+- **Escrita:** a fixture grava as linhas de cada tabela em ordem decrescente da chave. Isso prova que a ordem do Parquet vem do ORDER BY da escrita, e não da ordem de inserção.
+- **Reaproveitamento da silver**, sem mudar nenhum arquivo dela: `ler_esquema`, `Divergencia` e `Verificacao` de `silver.parquet`, e `ErroPublicacao` de `silver.publicador`. A guarda da gold é própria (`chave_gold_permitida` e `ErroChaveGoldProibida`) e usa `chave_permitida` da coleta.
+- **carteira.parquet:** pelo RF-50 ao pé da letra, um carteira.parquet já publicado e não regravado é apagado. O teste de ordem documenta isso.
+- Nenhum teste acessa o bucket real.
+
+### Saída dos testes
+Antes da implementação (`.venv/bin/pytest tests/unidade/test_gold_publicador.py -q`):
+```text
+    import gold.publicador as publicador
+E   ModuleNotFoundError: No module named 'gold.publicador'
+=========================== short test summary info ============================
+ERROR tests/unidade/test_gold_publicador.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.25s
+```
+
+Primeira execução depois do código (expectativa de ordem errada nos testes):
+```text
+FAILED tests/unidade/test_gold_publicador.py::test_listar_publicados_so_nos_prefixos_da_gold
+FAILED tests/unidade/test_gold_publicador.py::test_ordem_verifica_publica_e_depois_apaga
+FAILED tests/unidade/test_gold_publicador.py::test_falha_num_delete_para_e_informa_a_chave
+3 failed, 19 passed in 4.05s
+```
+
+Depois da correção dos testes (`.venv/bin/pytest tests/unidade/test_gold_publicador.py -q`):
+```text
+22 passed in 3.55s
+```
+
+Suíte inteira, com a integração (`.venv/bin/pytest -q`):
+```text
+456 passed in 134.01s (0:02:14)
+```
+
+### Arquivos gerados
+- `src/gold/parquet.py`
+- `src/gold/publicador.py`
+- `tests/unidade/test_gold_publicador.py`
+- `specs/tasks.md` (T-36 concluída, com nota)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Plano aprovado em modo plan, com aprovação manual das edições. Gold escrita localmente em um Parquet por tabela, ordenado pela chave do grão, e verificada por DESCRIBE contra o contrato da gold. Publicação por uma única função de put e uma de delete, com a guarda restrita a gold/group_id=24325/ e gold_turma/carteira/group_id=24325/; ordem verificar, publicar e só então apagar; esquema divergente ou falha num put não apagam nada; falha num delete segue o RF-24. Reaproveita funções da silver sem alterá-la. Testes falharam antes pelo motivo esperado e passaram depois.

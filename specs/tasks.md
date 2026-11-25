@@ -326,12 +326,13 @@ Comando base da gold: `PYTHONPATH=src python -m gold`. Dashboard: `PYTHONPATH=sr
 - Depende de: T-34
 - Nota (2026-11-25): segue o segundo adendo de 2026-11-25 ao RF-37 (commit 9271159). `decompor(usd_d0, usd_d1, ptax_d0, ptax_d1)` em `src/gold/decomposicao.py` é função pura e devolve `Decomposicao` (r_usd, r_cambio, r_brl e os três efeitos) ou None com preço ou PTAX nulo em d0 ou d1 ou igual a zero em d0; r_brl é a razão dos preços em reais (usd × ptax), a mesma conta do market_price_brl da fato. O teste da soma monta a gold sintética da T-34 em DuckDB em memória e compara com o r_brl dos market_price_brl da fato. Além dos três testes acima, o arquivo cobre o caso do enunciado com dólar subindo 5% (r_brl = 15,5%), carta estável com dólar caindo, efeitos de sinais opostos, zero em d0 (test_preco_ou_ptax_zero_em_d0_sem_decomposicao) e zero em d1 (test_zero_em_d1_e_variacao_de_menos_100). Os rankings da P1 ficam na T-47.
 
-## T-36 Escrita, verificação e publicação da gold
+## T-36 Escrita, verificação e publicação da gold — concluída (2026-11-25)
 - Requisitos: RF-50, RNF-07
 - Arquivos: `src/gold/parquet.py`, `src/gold/publicador.py`, `tests/unidade/test_gold_publicador.py`
 - Teste: test_parquet_da_gold_tem_os_tipos_do_contrato (DESCRIBE das seis tabelas); test_esquema_divergente_nada_publicado_nem_apagado; test_chave_em_silver_recusada; test_chave_em_raw_recusada; test_gold_de_outro_group_id_recusada; test_gold_turma_sem_group_id_recusada; test_ordem_verifica_publica_e_depois_apaga; test_falha_num_put_para_sem_apagar; test_falha_num_delete_para_e_informa_a_chave; test_linhas_ordenadas_pelas_chaves
 - Comando: pytest tests/unidade/test_gold_publicador.py -q
 - Depende de: T-35
+- Nota (2026-11-25): segue o terceiro adendo de 2026-11-25 ao RF-50 (commit b6fdaa8). `escrever_gold` (`src/gold/parquet.py`) grava cada tabela do contrato da gold em `gold/group_id=24325/<tabela>.parquet` com COPY TO ordenado pela chave do grão, e `verificar_gold` compara o DESCRIBE (hive desligado) com as colunas mínimas, com extras aceitas. `publicar_gold` (`src/gold/publicador.py`) verifica, confere todas as chaves novas com `chave_gold_permitida`, lista `gold/group_id=24325/` e `gold_turma/carteira/group_id=24325/`, publica e só então apaga os antigos não regravados; `publicar_objeto` e `apagar_objeto` aplicam a guarda antes de cada put e delete. Reaproveita `ler_esquema`, `Divergencia`, `Verificacao` e `ErroPublicacao` da silver sem mudar nenhum arquivo dela. Pelo RF-50 ao pé da letra, um carteira.parquet já publicado e não regravado é apagado até a T-43 gerá-lo (decisão da aluna no plano da T-36). Além dos dez testes acima, o arquivo cobre tabela fora do contrato, chaves permitidas, listagem só nos dois prefixos com paginação e a chave proibida dentro de publicar_gold, antes de qualquer chamada S3.
 
 ## T-37 Comando python -m gold e log
 - Requisitos: RF-50, RF-28
