@@ -318,12 +318,13 @@ Comando base da gold: `PYTHONPATH=src python -m gold`. Dashboard: `PYTHONPATH=sr
 - Depende de: T-33
 - Nota (2026-11-25): segue o adendo de 2026-11-25 ao RF-28 e RF-34 (commit 00e30ec). `montar_fato_preco` em `src/gold/fatos.py` liga a preco_diario das coleções aprovadas à fato_cambio_diario pela data (LEFT JOIN): a PTAX de venda já foi escolhida pelo ASOF da T-33, e a fato_cambio_diario cobre todo o intervalo da preco_diario (RF-31). O contrato da gold ganhou a fato_preco_diario (chave group_id, product_id, acabamento, data). `conferir_grao` (T-32) passou a tirar a coleção cuja preco_diario tem linha repetida no grão, acabamento nulo ou product_id fora da sua produto, com tabela preco_diario e detalhe "grão quebrado"; na 24325, a gold não é montada. A fixture `colega_me` da T-32 perdeu a linha de acabamento nulo, porque pelo adendo ela tiraria a colega; os demais testes da T-32 não mudaram. Além dos seis testes acima, o arquivo cobre os tipos por DESCRIBE (test_tipos_da_fato_preco_iguais_ao_contrato) e os três casos de grão quebrado na colega (test_grao_quebrado_na_preco_diario_de_colega_tira_a_colecao) e na 24325 (test_grao_quebrado_na_preco_diario_da_24325_impede_a_gold).
 
-## T-35 Decomposição da variação em reais
+## T-35 Decomposição da variação em reais — concluída (2026-11-25)
 - Requisitos: RF-37
 - Arquivos: `src/gold/decomposicao.py`, `tests/unidade/test_gold_decomposicao.py`
 - Teste: test_r_usd_10_r_cambio_menos_5_da_r_brl_4_5_e_cruzado_menos_0_5; test_soma_dos_efeitos_igual_r_brl_dos_precos_em_reais (diferença menor que 1e-9); test_preco_ou_ptax_nulo_sem_decomposicao
 - Comando: pytest tests/unidade/test_gold_decomposicao.py -q
 - Depende de: T-34
+- Nota (2026-11-25): segue o segundo adendo de 2026-11-25 ao RF-37 (commit 9271159). `decompor(usd_d0, usd_d1, ptax_d0, ptax_d1)` em `src/gold/decomposicao.py` é função pura e devolve `Decomposicao` (r_usd, r_cambio, r_brl e os três efeitos) ou None com preço ou PTAX nulo em d0 ou d1 ou igual a zero em d0; r_brl é a razão dos preços em reais (usd × ptax), a mesma conta do market_price_brl da fato. O teste da soma monta a gold sintética da T-34 em DuckDB em memória e compara com o r_brl dos market_price_brl da fato. Além dos três testes acima, o arquivo cobre o caso do enunciado com dólar subindo 5% (r_brl = 15,5%), carta estável com dólar caindo, efeitos de sinais opostos, zero em d0 (test_preco_ou_ptax_zero_em_d0_sem_decomposicao) e zero em d1 (test_zero_em_d1_e_variacao_de_menos_100). Os rankings da P1 ficam na T-47.
 
 ## T-36 Escrita, verificação e publicação da gold
 - Requisitos: RF-50, RNF-07

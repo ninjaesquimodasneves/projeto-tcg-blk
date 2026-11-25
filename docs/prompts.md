@@ -4051,3 +4051,50 @@ Plano da T-35 aprovado, e o R1 também, como você recomendou: preço em dólar 
 
 ### Decisão humana
 Regra encontrada no plano da T-35 escrita no RF-37 antes do código: preço em dólar ou PTAX igual a zero no primeiro dia não tem decomposição, como o nulo; zero no último dia é variação de −100%.
+
+## 2026-11-25 — Etapa: implementação da T-35 (decomposição da variação em reais)
+
+O pedido original da T-35 (prompt 1) e a decisão sobre o R1 (prompt 2) estão na entrada anterior, "segundo adendo de 2026-11-25 ao RF-37 (plano da T-35)".
+
+### Prompt 3 (literal)
+
+```text
+Spec commitada (9271159). Pode implementar a T-35 conforme o plano aprovado, incluindo o R1 agora escrito no RF-37, com um teste para preço e PTAX zero em d0 e outro para zero em d1. Ao final, mostre a saída do pytest antes e depois e um resumo de até cinco linhas com o que mudou e a mensagem de commit proposta. Não rode git add, git commit nem git push.
+```
+
+### Observação do agente
+- Os testes foram escritos antes do código. Na primeira execução falharam na coleta com `ModuleNotFoundError: No module named 'gold.decomposicao'`.
+- `decompor` é uma função pura, sem S3, DuckDB ou rede. Ela devolve um dataclass imutável `Decomposicao`, ou None com preço ou PTAX nulo em d0 ou d1 ou igual a zero em d0. O r_brl é a razão dos preços em reais (usd × ptax), com a mesma conta do market_price_brl da T-34.
+- Só o teste da soma usa DuckDB. Ele monta a gold sintética da 24325 (produto 1 Holofoil: US$ 10,00 com PTAX 5,31 em 09/10/2026 e US$ 11,00 com PTAX 5,41 em 13/10/2026) e compara a função com o r_brl calculado direto dos market_price_brl da fato, com diferença menor que 1e-9.
+- Zero em d1, no preço ou na PTAX, dá r_brl = −100%, e a soma dos três efeitos também dá −100%.
+- Nenhum arquivo de tarefa anterior mudou.
+
+### Saída dos testes
+Antes da implementação (`.venv/bin/pytest tests/unidade/test_gold_decomposicao.py -q`):
+```text
+    from gold.decomposicao import Decomposicao, decompor
+E   ModuleNotFoundError: No module named 'gold.decomposicao'
+=========================== short test summary info ============================
+ERROR tests/unidade/test_gold_decomposicao.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.28s
+```
+
+Depois (`.venv/bin/pytest tests/unidade/test_gold_decomposicao.py -q`):
+```text
+13 passed in 0.73s
+```
+
+Suíte inteira, com a integração (`.venv/bin/pytest -q`):
+```text
+434 passed in 121.47s (0:02:01)
+```
+
+### Arquivos gerados
+- `src/gold/decomposicao.py`
+- `tests/unidade/test_gold_decomposicao.py`
+- `specs/tasks.md` (T-35 concluída, com nota)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Plano aprovado. Decomposição como função pura: (1 + r_brl) = (1 + r_usd) × (1 + r_cambio), com efeito da carta, do câmbio e cruzado somando r_brl; conferida contra o preço em reais da fato_preco_diario. Sem decomposição com valor nulo ou zero no primeiro dia; zero no último dia dá −100%. Testes falharam antes pelo motivo esperado e passaram depois.
