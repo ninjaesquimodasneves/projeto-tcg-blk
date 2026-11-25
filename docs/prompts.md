@@ -3866,3 +3866,74 @@ Suíte inteira, com a integração (`.venv/bin/pytest -q`):
 
 ### Decisão humana
 Plano aprovado. fato_cambio_diario com uma linha por dia da dim_data; PTAX de compra e de venda por ASOF LEFT JOIN com data_ptax menor ou igual à data, nunca posterior, e data do boletim de origem; dia anterior ao primeiro boletim com PTAX nula; CDI do dia ou zero em dia sem taxa; só a silver da 24325. Testes com a semana de 09/10 a 13/10/2026 e com o feriado de 20/11/2026. Testes falharam antes pelo motivo esperado e passaram depois.
+
+## 2026-11-25 — Etapa: adendo de 2026-11-25 ao RF-28 e RF-34 (plano da T-34)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados Python que pratica desenvolvimento orientado a testes. Executa uma única tarefa, prova que ela funciona com a saída real do terminal e para.
+
+[R] Pedido
+Implemente somente a tarefa T-34 de specs/tasks.md (fato_preco_diario), seguindo a ADR 0001. Siga esta ordem:
+1. mostre o plano: arquivos, colunas e grão da fato, de onde vem cada coluna, como o market_price_brl é calculado com a PTAX de venda aplicada da fato_cambio_diario (T-33), o que acontece com preço nulo e com dia sem PTAX, e o comando de verificação. Se o plano precisar de alguma regra que ainda não está escrita na spec, liste essas regras numa seção separada "Regras fora da spec" e espere minha decisão, sem implementá-las; espere minha confirmação;
+2. escreva primeiro os testes da tarefa, rode e mostre que falham pelo motivo esperado (função ou módulo ainda inexistente, e não falta de dependência);
+3. implemente o mínimo para os testes passarem;
+4. rode a verificação da tarefa e o pytest inteiro e mostre a saída real;
+5. marque a T-34 como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit.
+
+[E] Exemplos
+Casos que os testes precisam cobrir (silver sintética de duas coleções, lida pela T-29, com as dimensões da T-32 e a fato_cambio_diario da T-33):
+  grão: no máximo uma linha por (group_id, product_id, acabamento, data);
+  integridade referencial: todo (group_id, product_id) existe na dim_produto e todo acabamento na dim_acabamento;
+  semana de 09/10 a 13/10/2026: o preço de 13/10 usa a PTAX de 13/10, e um preço num dia sem boletim usa a do dia útil anterior, com data_ptax e a cotação aplicada visíveis na linha;
+  market_price_brl = market_price em dólar × PTAX de venda aplicada; preço nulo continua nulo em dólar e em reais, nunca zero;
+  dia sem coleta não gera linha (a lacuna continua lacuna);
+  preço de colega numa data antes do primeiro boletim da 24325: o preço em reais fica nulo, sem inventar cotação.
+Commit proposto: feat(T-34): fato_preco_diario com preco em reais [RF-34, RF-35]
+
+[A] Ajustes
+- Faça só a T-34; a decomposição é da T-35 e a publicação da T-36.
+- DuckDB em memória; tipos vindos do contrato da gold; hive_partitioning desligado em toda leitura.
+- Reaproveite o helper tests/unidade/silver_turma.py.
+- Siga a spec e a ADR 0001 ao pé da letra; regras novas só depois da minha decisão.
+- Sem rede nos testes. Não leia nem imprima o .env.
+- Não rode git add, git commit nem git push.
+- Se a verificação falhar, tente corrigir no máximo duas vezes; depois disso, pare e explique.
+- Não declare sucesso sem mostrar a saída do comando.
+
+[T] Tipo de saída
+Os arquivos da tarefa, a saída do pytest antes e depois e um resumo de até cinco linhas com o que mudou e a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/plan.md, specs/tasks.md, docs/adr/0001-gold-modelagem-estrela.md e src/gold/ antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2 (literal)
+
+```text
+Plano da T-34 aprovado. R1, R2 e R3 também, como você recomendou: tratados como "grão quebrado" do RF-28. Antes do código, edite apenas specs/spec.md, estendendo o adendo de grão quebrado ao RF-28 e citando o RF-34:
+- R1: linha repetida em (group_id, product_id, acabamento, data) na preco_diario;
+- R2: acabamento nulo na preco_diario;
+- R3: product_id da preco_diario que não existe na produto da mesma coleção.
+Em qualquer dos três, a coleção sai inteira, com "alerta: colecao fora do contrato", a tabela preco_diario e o motivo, e o código continua 0; se for a 24325, nada é publicado e o código é diferente de zero.
+Acrescente esta mudança em docs/prompts.md e pare, sem criar código. Na implementação da T-34, essa conferência entra em conferir_grao, junto com a fato_preco_diario. Não rode git add, git commit nem git push.
+```
+
+### Observação do agente
+- O prompt 1 pedia a T-34 inteira. Nesta etapa saiu só o plano, com três "Regras fora da spec" (R1 a R3). O prompt 2 aprovou o plano e as três regras e pediu o adendo antes do código.
+- O plano liga a preco_diario das coleções aprovadas à fato_cambio_diario pela data (LEFT JOIN). A fato_cambio_diario já tem uma linha por dia do intervalo da preco_diario, com a PTAX escolhida por ASOF na T-33. Com isso, a escolha da PTAX não é refeita, e nenhuma regra nova foi necessária para a conversão, o preço nulo, o dia sem PTAX ou o dia sem coleta.
+- Adendo de 2026-11-25 na spec:
+  - RF-28: novo item com os três casos de grão quebrado na preco_diario, com o motivo da decisão. A Verificação ganhou os testes da colega com cada caso e da 24325.
+  - RF-34: novo item dizendo que o grão e a integridade referencial são garantidos na entrada pelo RF-28, sem descartar linhas isoladamente.
+  - O cabeçalho cita o adendo.
+- O motivo do adendo cita o RF-16 (quarentena de produto desconhecido e de duplicata) e o RF-20 (acabamento obrigatório no modelo Pydantic). São eles que já garantem os três casos na silver desta coleção.
+- A T-34 (testes e código, incluindo a extensão de `conferir_grao`) continua pendente até o commit deste adendo.
+
+### Arquivos gerados
+- `specs/spec.md` (adendo de 2026-11-25 ao RF-28 e RF-34, e menção no cabeçalho)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Regras encontradas no plano da T-34 escritas na spec antes do código: linha repetida no grão, acabamento nulo e product_id sem produto na preco_diario contam como grão quebrado (RF-28), tirando a coleção do colega com alerta ou impedindo a publicação se for a 24325. A conferência entra na implementação da T-34.
