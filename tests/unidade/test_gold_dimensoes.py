@@ -37,15 +37,17 @@ def con():
 
 
 def colega_me(propria, pasta, group_id=COLEGA, nome="ME: Colega"):
-    """Colega com precos em 11/10 e 14/10, um acabamento a mais, um nulo e PTAX propria em 10/10 e 12/10."""
+    """Colega com precos em 11/10 e 14/10, um acabamento a mais e PTAX propria em 10/10 e 12/10.
+
+    Sem acabamento nulo: desde o adendo de 2026-11-25 ao RF-28 ele tira a colecao (teste na T-34).
+    """
     colega = colecao_de_colega(propria, group_id, pasta, nome)
     for chave in chaves_da_tabela(colega, "preco_diario"):
         colega[chave] = transformar(
             colega[chave],
             "SELECT * REPLACE (CASE WHEN data = DATE '2026-10-09' THEN DATE '2026-10-11' "
             "ELSE DATE '2026-10-14' END AS data) FROM t "
-            "UNION ALL SELECT * REPLACE ('Reverse Holofoil' AS acabamento) FROM t WHERE product_id = 1 "
-            "UNION ALL SELECT * REPLACE (CAST(NULL AS VARCHAR) AS acabamento) FROM t WHERE product_id = 2",
+            "UNION ALL SELECT * REPLACE ('Reverse Holofoil' AS acabamento) FROM t WHERE product_id = 1",
             pasta,
         )
     [cambio] = chaves_da_tabela(colega, "cambio_diario")

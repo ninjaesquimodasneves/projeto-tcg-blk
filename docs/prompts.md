@@ -3937,3 +3937,54 @@ Acrescente esta mudança em docs/prompts.md e pare, sem criar código. Na implem
 
 ### Decisão humana
 Regras encontradas no plano da T-34 escritas na spec antes do código: linha repetida no grão, acabamento nulo e product_id sem produto na preco_diario contam como grão quebrado (RF-28), tirando a coleção do colega com alerta ou impedindo a publicação se for a 24325. A conferência entra na implementação da T-34.
+
+## 2026-11-25 — Etapa: implementação da T-34 (fato_preco_diario em reais)
+
+O pedido original da T-34 (prompt 1) e as decisões sobre R1, R2 e R3 (prompt 2) estão na entrada anterior, "adendo de 2026-11-25 ao RF-28 e RF-34 (plano da T-34)".
+
+### Prompt 3 (literal)
+
+```text
+Spec commitada (00e30ec). Pode implementar a T-34 conforme o plano aprovado, incluindo em conferir_grao a conferência de R1, R2 e R3 agora escrita no RF-28, com testes para os três casos (colega sai com alerta, 24325 impede a publicação). Ao final, mostre a saída do pytest antes e depois e um resumo de até cinco linhas com o que mudou e a mensagem de commit proposta. Não acesse o bucket real. Não rode git add, git commit nem git push.
+```
+
+### Observação do agente
+- Os testes foram escritos antes do código. Na primeira execução falharam na coleta com `ImportError: cannot import name 'montar_fato_preco' from 'gold.fatos'`.
+- `montar_fato_preco` liga a preco_diario das coleções aprovadas à fato_cambio_diario pela data (LEFT JOIN). A escolha da PTAX (data_ptax ≤ data, nunca posterior) vem do ASOF da T-33, que não é refeito.
+- `conferir_grao` confere R1, R2 e R3 depois de colecao e produto. O alerta traz a tabela preco_diario e o detalhe "grão quebrado", o mesmo motivo do segundo adendo de 2026-11-23. Na 24325, `propria_aprovada` fica falso e `montar_dimensoes` levanta ValueError, então a gold não é montada nem publicada.
+- Ajuste no teste da T-32: a fixture `colega_me` tinha uma linha com acabamento nulo, para mostrar que a dim_acabamento não tem nulo. Pelo adendo (R2), essa colega passaria a sair inteira. A linha foi retirada e os testes da T-32 não mudaram. O caso de acabamento nulo agora é coberto pelo teste da T-34.
+- No teste de 09/10 a 13/10, a colega tem preços em 10/10 e 12/10 e uma PTAX própria dez vezes maior. A fato usa a PTAX de 09/10 da 24325 nos dois dias e nunca o boletim de 13/10. Ninguém coletou em 11/10, que tem linha na dim_data e na fato_cambio_diario, mas não na fato_preco_diario.
+
+### Saída dos testes
+Antes da implementação (`.venv/bin/pytest tests/unidade/test_gold_fato_preco.py -q`):
+```text
+tests/unidade/test_gold_fato_preco.py:17: in <module>
+    from gold.fatos import montar_fato_cambio, montar_fato_preco
+E   ImportError: cannot import name 'montar_fato_preco' from 'gold.fatos' (/workspaces/projeto-tcg-blk/src/gold/fatos.py)
+=========================== short test summary info ============================
+ERROR tests/unidade/test_gold_fato_preco.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 5.09s
+```
+
+Depois (`.venv/bin/pytest tests/unidade/test_gold_fato_preco.py -q`):
+```text
+13 passed in 5.86s
+```
+
+Suíte inteira, com a integração (`.venv/bin/pytest -q`):
+```text
+421 passed in 130.70s (0:02:10)
+```
+
+### Arquivos gerados
+- `src/gold/fatos.py` (montar_fato_preco)
+- `src/gold/contrato.py` (fato_preco_diario no contrato)
+- `src/gold/dimensoes.py` (conferir_grao com R1, R2 e R3 na preco_diario)
+- `tests/unidade/test_gold_fato_preco.py`
+- `tests/unidade/test_gold_dimensoes.py` (fixture colega_me sem acabamento nulo)
+- `specs/tasks.md` (T-34 concluída, com nota)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Plano aprovado. fato_preco_diario com uma linha por (group_id, product_id, acabamento, data), ligada à fato_cambio_diario pela data para reaproveitar a PTAX escolhida pelo ASOF da T-33; market_price_brl = market_price em dólar × PTAX de venda aplicada, com a cotação e a data_ptax visíveis; preço nulo continua nulo, dia sem coleta não gera linha e data antes do primeiro boletim fica sem preço em reais. Conferência de grão quebrado ampliada para R1, R2 e R3 da preco_diario. Testes falharam antes pelo motivo esperado e passaram depois.

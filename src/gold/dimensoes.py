@@ -1,7 +1,9 @@
 """Dimensoes da gold em DuckDB em memoria [RF-28, RF-29, RF-30, RF-31, RF-32; ADR 0001].
 
 conferir_grao tira da leitura (T-29) as colecoes com grao quebrado (segundo adendo de 2026-11-23 ao
-RF-28): colecao com zero ou mais de uma linha, ou produto com product_id repetido.
+RF-28): colecao com zero ou mais de uma linha, produto com product_id repetido e (adendo de
+2026-11-25) preco_diario com linha repetida em (group_id, product_id, acabamento, data), acabamento
+nulo ou product_id fora da produto da mesma colecao.
 
 montar_dimensoes cria dim_colecao, dim_produto, dim_data e dim_acabamento numa conexao DuckDB, com
 CREATE TABLE nos tipos do contrato da gold (sem inferencia) e INSERT ... SELECT a partir dos Parquet
@@ -49,10 +51,20 @@ def _quebra_grao(con, arquivos: dict[str, list[Path]]) -> str | None:
     [(linhas_colecao,)] = con.execute(f"SELECT count(*) FROM {_fonte(arquivos['colecao'])}").fetchall()
     if linhas_colecao != 1:
         return "colecao"
-    [(repetidos,)] = con.execute(
-        f"SELECT count(*) - count(DISTINCT product_id) FROM {_fonte(arquivos['produto'])}"
+    produtos = _fonte(arquivos["produto"])
+    [(repetidos,)] = con.execute(f"SELECT count(*) - count(DISTINCT product_id) FROM {produtos}").fetchall()
+    if repetidos:
+        return "produto"
+    # Adendo de 2026-11-25: linha repetida no grao, acabamento nulo ou produto fora da produto (RF-28, RF-34)
+    precos = _fonte(arquivos["preco_diario"])
+    [(quebras,)] = con.execute(
+        f"SELECT (SELECT count(*) FROM (SELECT 1 FROM {precos} "
+        "GROUP BY group_id, product_id, acabamento, data HAVING count(*) > 1)) "
+        f"+ (SELECT count(*) FROM {precos} WHERE acabamento IS NULL) "
+        f"+ (SELECT count(*) FROM {precos} p WHERE NOT EXISTS "
+        f"(SELECT 1 FROM {produtos} r WHERE r.product_id = p.product_id))"
     ).fetchall()
-    return "produto" if repetidos else None
+    return "preco_diario" if quebras else None
 
 
 def conferir_grao(leitura: LeituraSilver) -> LeituraSilver:

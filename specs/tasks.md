@@ -310,12 +310,13 @@ Comando base da gold: `PYTHONPATH=src python -m gold`. Dashboard: `PYTHONPATH=sr
 - Depende de: T-32
 - Nota (2026-11-23): `montar_fato_cambio` em `src/gold/fatos.py` faz ASOF LEFT JOIN da dim_data com a cambio_diario da 24325 (data_ptax ≤ data, nunca posterior; nulos antes do primeiro boletim) e LEFT JOIN com a cdi_diario da 24325 (zero em dia sem taxa). O contrato da gold ganhou a fato_cambio_diario (chave data). `montar_dimensoes` (T-32) passou a criar só as quatro dimensões, e não todas as tabelas do contrato, para a fato ser criada pela própria função; os testes da T-32 não mudaram. Além dos cinco testes acima, o arquivo cobre os tipos por DESCRIBE (test_tipos_da_fato_cambio_iguais_ao_contrato) e o CDI do dia (test_cdi_do_dia_e_zero_sem_taxa). Nenhuma regra nova na spec.
 
-## T-34 fato_preco_diario em reais
+## T-34 fato_preco_diario em reais — concluída (2026-11-25)
 - Requisitos: RF-34, RF-35
 - Arquivos: `src/gold/fatos.py`, `tests/unidade/test_gold_fato_preco.py`
 - Teste: test_grao_maximo_uma_linha_por_group_id_product_id_acabamento_data; test_precos_de_09_a_13_10_2026_com_ptax_aplicada (preço de 12/10 não usa o boletim de 13/10); test_preco_usd_nulo_da_brl_nulo; test_sem_ptax_anterior_brl_ptax_e_data_ptax_nulos; test_dia_sem_coleta_sem_linha; test_integridade_referencial_com_dim_produto_e_dim_acabamento
 - Comando: pytest tests/unidade/test_gold_fato_preco.py -q
 - Depende de: T-33
+- Nota (2026-11-25): segue o adendo de 2026-11-25 ao RF-28 e RF-34 (commit 00e30ec). `montar_fato_preco` em `src/gold/fatos.py` liga a preco_diario das coleções aprovadas à fato_cambio_diario pela data (LEFT JOIN): a PTAX de venda já foi escolhida pelo ASOF da T-33, e a fato_cambio_diario cobre todo o intervalo da preco_diario (RF-31). O contrato da gold ganhou a fato_preco_diario (chave group_id, product_id, acabamento, data). `conferir_grao` (T-32) passou a tirar a coleção cuja preco_diario tem linha repetida no grão, acabamento nulo ou product_id fora da sua produto, com tabela preco_diario e detalhe "grão quebrado"; na 24325, a gold não é montada. A fixture `colega_me` da T-32 perdeu a linha de acabamento nulo, porque pelo adendo ela tiraria a colega; os demais testes da T-32 não mudaram. Além dos seis testes acima, o arquivo cobre os tipos por DESCRIBE (test_tipos_da_fato_preco_iguais_ao_contrato) e os três casos de grão quebrado na colega (test_grao_quebrado_na_preco_diario_de_colega_tira_a_colecao) e na 24325 (test_grao_quebrado_na_preco_diario_da_24325_impede_a_gold).
 
 ## T-35 Decomposição da variação em reais
 - Requisitos: RF-37
