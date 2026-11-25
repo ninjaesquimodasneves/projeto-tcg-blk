@@ -13,8 +13,12 @@ e so entao apaga os antigos nao regravados. Falhas (terceiro adendo de 2026-11-2
 - falha num put: para nesse put, sem apagar nada (ErroPublicacao com a chave);
 - falha num delete: para no primeiro que falhar (ErroPublicacao com a chave); os novos ja estao
   publicados e os antigos restantes saem na proxima execucao.
+
+ao_verificar(verificacao) e ao_publicar(etapa, chave) so observam (T-37), como no reprocessar da
+silver: o comando monta o log mesmo quando um put ou um delete interrompe a publicacao.
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -95,9 +99,17 @@ def listar_publicados(s3, bucket: str) -> list[str]:
     return sorted(k for k in chaves if chave_gold_permitida(k))  # defesa: o prefixo ja restringe
 
 
-def publicar_gold(s3, bucket: str, arquivos: list[ArquivoGold]) -> RelatorioGold:
+def publicar_gold(
+    s3,
+    bucket: str,
+    arquivos: list[ArquivoGold],
+    ao_verificar: Callable | None = None,
+    ao_publicar: Callable | None = None,
+) -> RelatorioGold:
     """Verifica, publica as chaves novas e so entao apaga as antigas nao regravadas (RF-50)."""
     verificacao = verificar_gold(arquivos)
+    if ao_verificar:
+        ao_verificar(verificacao)
     if not verificacao.aprovado:  # a gold publicada fica como estava
         return RelatorioGold(False, verificacao, [], [])
 
@@ -112,10 +124,14 @@ def publicar_gold(s3, bucket: str, arquivos: list[ArquivoGold]) -> RelatorioGold
     for chave in sorted(novos):
         publicar_objeto(s3, bucket, chave, Path(novos[chave]).read_bytes())  # falha: sem apagar nada
         publicadas.append(chave)
+        if ao_publicar:
+            ao_publicar("put", chave)
 
     apagadas = []
     for chave in antigos:
         apagar_objeto(s3, bucket, chave)  # falha: para no primeiro delete que falhar
         apagadas.append(chave)
+        if ao_publicar:
+            ao_publicar("delete", chave)
 
     return RelatorioGold(True, verificacao, publicadas, apagadas)

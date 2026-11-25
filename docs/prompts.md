@@ -4298,3 +4298,70 @@ Plano da T-37 aprovado. As três regras também, iguais às da silver: 1) chave 
 
 ### Decisão humana
 Regras encontradas no plano da T-37 escritas no RF-50 antes do código, iguais às da silver: chave recusada pela guarda e exceção inesperada saem com 1 sem publicar nem apagar; linhas_publicadas conta só os puts que deram certo; quando nada é gerado, o log tem só as linhas por coleção e o resumo.
+
+## 2026-11-25 — Etapa: implementação da T-37 (comando python -m gold e log)
+
+O pedido original da T-37 (prompt 1) e a decisão sobre as três regras (prompt 2) estão na entrada anterior, "quarto adendo de 2026-11-25 ao RF-50 (plano da T-37)".
+
+### Prompt 3 (literal)
+
+```text
+Spec commitada (5895bab). Pode implementar a T-37 conforme o plano aprovado, com as três regras agora escritas no RF-50. Ao final, mostre a saída do pytest antes e depois, o comando para rodar a gold de verdade e um resumo de até cinco linhas com a mensagem de commit proposta. Não acesse o bucket real. Não rode git add, git commit nem git push.
+```
+
+### Prompt 4 (literal)
+
+```text
+Confira se a suíte completa terminou, mostre a saída real e siga com o passo 5 da T-37.
+```
+
+### Observação do agente
+- Os testes foram escritos antes do código. Na primeira execução, a coleta falhou com `ModuleNotFoundError: No module named 'gold.reprocessamento'`.
+- **Primeira execução depois do código:** 17 testes passaram e 3 falharam. O código gravava a situação da coleção como "colecao fora do contrato" (a constante do alerta), e não como "fora do contrato", conforme o plano aprovado. Corrigi o código, sem mudar os testes (1ª das duas tentativas permitidas).
+- **Reaproveitamento:** `src/gold/reprocessamento.py` só encadeia as funções das T-29 a T-36 e monta o log. Não reimplementa leitura, grão, dimensões, fatos, escrita nem publicação.
+- **Mudança na T-36:** `publicar_gold` ganhou os observadores opcionais `ao_verificar` e `ao_publicar`, como o `reprocessar` da silver. A ordem e as falhas não mudaram, e os testes da T-36 continuam passando sem alteração.
+- **Alertas:** os de coleção fora do contrato, chave fora do padrão e série indefinida saem pelas próprias funções das T-29 e T-32, no logger `gold`, e o comando não os repete.
+- **Primeira tentativa da suíte completa:** foi interrompida pela aluna antes de terminar e não deixou saída. A segunda rodou até o fim (abaixo).
+- Nenhum teste acessa o bucket real. A gold não foi rodada contra o bucket; a primeira execução real é a T-44.
+
+### Saída dos testes
+Antes da implementação (`.venv/bin/pytest tests/unidade/test_gold_cli.py -q`):
+```text
+tests/unidade/test_gold_cli.py:16: in <module>
+    import gold.reprocessamento as reprocessamento
+E   ModuleNotFoundError: No module named 'gold.reprocessamento'
+=========================== short test summary info ============================
+ERROR tests/unidade/test_gold_cli.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 3.23s
+```
+
+Primeira execução depois do código (situação da coleção com o rótulo errado no código):
+```text
+FAILED tests/unidade/test_gold_cli.py::test_log_por_colecao_aprovada_ou_fora_do_contrato
+FAILED tests/unidade/test_gold_cli.py::test_saida_diferente_de_zero_com_24325_fora_do_contrato[tabela_ausente]
+FAILED tests/unidade/test_gold_cli.py::test_saida_diferente_de_zero_com_24325_fora_do_contrato[grao_quebrado]
+3 failed, 17 passed in 7.81s
+```
+
+Depois da correção (`.venv/bin/pytest tests/unidade/test_gold_cli.py -q && .venv/bin/pytest -m "not integracao and not vcr" -q`):
+```text
+20 passed in 6.01s
+458 passed, 18 deselected in 127.98s (0:02:07)
+```
+
+Suíte inteira, com a integração (`.venv/bin/pytest -q`):
+```text
+476 passed in 154.88s (0:02:34)
+```
+
+### Arquivos gerados
+- `src/gold/reprocessamento.py`
+- `src/gold/__main__.py`
+- `src/gold/publicador.py` (observadores opcionais em `publicar_gold`)
+- `tests/unidade/test_gold_cli.py`
+- `specs/tasks.md` (T-37 concluída, com nota)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Plano aprovado. Comando python -m gold sem parâmetros, com a configuração lida antes de qualquer chamada e o instante lido uma vez em UTC; usa as funções das T-29 a T-36, com dois observadores opcionais na publicação que não mudam a ordem nem as falhas. Log JSON com uma linha por coleção, uma por tabela, a verificação e o resumo, sem credenciais. Código 0 com a gold publicada, mesmo com colega fora do contrato; 1 com a 24325 fora do contrato, esquema divergente, falha na listagem, num put ou num delete, guarda ou exceção inesperada; 2 com configuração inválida. Testes falharam antes pelo motivo esperado e passaram depois.
