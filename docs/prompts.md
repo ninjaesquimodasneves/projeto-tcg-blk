@@ -4098,3 +4098,73 @@ Suíte inteira, com a integração (`.venv/bin/pytest -q`):
 
 ### Decisão humana
 Plano aprovado. Decomposição como função pura: (1 + r_brl) = (1 + r_usd) × (1 + r_cambio), com efeito da carta, do câmbio e cruzado somando r_brl; conferida contra o preço em reais da fato_preco_diario. Sem decomposição com valor nulo ou zero no primeiro dia; zero no último dia dá −100%. Testes falharam antes pelo motivo esperado e passaram depois.
+
+## 2026-11-25 — Etapa: terceiro adendo de 2026-11-25 ao RF-50 (plano da T-36)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados Python que pratica desenvolvimento orientado a testes e trata operações destrutivas com cuidado. Executa uma única tarefa, prova que ela funciona com a saída real do terminal e para.
+
+[R] Pedido
+Implemente somente a tarefa T-36 de specs/tasks.md: escrita local do Parquet da gold, verificação do esquema contra o contrato da gold, guarda das chaves da gold e publicação na ordem verificar, publicar, apagar. Siga esta ordem:
+1. mostre o plano: arquivos, funções, as chaves finais de cada tabela, como a guarda é aplicada antes de cada put e cada delete, a ordem das operações, o que acontece em cada tipo de falha e o comando de verificação. Se o plano precisar de alguma regra que ainda não está escrita na spec, liste essas regras numa seção separada "Regras fora da spec" e espere minha decisão, sem implementá-las; espere minha confirmação;
+2. escreva primeiro os testes da tarefa, rode e mostre que falham pelo motivo esperado (função ou módulo ainda inexistente, e não falta de dependência);
+3. implemente o mínimo para os testes passarem;
+4. rode a verificação da tarefa e o pytest inteiro e mostre a saída real;
+5. marque a T-36 como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit.
+
+[E] Exemplos
+Casos que os testes precisam cobrir (S3 falso em memória):
+  cada tabela da gold vira um Parquet em gold/group_id=24325/<tabela>.parquet, com DESCRIBE igual ao contrato da gold e linhas ordenadas pela chave do grão;
+  verificação reprovada: nenhum put e nenhum delete;
+  qualquer chave fora de gold/group_id=24325/ e gold_turma/carteira/group_id=24325/ é recusada antes do put ou do delete (RNF-07);
+  nada em raw/, silver/ ou em outro group_id é escrito ou apagado;
+  objeto antigo da gold que não foi regravado é apagado só depois dos puts;
+  falha num put para sem apagar nada; falha num delete para e informa a chave (mesmas regras da silver).
+Commit proposto: feat(T-36): escrita e publicacao da gold com guarda [RF-50, RNF-07]
+
+[A] Ajustes
+- Faça só a T-36; o comando python -m gold é da T-37 e a carteira da T-43.
+- Reaproveite o padrão da silver (parquet.py e publicador.py) sem mudar o comportamento dela; se precisar extrair algo comum, explique no plano.
+- Testes só com S3 falso; nenhum acesso ao bucket real.
+- Siga o RF-50 e o RNF-07 ao pé da letra; regras novas só depois da minha decisão.
+- Não leia nem imprima o .env.
+- Não rode git add, git commit nem git push.
+- Se a verificação falhar, tente corrigir no máximo duas vezes; depois disso, pare e explique.
+- Não declare sucesso sem mostrar a saída do comando.
+
+[T] Tipo de saída
+Os arquivos da tarefa, a saída do pytest antes e depois e um resumo de até cinco linhas com o que mudou e a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/plan.md, specs/tasks.md, docs/adr/0001-gold-modelagem-estrela.md, src/silver/parquet.py, src/silver/publicador.py e src/gold/ antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2 (literal)
+
+```text
+Plano da T-36 aprovado, e o R1 também, como você recomendou. Sobre a observação do carteira.parquet, siga o RF-50 ao pé da letra, sem adendo. Mude o plano para esta etapa apenas: editar specs/spec.md com o adendo de 2026-11-25 ao RF-50, deixando claro que "sem apagar nada" vale para configuração inválida, silver desta coleção fora do contrato, esquema divergente e falha num put; numa falha de delete, vale a regra do RF-24 (para no primeiro delete que falhar, informa a chave, os novos ficam publicados e os antigos restantes saem na próxima execução). Acrescente esta mudança em docs/prompts.md e pare, sem criar código. Não rode git add, git commit nem git push.
+```
+
+### Observação do agente
+- O prompt 1 pedia a T-36 inteira. Nesta etapa saiu só o plano, com uma "Regra fora da spec" (R1). O prompt 2 aprovou o plano e o R1 e pediu o adendo antes do código.
+- **R1:** a redação do RF-50 ("falha num put ou num delete, sem apagar nada nesses casos") contradizia a "mesma ordem do RF-24" citada no próprio requisito. Numa falha de delete, os deletes anteriores já aconteceram.
+- O adendo se chama "terceiro adendo de 2026-11-25" porque o RF-28 e o RF-34 (commit 00e30ec) e o RF-37 (commit 9271159) já receberam adendos nesta data.
+- No RF-50 entraram:
+  - os casos em que nada é apagado (configuração inválida, silver desta coleção fora do contrato, esquema divergente e falha num put);
+  - a regra do RF-24 para a falha num delete;
+  - o motivo;
+  - os testes na Verificação.
+
+  O cabeçalho cita o adendo.
+- O carteira.parquet segue o RF-50 ao pé da letra, sem adendo. A listagem de objetos antigos inclui `gold_turma/carteira/group_id=24325/` desde a T-36, embora o carteira.parquet só seja gerado na T-43.
+- A T-36 (testes e código) continua pendente até o commit deste adendo.
+
+### Arquivos gerados
+- `specs/spec.md` (terceiro adendo de 2026-11-25 ao RF-50, e menção no cabeçalho)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Contradição encontrada no plano da T-36 corrigida no RF-50 antes do código: "sem apagar nada" vale para configuração inválida, silver fora do contrato, esquema divergente e falha num put; numa falha de delete, vale a regra do RF-24, como na silver.
