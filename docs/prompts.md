@@ -3988,3 +3988,66 @@ Suíte inteira, com a integração (`.venv/bin/pytest -q`):
 
 ### Decisão humana
 Plano aprovado. fato_preco_diario com uma linha por (group_id, product_id, acabamento, data), ligada à fato_cambio_diario pela data para reaproveitar a PTAX escolhida pelo ASOF da T-33; market_price_brl = market_price em dólar × PTAX de venda aplicada, com a cotação e a data_ptax visíveis; preço nulo continua nulo, dia sem coleta não gera linha e data antes do primeiro boletim fica sem preço em reais. Conferência de grão quebrado ampliada para R1, R2 e R3 da preco_diario. Testes falharam antes pelo motivo esperado e passaram depois.
+
+## 2026-11-25 — Etapa: segundo adendo de 2026-11-25 ao RF-37 (plano da T-35)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados Python que pratica desenvolvimento orientado a testes. Executa uma única tarefa, prova que ela funciona com a saída real do terminal e para.
+
+[R] Pedido
+Implemente somente a tarefa T-35 de specs/tasks.md (decomposição da variação em reais, RF-37), como função pura. Siga esta ordem:
+1. mostre o plano: arquivo, assinatura da função, a fórmula, o que ela devolve e como trata preço inicial nulo ou zero e PTAX nula, e o comando de verificação. Se o plano precisar de alguma regra que ainda não está escrita na spec, liste essas regras numa seção separada "Regras fora da spec" e espere minha decisão, sem implementá-las; espere minha confirmação;
+2. escreva primeiro os testes da tarefa, rode e mostre que falham pelo motivo esperado (função ou módulo ainda inexistente, e não falta de dependência);
+3. implemente o mínimo para os testes passarem;
+4. rode a verificação da tarefa e o pytest inteiro e mostre a saída real;
+5. marque a T-35 como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit.
+
+[E] Exemplos
+Fórmula do enunciado: (1 + r_brl) = (1 + r_usd) × (1 + r_cambio). Efeito da carta = r_usd; efeito do câmbio = r_cambio; efeito cruzado = r_usd × r_cambio; a soma dos três é r_brl.
+Casos que os testes precisam cobrir:
+  carta que sobe 10% em dólar com o dólar subindo 5%: r_brl = 15,5%, efeito cruzado = 0,5%, e a soma dos três efeitos é igual a r_brl;
+  carta estável em dólar com o dólar caindo: toda a variação em reais é do câmbio;
+  carta que cai em dólar enquanto o dólar sobe: os efeitos têm sinais opostos;
+  o r_brl calculado pela decomposição bate com o calculado direto pelos preços em reais da fato_preco_diario;
+  preço inicial nulo ou zero e PTAX nula: o comportamento esperado vai no plano.
+Commit proposto: feat(T-35): decomposicao da variacao em reais [RF-37]
+
+[A] Ajustes
+- Faça só a T-35; os rankings da P1 são da T-47.
+- Função pura em Python, sem S3, sem DuckDB obrigatório e sem rede.
+- Siga o RF-37 ao pé da letra; regras novas só depois da minha decisão.
+- Não leia nem imprima o .env.
+- Não rode git add, git commit nem git push.
+- Se a verificação falhar, tente corrigir no máximo duas vezes; depois disso, pare e explique.
+- Não declare sucesso sem mostrar a saída do comando.
+
+[T] Tipo de saída
+Os arquivos da tarefa, a saída do pytest antes e depois e um resumo de até cinco linhas com o que mudou e a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/tasks.md e src/gold/ antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2 (literal)
+
+```text
+Plano da T-35 aprovado, e o R1 também, como você recomendou: preço em dólar ou PTAX igual a zero em d0 não tem decomposição (devolve None, como o nulo); zero em d1 é uma variação válida de −100%. Antes do código, edite apenas specs/spec.md, como adendo de 2026-11-25 ao RF-37, acrescente esta mudança em docs/prompts.md e pare. Não rode git add, git commit nem git push.
+```
+
+### Observação do agente
+- O prompt 1 pedia a T-35 inteira. Nesta etapa saiu só o plano, com uma "Regra fora da spec" (R1: zero em d0). O prompt 2 aprovou o plano e a regra e pediu o adendo antes do código.
+- O plano não precisou de outra regra. A fórmula, os três efeitos e o caso de nulo já estão no RF-37. O r_brl é a razão dos preços em reais (usd × ptax), a mesma conta do market_price_brl da fato_preco_diario (T-34).
+- O adendo se chama "segundo adendo de 2026-11-25" porque o RF-28 e o RF-34 já receberam um adendo nesta data (commit 00e30ec).
+- No RF-37 entraram três itens: a regra (zero em d0 sem decomposição, como o nulo; zero em d1 é −100%), o motivo e os testes na Verificação. O cabeçalho cita o adendo.
+- Conta conferida para zero em d1: r_usd = −1 dá r_brl = −1, e a soma dos efeitos fica −1 + r_cambio + (−1 × r_cambio) = −1, então a identidade continua valendo.
+- A T-35 (testes e código) continua pendente até o commit deste adendo.
+
+### Arquivos gerados
+- `specs/spec.md` (segundo adendo de 2026-11-25 ao RF-37, e menção no cabeçalho)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Regra encontrada no plano da T-35 escrita no RF-37 antes do código: preço em dólar ou PTAX igual a zero no primeiro dia não tem decomposição, como o nulo; zero no último dia é variação de −100%.
