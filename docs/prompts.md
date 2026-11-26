@@ -4793,3 +4793,65 @@ Plano da T-41 aprovado. Decisões: item 1 aprovado só como comportamento provis
 
 ### Decisão humana
 Regras encontradas no plano da T-41 escritas no RF-45 e no RF-46 antes do código: item com 0 unidades não exige preço e não conta como preço carregado; PTAX de compra nula levanta erro só quando a carteira depende dela. O erro para preço ausente de item com unidades é provisório até a T-42.
+
+## 2026-11-26 — Etapa: implementação da T-41 (valor de liquidação diário e CDI)
+
+O pedido original da T-41 (prompt 1) e as decisões sobre os quatro itens (prompt 2) estão na entrada "segundo adendo de 2026-11-26 ao RF-45 e ao RF-46 (plano da T-41)".
+
+### Prompt 3 (literal)
+
+```text
+Spec commitada (5da0fb2). Pode implementar a T-41 conforme o plano aprovado, com os itens 2 e 3 agora escritos no RF-45 e no RF-46, o item 1 como comportamento provisório (registrado na nota da T-41) e o item 4 como proteção. Ao final, mostre a saída do pytest antes e depois e um resumo de até cinco linhas com o que mudou e a mensagem de commit proposta. Não rode git add, git commit nem git push.
+```
+
+### Observação do agente
+- **Testes antes do código:** na primeira execução, a coleta falhou com `ImportError: cannot import name 'TAXAS_VENDA' from 'gold.carteira'`. Depois da implementação, todos passaram na primeira execução, sem nenhuma tentativa de correção.
+- **`src/gold/carteira.py`**, reaproveitando `Composicao` e `Item` da T-40, ganhou:
+  - `DiaCambio`, uma linha da fato_cambio_diario;
+  - `ValorDiario`;
+  - `fatores_cdi`: fator 1 em d0 e Π (1 + cdi_taxa_dia / 100) nos dias seguintes, sem a taxa de d0;
+  - `valor_de_liquidacao`: fórmula do RF-45, com a taxa só sobre produtos;
+  - `valores_diarios`: uma linha por dia, carteira e taxa_venda, ordenadas por data, carteira e taxa;
+  - a constante `TAXAS_VENDA = (0.0, 0.15)`, para quem chama, com 0,15 como hipótese, validação pendente (ADR 0004).
+  
+  A taxa é parâmetro obrigatório das funções.
+- **Segundo adendo de 2026-11-26:**
+  - item com 0 unidades sem preço em D contribui com 0;
+  - ptax_compra(D) nula levanta erro na propria, na cesta_raras com unidades e na dolar;
+  - selado só com caixa e cdi são calculados com PTAX nula.
+- **Item 1 (provisório, sem regra nova):** preço ausente ou nulo em D de item com unidades > 0 levanta `ValueError` com a carteira, o product_id e a data. A T-42 substitui esse erro pelo preço carregado do RF-46, como registrado na nota da T-41 em `specs/tasks.md`.
+- **Item 4 (proteção, sem regra nova):** fato_cambio_diario vazia, que não começa em d0 ou com dia de calendário faltando levanta `ValueError`.
+- **Escolha do último dia:** o último da fato_preco_diario da 24325, que fica para quem chama (T-43).
+- Nenhum teste acessa rede, Docker nem o bucket real.
+
+### Saída dos testes
+Antes da implementação (`.venv/bin/pytest tests/unidade/test_gold_carteira_valor.py -q`):
+```text
+tests/unidade/test_gold_carteira_valor.py:11: in <module>
+    from gold.carteira import (
+E   ImportError: cannot import name 'TAXAS_VENDA' from 'gold.carteira' (/workspaces/projeto-tcg-blk/src/gold/carteira.py)
+=========================== short test summary info ============================
+ERROR tests/unidade/test_gold_carteira_valor.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.21s
+```
+
+Depois da implementação (`.venv/bin/pytest tests/unidade/test_gold_carteira_valor.py -q`):
+```text
+....................                                                     [100%]
+20 passed in 0.05s
+```
+
+Suíte completa (`.venv/bin/pytest -q`):
+```text
+531 passed in 186.56s (0:03:06)
+```
+
+### Arquivos gerados
+- `src/gold/carteira.py`
+- `tests/unidade/test_gold_carteira_valor.py`
+- `specs/tasks.md` (T-41 concluída, com nota)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Plano aprovado. Valor de liquidação diário como função pura sobre a composição da T-40 e as linhas da fato_cambio_diario e da fato_preco_diario: produtos pelo preço do dia em dólar, com taxa de venda, pela PTAX de compra do dia; caixa rendendo CDI composto só nos dias com taxa; dolar pela PTAX de compra; cdi pelo CDI acumulado. Taxa como parâmetro, com resultados para 0 e 0,15. Item sem unidade não exige preço; PTAX nula só é erro quando a carteira depende dela; preço ausente de item com unidade fica como erro provisório até a T-42. Testes falharam antes pelo motivo esperado e passaram depois.Plano aprovado. Valor de liquidação diário como função pura sobre a composição da T-40 e as linhas da fato_cambio_diario e da fato_preco_diario: produtos pelo preço do dia em dólar, com taxa de venda, pela PTAX de compra do dia; caixa rendendo CDI composto só nos dias com taxa; dolar pela PTAX de compra; cdi pelo CDI acumulado. Taxa como parâmetro, com resultados para 0 e 0,15. Item sem unidade não exige preço; PTAX nula só é erro quando a carteira depende dela; preço ausente de item com unidade fica como erro provisório até a T-42. Testes falharam antes pelo motivo esperado e passaram depois.

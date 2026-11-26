@@ -366,12 +366,13 @@ Comando base da gold: `PYTHONPATH=src python -m gold`. Dashboard: `PYTHONPATH=sr
 - Depende de: T-39 (ADRs commitados)
 - Nota (2026-11-26): além dos 9 testes listados, entraram 16 casos: as cinco carteiras, desempate do selado, cesta só com cartas, cdi, propria sem preço, filtro precos_de_d0, preços reais de 17/11 das ADRs, Item imutável e um teste para cada item do adendo de 2026-11-26 ao RF-44 (PTAX parametrizada com None, 0.0 e 0). Função pura, sem S3, rede nem DuckDB. Commit da ADR 0005 (0d47def, 25/11) anterior ao de `src/gold/carteira.py`, a conferir com `git log --format="%h %ad" -- docs/adr/0005-carteira-propria.md src/gold/carteira.py` depois do commit da T-40.
 
-## T-41 Valor de liquidação diário e CDI
+## T-41 Valor de liquidação diário e CDI — concluída (2026-11-26)
 - Requisitos: RF-45
 - Arquivos: `src/gold/carteira.py`, `tests/unidade/test_gold_carteira_valor.py`
 - Teste: test_valor_em_d0_com_taxa_zero_pela_ptax_de_compra_mais_caixa; test_juros_do_cdi_so_em_dia_util; test_caixa_rende_cdi; test_taxa_de_venda_so_sobre_produtos; test_dois_resultados_por_carteira_e_dia; test_cdi_nao_publicado_conta_zero
 - Comando: pytest tests/unidade/test_gold_carteira_valor.py -q
 - Depende de: T-40
+- Nota (2026-11-26): além dos 6 testes listados, entraram 14 casos: composições sintéticas, fator do CDI em d0, CDI acumulado na carteira "cdi", dólar pela PTAX de compra do dia, PTAX de fim de semana vinda da fato, taxa de 15% abaixo de R$ 1.000 em d0, valor de uma carteira, os três testes do segundo adendo de 2026-11-26 ao RF-45 e ao RF-46, o do preço ausente e os do câmbio que não começa em d0 ou tem buraco (parametrizado com 3 casos). Preço ausente (ou nulo) em D de item com unidades > 0 levanta ValueError: comportamento provisório, sem regra nova, que a T-42 substitui pelo preço carregado do RF-46. fato_cambio_diario que não começa em d0 ou com dia de calendário faltando levanta ValueError, como proteção contra erro de programação, sem regra nova. TAXAS_VENDA = (0.0, 0.15) fica em `src/gold/carteira.py` para quem chama (0,15 é hipótese, validação pendente, ADR 0004); a taxa é parâmetro obrigatório das funções.
 
 ## T-42 Preço carregado e métricas
 - Requisitos: RF-46, RF-47

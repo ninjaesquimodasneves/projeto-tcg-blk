@@ -12,12 +12,21 @@ unidades inteiras, e a sobra fica em caixa:
 - "dolar": 1000 / ptax_venda(d0) dolares, sem unidade inteira; "cdi": R$ 1.000 em caixa.
 Preco nulo ou zero em d0 conta como sem preco; ptax_venda(d0) nula ou zero levanta ValueError (adendo
 de 2026-11-26 ao RF-44). As contas usam Decimal sobre o texto dos floats, para que um custo de
-exatamente R$ 100 ou R$ 1.000 compre a unidade. O valor diario e da T-41.
+exatamente R$ 100 ou R$ 1.000 compre a unidade.
+
+valores_diarios (T-41, RF-45) avalia as composicoes em cada dia da fato_cambio_diario, de d0 ao ultimo
+dia, para cada taxa_venda recebida: produtos valem unidades x market_price_usd(D) x (1 - taxa_venda) x
+ptax_compra(D); o caixa rende CDI composto, fator(D) = produto de (1 + cdi_taxa_dia / 100) nos dias
+depois de d0 ate D (zero fora dos dias uteis, RF-33); "dolar" vale dolares x ptax_compra(D) e "cdi"
+vale 1000 x fator(D), sem taxa. Item com 0 unidades nao exige preco em D; ptax_compra(D) nula so levanta
+erro quando a carteira precisa dela (segundo adendo de 2026-11-26 ao RF-45). Preco ausente em D de item
+com unidades levanta ValueError: comportamento provisorio, que a T-42 substitui pelo preco carregado do
+RF-46. Uma fato_cambio_diario que nao comeca em d0 ou com dia faltando levanta ValueError (protecao).
 """
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 CARTEIRAS = ("selado", "cesta_raras", "propria", "dolar", "cdi")
@@ -27,6 +36,7 @@ TAMANHO_CESTA = 10
 PRODUTO_PROPRIA = 630686  # ADR 0005
 SUFIXOS_EXCLUIDOS = ("Case", "Display")  # ADR 0002
 CODE_CARD = "Code Card"  # ADR 0003
+TAXAS_VENDA = (0.0, 0.15)  # ADR 0004: 0,15 e hipotese, validacao pendente
 
 
 @dataclass(frozen=True)
@@ -129,3 +139,92 @@ def compor_carteiras(precos_d0: Iterable[PrecoD0], ptax_venda_d0: float | None) 
         "dolar": Composicao("dolar", (), 0.0, float(ORCAMENTO / ptax)),
         "cdi": Composicao("cdi", (), float(ORCAMENTO)),
     }
+
+
+@dataclass(frozen=True)
+class DiaCambio:
+    data: date
+    ptax_compra: float | None
+    cdi_taxa_dia: float
+
+
+@dataclass(frozen=True)
+class ValorDiario:
+    data: date
+    carteira: str
+    taxa_venda: float
+    valor_brl: float
+
+
+def fatores_cdi(cambio: Sequence[DiaCambio]) -> dict[date, float]:
+    """Fator do CDI composto de cada dia: 1 no primeiro (d0), depois x (1 + cdi_taxa_dia / 100)."""
+    fatores, fator = {}, 1.0
+    for n, dia in enumerate(cambio):
+        if n > 0:
+            fator *= 1 + dia.cdi_taxa_dia / 100
+        fatores[dia.data] = fator
+    return fatores
+
+
+def _exigir_ptax(comp: Composicao, data: date, ptax_compra: float | None) -> float:
+    if ptax_compra is None:
+        raise ValueError(f"ptax_compra nula em {data.isoformat()}: carteira {comp.carteira} precisa dela")
+    return ptax_compra
+
+
+def valor_de_liquidacao(
+    comp: Composicao,
+    data: date,
+    precos_usd: Mapping[tuple[date, int, str], float | None],
+    ptax_compra: float | None,
+    fator_cdi: float,
+    taxa_venda: float,
+) -> float:
+    """Valor de liquidacao em reais de uma carteira no dia data (RF-45)."""
+    if comp.carteira == "dolar":
+        return comp.dolares * _exigir_ptax(comp, data, ptax_compra)
+    produtos = 0.0
+    for item in comp.itens:
+        if item.unidades == 0:
+            continue
+        ptax = _exigir_ptax(comp, data, ptax_compra)
+        preco = precos_usd.get((data, item.product_id, item.acabamento))
+        if preco is None:
+            raise ValueError(
+                f"preco ausente na carteira {comp.carteira}: product_id {item.product_id} "
+                f"({item.acabamento}) em {data.isoformat()} (preco carregado do RF-46 fica para a T-42)"
+            )
+        produtos += item.unidades * preco * (1 - taxa_venda) * ptax
+    return produtos + comp.caixa_brl * fator_cdi
+
+
+def _conferir_cambio(cambio: Sequence[DiaCambio], d0: date) -> None:
+    if not cambio or cambio[0].data != d0:
+        raise ValueError(f"fato_cambio_diario precisa comecar em d0 = {d0.isoformat()}")
+    for anterior, dia in zip(cambio, cambio[1:]):
+        if dia.data != anterior.data + timedelta(days=1):
+            raise ValueError(f"fato_cambio_diario com dia faltando depois de {anterior.data.isoformat()}")
+
+
+def valores_diarios(
+    composicoes: Mapping[str, Composicao],
+    d0: date,
+    cambio: Sequence[DiaCambio],
+    precos_usd: Mapping[tuple[date, int, str], float | None],
+    taxas_venda: Sequence[float],
+) -> list[ValorDiario]:
+    """Uma linha por dia, carteira e taxa_venda, ordenadas por data, carteira (CARTEIRAS) e taxa."""
+    _conferir_cambio(cambio, d0)
+    fatores = fatores_cdi(cambio)
+    ordem = [c for c in CARTEIRAS if c in composicoes]
+    return [
+        ValorDiario(
+            dia.data,
+            carteira,
+            taxa,
+            valor_de_liquidacao(composicoes[carteira], dia.data, precos_usd, dia.ptax_compra, fatores[dia.data], taxa),
+        )
+        for dia in cambio
+        for carteira in ordem
+        for taxa in taxas_venda
+    ]
