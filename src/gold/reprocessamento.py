@@ -2,8 +2,16 @@
 
 Sequencia (RF-50, mesma ordem do RF-24): configuracao (invalida -> 2, sem S3 e sem relogio), instante
 lido uma unica vez em UTC, leitura da silver da turma (T-29), grao (T-32), dimensoes (T-32), fatos
-(T-33, T-34), escrita local (T-36) e publicar_gold (T-36): verifica, publica e so entao apaga.
-Nada e reimplementado aqui: o comando so encadeia as funcoes e monta o log.
+(T-33, T-34), carteira (T-43), escrita local (T-36, T-43) e publicar_gold (T-36): verifica, publica e
+so entao apaga, com o carteira.parquet na mesma publicacao. Nada e reimplementado aqui: o comando so
+encadeia as funcoes e monta o log.
+
+Carteira (T-43, RF-44 a RF-48; quarto adendo de 2026-11-26): montar_carteira le da conexao a
+fato_preco_diario da 24325 (com nome, tipo e raridade da dim_produto) e a fato_cambio_diario, ja
+montadas, e encadeia precos_de_d0, compor_carteiras, valores_diarios (TAXAS_VENDA) e metricas, das
+T-40 a T-42. d0 = menor data e ultimo dia = maior data da fato_preco_diario da 24325. O preco carregado
+(RF-46) existe so dentro de valores_diarios: as fatos so sao lidas. Um erro no calculo da carteira e
+excecao inesperada (codigo 1, nada publicado nem apagado, so a classe no log).
 
 Log (logger "gold", uma linha JSON cada): os alertas saem durante a execucao pelas proprias funcoes
 das T-29 e T-32 (colecao fora do contrato, chave fora do padrao, serie indefinida); no fim, uma linha
@@ -30,10 +38,18 @@ import duckdb
 
 from coleta.config import ErroConfiguracao, carregar_config, carregar_env_local
 from coleta.gravador import criar_cliente_s3
+from gold.carteira import TAXAS_VENDA, DiaCambio, compor_carteiras, metricas, precos_de_d0, valores_diarios
+from gold.contrato import CONTRATO_CARTEIRA
 from gold.dimensoes import conferir_grao, montar_dimensoes
 from gold.fatos import montar_fato_cambio, montar_fato_preco
-from gold.leitura import FORA_DO_CONTRATO, ErroListagemSilver, LeituraSilver, ler_silver_da_turma
-from gold.parquet import escrever_gold
+from gold.leitura import (
+    FORA_DO_CONTRATO,
+    GROUP_ID_PROPRIO,
+    ErroListagemSilver,
+    LeituraSilver,
+    ler_silver_da_turma,
+)
+from gold.parquet import escrever_carteira, escrever_gold
 from gold.publicador import ErroChaveGoldProibida, ErroPublicacao, publicar_gold
 
 log = logging.getLogger("gold")
@@ -110,8 +126,52 @@ def linhas_log(estado: dict, gerado_em: datetime, erro: str | None, codigo: int)
     return linhas + [_json(resumo)]
 
 
+def _registros(cursor) -> list[dict]:
+    nomes = [c[0] for c in cursor.description]
+    return [dict(zip(nomes, linha)) for linha in cursor.fetchall()]
+
+
+def montar_carteira(con) -> None:
+    """Cria a tabela carteira em con a partir das fatos da gold (RF-44 a RF-48), sem alterar as fatos."""
+    [(d0, ultimo)] = con.execute(
+        "SELECT min(data), max(data) FROM fato_preco_diario WHERE group_id = ?", [GROUP_ID_PROPRIO]
+    ).fetchall()
+    if d0 is None:
+        raise ValueError(f"nenhuma linha da {GROUP_ID_PROPRIO} na fato_preco_diario: carteira sem d0")
+    precos = _registros(
+        con.execute(
+            "SELECT f.data, f.product_id, f.acabamento, p.nome, p.tipo_produto, p.raridade, f.market_price_usd "
+            "FROM fato_preco_diario f LEFT JOIN dim_produto p USING (group_id, product_id) "
+            "WHERE f.group_id = ? AND f.data BETWEEN ? AND ?",
+            [GROUP_ID_PROPRIO, d0, ultimo],
+        )
+    )
+    cambio = [
+        DiaCambio(data, ptax_compra, cdi_taxa_dia)
+        for data, ptax_compra, cdi_taxa_dia in con.execute(
+            "SELECT data, ptax_compra, cdi_taxa_dia FROM fato_cambio_diario WHERE data BETWEEN ? AND ? ORDER BY data",
+            [d0, ultimo],
+        ).fetchall()
+    ]
+    ptax_venda_d0 = con.execute("SELECT ptax_venda FROM fato_cambio_diario WHERE data = ?", [d0]).fetchone()
+    composicoes = compor_carteiras(precos_de_d0(precos, d0), ptax_venda_d0[0] if ptax_venda_d0 else None)
+    precos_usd = {(p["data"], p["product_id"], p["acabamento"]): p["market_price_usd"] for p in precos}
+    resultado = metricas(valores_diarios(composicoes, d0, cambio, precos_usd, TAXAS_VENDA))
+
+    definicao = ", ".join(f'"{nome}" {tipo}' for nome, tipo in CONTRATO_CARTEIRA["carteira"])
+    con.execute(f"CREATE TABLE carteira ({definicao})")
+    con.executemany(
+        "INSERT INTO carteira VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [
+            (m.data, GROUP_ID_PROPRIO, m.carteira, m.valor_brl, m.retorno_acumulado, m.taxa_venda,
+             m.excesso_cdi, m.perda_maxima, m.dias_preco_carregado)
+            for m in resultado
+        ],
+    )
+
+
 def gerar_e_publicar(s3, bucket: str, diretorio: Path, estado: dict) -> str | None:
-    """Encadeia as T-29 a T-36 preenchendo o estado; devolve a mensagem do erro, ou None."""
+    """Encadeia as T-29 a T-36 e a T-43 preenchendo o estado; devolve a mensagem do erro, ou None."""
     leitura = conferir_grao(ler_silver_da_turma(s3, bucket, diretorio / "silver"))
     estado["leitura"] = leitura
     if not leitura.propria_aprovada:  # RF-28: nada publicado nem apagado
@@ -122,7 +182,8 @@ def gerar_e_publicar(s3, bucket: str, diretorio: Path, estado: dict) -> str | No
         montar_dimensoes(con, leitura.aprovadas)
         montar_fato_cambio(con, leitura.aprovadas)
         montar_fato_preco(con, leitura.aprovadas)
-        estado["arquivos"] = escrever_gold(con, diretorio)
+        montar_carteira(con)  # erro no calculo: excecao inesperada, nada gerado (quarto adendo de 2026-11-26)
+        estado["arquivos"] = [*escrever_gold(con, diretorio), escrever_carteira(con, diretorio)]
     finally:
         con.close()
 

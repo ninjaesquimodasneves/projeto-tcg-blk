@@ -14,7 +14,7 @@ import pytest
 from botocore.exceptions import ClientError
 
 import gold.reprocessamento as reprocessamento
-from gold.contrato import CONTRATO_GOLD
+from gold.contrato import CHAVE_CARTEIRA, CONTRATO_GOLD
 from gold.reprocessamento import main
 from silver_turma import PROPRIA, chaves_da_tabela, colecao_de_colega, silver_propria
 
@@ -38,7 +38,8 @@ INSTANTE_UTC = datetime(2026, 11, 25, 21, 30, tzinfo=timezone.utc)
 COLEGA, FORA, INDEFINIDA = 24326, 24327, 24328
 GOLD = f"gold/group_id={PROPRIA}/"
 ANTIGO = GOLD + "tabela_antiga.parquet"  # publicado antes e nao regravado: apagado depois dos puts
-TABELAS = list(CONTRATO_GOLD)
+TABELAS = [*CONTRATO_GOLD, "carteira"]  # carteira.parquet desde a T-43, ultimo no log
+CHAVES = sorted([*(f"gold/group_id={PROPRIA}/{t}.parquet" for t in CONTRATO_GOLD), CHAVE_CARTEIRA])
 # 24325 sintetica: precos de 09/10 a 13/10/2026, dois produtos e dois acabamentos
 LINHAS_PROPRIA = {
     "dim_colecao": 1,
@@ -47,6 +48,7 @@ LINHAS_PROPRIA = {
     "dim_acabamento": 2,
     "fato_cambio_diario": 5,
     "fato_preco_diario": 4,
+    "carteira": 50,  # 5 dias x 5 carteiras x 2 taxas (T-43)
 }
 
 
@@ -181,13 +183,13 @@ def test_log_por_tabela_com_linhas_publicadas(caplog, tmp_path, propria):
     for tabela, n in LINHAS_PROPRIA.items():
         assert tabelas(linhas)[tabela]["linhas"] == n
         assert tabelas(linhas)[tabela]["linhas_publicadas"] == n
-    assert sorted(s3.de("put")) == sorted(f"{GOLD}{t}.parquet" for t in TABELAS)
+    assert sorted(s3.de("put")) == CHAVES
     assert s3.de("delete") == [ANTIGO]
     assert resumo(linhas) | {"gerado_em": None} == {
         "tipo": "resumo",
         "gerado_em": None,
         "publicado": True,
-        "objetos_publicados": 6,
+        "objetos_publicados": 7,
         "objetos_apagados": 1,
         "erro": None,
         "codigo_saida": 0,
@@ -339,7 +341,7 @@ def test_saida_diferente_de_zero_com_falha_num_delete(caplog, tmp_path, propria)
     codigo, linhas = rodar(caplog, tmp_path, s3)
 
     assert codigo == 1 and resumo(linhas)["codigo_saida"] == 1
-    assert len(s3.de("put")) == 6 and s3.de("delete") == [ANTIGO]
+    assert len(s3.de("put")) == 7 and s3.de("delete") == [ANTIGO]
     assert all(l["linhas_publicadas"] == LINHAS_PROPRIA[t] for t, l in tabelas(linhas).items())
     assert resumo(linhas)["publicado"] is True  # os novos ja estao publicados
     assert resumo(linhas)["objetos_apagados"] == 0

@@ -1,7 +1,8 @@
 """Contrato da gold: colunas minimas e tipos DuckDB de cada tabela [RF-29 a RF-34, RF-36; ADR 0001].
 
 Fonte unica do CREATE TABLE das tabelas da gold e, a partir da T-36, da verificacao com DESCRIBE.
-Dimensoes (T-32), fato_cambio_diario (T-33) e fato_preco_diario (T-34); o carteira.parquet entra na T-43.
+Dimensoes (T-32), fato_cambio_diario (T-33) e fato_preco_diario (T-34) em gold/group_id=24325/; o
+carteira.parquet (T-43, RF-48) tem contrato proprio, porque e publicado em gold_turma/carteira/.
 Nenhuma coluna de dias desde o lancamento: o valor e calculado na consulta (RF-36).
 """
 
@@ -62,3 +63,21 @@ CHAVES_GOLD: dict[str, tuple[str, ...]] = {
     "fato_cambio_diario": ("data",),
     "fato_preco_diario": ("group_id", "product_id", "acabamento", "data"),
 }
+
+# carteira.parquet (RF-48): as seis colunas do contrato comum da turma, na ordem, e as tres extras do
+# quarto adendo de 2026-11-26 (metricas do RF-47, com os tipos de gold.carteira.Metrica)
+CONTRATO_CARTEIRA: dict[str, tuple[tuple[str, str], ...]] = {
+    "carteira": (
+        ("data", "DATE"),
+        ("group_id", "INTEGER"),
+        ("carteira", "VARCHAR"),
+        ("valor_brl", "DOUBLE"),
+        ("retorno_acumulado", "DOUBLE"),
+        ("taxa_venda", "DOUBLE"),
+        ("excesso_cdi", "DOUBLE"),
+        ("perda_maxima", "DOUBLE"),
+        ("dias_preco_carregado", "INTEGER"),
+    ),
+}
+CHAVES_CARTEIRA: dict[str, tuple[str, ...]] = {"carteira": ("data", "carteira", "taxa_venda")}
+CHAVE_CARTEIRA = "gold_turma/carteira/group_id=24325/carteira.parquet"

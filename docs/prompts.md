@@ -5074,3 +5074,79 @@ Plano da T-43 aprovado. Decisões: 1) d0 = min(data) da fato_preco_diario da 243
 
 ### Decisão humana
 Regras encontradas no plano da T-43 escritas na spec antes do código: d0 calculado como o primeiro dia de preço da 24325; carteira.parquet com as colunas extras excesso_cdi, perda_maxima e dias_preco_carregado para o painel; erro no cálculo da carteira tratado como exceção inesperada, sem publicar nada. Lista de arquivos da T-43 corrigida no tasks.md.
+## 2026-11-26 — Etapa: implementação da T-43 (carteira no contrato comum)
+
+O pedido original da T-43 (prompt 1) e as decisões 1 a 4 (prompt 2) estão na entrada "quarto adendo de 2026-11-26 ao RF-44 e ao RF-48 (plano da T-43)".
+
+### Prompt 3 (literal)
+
+```text
+Spec e tasks commitados (4bb77b4). Pode implementar a T-43 conforme o plano aprovado, com as decisões 1 a 4 agora escritas (d0 calculado, as três colunas extras no carteira.parquet e erro no cálculo como exceção inesperada). Ao final, mostre a saída do pytest antes e depois, incluindo os testes de integração, e um resumo de até cinco linhas com o que mudou e a mensagem de commit proposta. Não acesse o bucket real. Não rode git add, git commit nem git push.
+```
+
+### Observação do agente
+- **Testes antes do código:** a coleta falhou nos três arquivos com `ImportError: cannot import name 'CHAVE_CARTEIRA' from 'gold.contrato'`.
+- **Depois do código:** todos passaram na primeira execução; nenhuma das duas tentativas de correção foi usada.
+- **`src/gold/contrato.py`:** `CONTRATO_CARTEIRA` (seis colunas do contrato comum e as três extras do quarto adendo), `CHAVES_CARTEIRA` e `CHAVE_CARTEIRA`; o `CONTRATO_GOLD` não mudou.
+- **`src/gold/parquet.py`:** `escrever_carteira` usa o mesmo COPY TO ordenado de `escrever_gold` (extraído para `_escrever`); `comparar_esquema_gold` procura o contrato em `CONTRATO_GOLD` ou `CONTRATO_CARTEIRA`. `publicar_gold` (T-36) não mudou.
+- **`src/gold/reprocessamento.py`:** `montar_carteira` só lê as fatos e a dim_produto da conexão e encadeia `precos_de_d0`, `compor_carteiras`, `valores_diarios` e `metricas` (T-40 a T-42). d0 e último dia = menor e maior data da fato_preco_diario da 24325. Roda antes da escrita: erro no cálculo cai na exceção inesperada (código 1, nada gerado, publicado nem apagado, só a classe no log).
+- **`tests/unidade/test_gold_cli.py`:** só `TABELAS`, `LINHAS_PROPRIA` (carteira com 50 linhas), as chaves dos puts e as contagens de 6 para 7 objetos.
+- **Integração:** o teste do RF-46 grava no MinIO do contêiner um preco_diario da 24325 em 19/11, copiado do de 17/11, para 18/11 ficar sem coleta e a "propria" carregar o preço; compara o sha256 da silver antes e depois e o da fato_preco_diario publicada com o de uma montada só pelas funções das T-29 a T-36. O `test_chaves_alteradas_so_em_gold_group_id_24325` passou a aceitar os dois prefixos do RNF-07.
+- Docker disponível: nenhum teste de integração foi pulado. Nenhum teste acessou rede externa nem o bucket real.
+
+### Saída dos testes
+Antes da implementação (`.venv/bin/pytest tests/unidade/test_gold_carteira_publicacao.py tests/unidade/test_gold_cli.py -q` e `.venv/bin/pytest -m integracao tests/integracao/test_gold_minio.py -q`):
+```text
+E   ImportError: cannot import name 'CHAVE_CARTEIRA' from 'gold.contrato' (/workspaces/projeto-tcg-blk/src/gold/contrato.py)
+=========================== short test summary info ============================
+ERROR tests/unidade/test_gold_carteira_publicacao.py
+ERROR tests/unidade/test_gold_cli.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 2 errors during collection !!!!!!!!!!!!!!!!!!!!
+2 errors in 0.81s
+
+E   ImportError: cannot import name 'CHAVE_CARTEIRA' from 'gold.contrato' (/workspaces/projeto-tcg-blk/src/gold/contrato.py)
+=========================== short test summary info ============================
+ERROR tests/integracao/test_gold_minio.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.43s
+```
+
+Depois (`.venv/bin/pytest tests/unidade/test_gold_carteira_publicacao.py -q && .venv/bin/pytest -m integracao -q`):
+```text
+..........                                                               [100%]
+10 passed in 5.10s
+....................                                                     [100%]
+20 passed, 538 deselected in 83.19s (0:01:23)
+```
+
+Integração da gold (`.venv/bin/pytest -m integracao tests/integracao/test_gold_minio.py -v`):
+```text
+tests/integracao/test_gold_minio.py::test_gold_duas_vezes_mesmas_linhas PASSED [ 11%]
+tests/integracao/test_gold_minio.py::test_raw_silver_e_quarentena_intocados PASSED [ 22%]
+tests/integracao/test_gold_minio.py::test_silver_de_duas_colecoes_lida_sem_escrita PASSED [ 33%]
+tests/integracao/test_gold_minio.py::test_colega_fora_do_contrato_gold_publicada_sem_ela PASSED [ 44%]
+tests/integracao/test_gold_minio.py::test_chaves_alteradas_so_em_gold_group_id_24325 PASSED [ 55%]
+tests/integracao/test_gold_minio.py::test_describe_dos_parquet_publicados_bate_com_contrato_da_gold PASSED [ 66%]
+tests/integracao/test_gold_minio.py::test_carteira_nao_altera_silver_nem_fato_preco_diario PASSED [ 77%]
+tests/integracao/test_gold_minio.py::test_carteira_duas_vezes_mesmo_arquivo PASSED [ 88%]
+tests/integracao/test_gold_minio.py::test_describe_do_carteira_publicado_bate_com_contrato PASSED [100%]
+============================== 9 passed in 39.89s ==============================
+```
+
+Suíte completa (`.venv/bin/pytest -q`):
+```text
+558 passed in 210.47s (0:03:30)
+```
+
+### Arquivos gerados
+- `src/gold/contrato.py`
+- `src/gold/parquet.py`
+- `src/gold/reprocessamento.py`
+- `tests/unidade/test_gold_carteira_publicacao.py`
+- `tests/unidade/test_gold_cli.py` (constantes da T-37 com a carteira)
+- `tests/integracao/test_gold_minio.py`
+- `specs/tasks.md` (T-43 concluída, com nota)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Plano aprovado. Carteira montada no python -m gold a partir das tabelas da gold e das funções das T-40 a T-42, com d0 calculado como o primeiro dia de preço da 24325; carteira.parquet com as seis colunas do contrato comum e as três colunas extras do painel, uma linha por data, carteira e taxa de venda, publicado em gold_turma/carteira/group_id=24325/ pela mesma publicação da gold, com a guarda do RNF-07. Integração confirma que o preço carregado não altera a silver nem a fato_preco_diario e que a carteira de outro group_id fica intacta. Testes falharam antes pelo motivo esperado e passaram depois.
