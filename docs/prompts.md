@@ -5150,3 +5150,78 @@ Suíte completa (`.venv/bin/pytest -q`):
 
 ### Decisão humana
 Plano aprovado. Carteira montada no python -m gold a partir das tabelas da gold e das funções das T-40 a T-42, com d0 calculado como o primeiro dia de preço da 24325; carteira.parquet com as seis colunas do contrato comum e as três colunas extras do painel, uma linha por data, carteira e taxa de venda, publicado em gold_turma/carteira/group_id=24325/ pela mesma publicação da gold, com a guarda do RNF-07. Integração confirma que o preço carregado não altera a silver nem a fato_preco_diario e que a carteira de outro group_id fica intacta. Testes falharam antes pelo motivo esperado e passaram depois.
+## 2026-11-26 — Etapa: T-44 (primeira gold e primeira carteira reais)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados que opera o pipeline com cuidado. Executa uma única tarefa, prova o resultado com a saída real do terminal e para.
+
+[R] Pedido
+Execute somente a tarefa T-44 de specs/tasks.md: a primeira geração real da gold e da carteira no bucket da turma. Eu autorizo explicitamente, nesta tarefa, os comandos que gravam e apagam no bucket via python -m gold (só em gold/group_id=24325/ e gold_turma/carteira/group_id=24325/). Siga esta ordem:
+1. mostre o plano dos comandos e espere minha confirmação;
+2. antes, só lendo, registre as chaves e o sha256 de raw/, silver/ e quarentena/ da 24325, e as chaves de gold/ e gold_turma/ de todos os group_id;
+3. rode PYTHONPATH=src .venv/bin/python -m gold e mostre o log completo e o código de saída;
+4. rode uma segunda vez e mostre que o resultado é o mesmo (mesmas contagens por tabela, código 0);
+5. só lendo, confira e mostre:
+   - quais coleções foram aprovadas e quais ficaram fora, com o motivo;
+   - o DESCRIBE de cada Parquet publicado (hive_partitioning desligado) contra o contrato;
+   - na fato_cambio_diario, a data_ptax de 20/11, 21/11 e 22/11 (esperado: 19/11) e o CDI desses dias (esperado: 0);
+   - na fato_preco_diario, as datas de cada coleção e quantas linhas ficaram com preço em reais nulo por falta de PTAX anterior (risco registrado na ADR 0001);
+   - a composição real em d0 de cada carteira (esperado: selado e cesta_raras com R$ 1.000 em caixa; propria com 1 unidade do 630686 e cerca de R$ 120,72 em caixa; dolar com os dólares comprados);
+   - o valor e o retorno acumulado de cada carteira no último dia, com e sem taxa, e os dias com preço carregado (esperado: 20/11 carregado na propria);
+   - que raw/, silver/, quarentena/ e o gold e o gold_turma de outros group_id ficaram com as mesmas chaves e o mesmo sha256;
+6. salve as saídas em docs/evidencias/T-44_primeira_gold.md, sem nenhum valor de credencial;
+7. marque a T-44 como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit.
+
+[E] Exemplos
+Commit proposto: docs(T-44): primeira gold e primeira carteira reais [RF-28, RF-35, RF-50]
+
+[A] Ajustes
+- Não leia nem imprima o .env; o próprio comando carrega as variáveis.
+- Não altere nenhum código; se algo falhar ou um resultado divergir do esperado, pare, mostre e explique, sem tentar corrigir.
+- Nenhuma gravação ou remoção fora de gold/group_id=24325/ e gold_turma/carteira/group_id=24325/.
+- Antes de salvar a evidência, rode pytest tests/unidade/test_evidencias.py -q.
+- Não rode git add, git commit nem git push.
+
+[T] Tipo de saída
+O arquivo de evidência, as saídas reais e um resumo de até cinco linhas com a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/tasks.md, docs/adr/ e src/gold/ antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2 (literal)
+
+```text
+Plano aprovado. Conferi a aba Actions e não há execução em andamento. Pode seguir.
+```
+
+### Observação do agente
+- O plano (prompt 1) foi aprovado no prompt 2. As conferências usaram um script local fora do repositório (`<scratchpad>/t44_conferencia.py`), só com `list_objects_v2` e `get_object`, carregando as variáveis por `coleta.config`; o `.env` não foi lido nem impresso.
+- Duas execuções de `python -m gold` (16:29:07 e 16:29:36 UTC de 26/11), código 0 nas duas, com as mesmas contagens e o mesmo sha256 nas sete chaves publicadas.
+- Nenhum resultado divergiu do esperado no prompt. Registrado sem regra nova: o CDI de 25/11 é zero porque a taxa ainda não estava na silver (RF-45, corrigido no reprocessamento seguinte).
+- A composição em d0 foi recalculada pelo script com `compor_carteiras` sobre a fato publicada, porque a gold não grava a composição. Nenhum código foi alterado.
+- `pytest tests/unidade/test_evidencias.py -q` rodou antes e depois de salvar a evidência.
+
+### Saída dos testes
+Antes de salvar a evidência (`.venv/bin/pytest tests/unidade/test_evidencias.py -q`):
+```text
+...............                                                          [100%]
+15 passed in 0.04s
+```
+
+Depois de salvar a evidência (mesmo comando):
+```text
+...............                                                          [100%]
+15 passed in 0.04s
+```
+
+### Arquivos gerados
+- `docs/evidencias/T-44_primeira_gold.md`
+- `specs/tasks.md` (T-44 concluída, com nota)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Primeira gold e primeira carteira reais aprovadas: duas execuções com código 0 e os mesmos sha256; quatro coleções aprovadas (24269, 24325, 24380 e 24541); esquema igual ao contrato; PTAX de 20/11 a 22/11 vinda de 19/11, com CDI zero; composição em 17/11 conforme as ADRs (selado e cesta_raras em caixa, propria com 1 ETB e R$ 120,72 em caixa); preço carregado só na propria em 20/11; prefixos de fora intocados. Risco da ADR 0001 confirmado: linhas das coleções 24269 e 24541 anteriores a 17/11 sem preço em reais, a tratar nas perguntas que comparam a turma.
