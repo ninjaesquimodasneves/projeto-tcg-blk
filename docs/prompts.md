@@ -4514,6 +4514,7 @@ Rascunhos aprovados, com uma correção na ADR 0004: em Riscos, troque "(RF-52, 
   - o top 10 de cartas sem Code Card vai de R$ 3.477,66 a R$ 245,81: 0 unidades em todas e R$ 1.000 em caixa.
 - **Selado e própria:** a regra do selado não escolheu o 630686, então não foi preciso parar.
 - **Decisão da aluna:** regras literais do RF-44 (opção (a)). As ADRs 0002 e 0003 registram que selado e cesta_raras ficam 100% em caixa e que isso foi consultado ao professor no canal da turma.
+- Correção em 2026-11-26: o professor não foi consultado no canal da turma; a questão será levada à mentoria de 05/12/2026.
 - **ADR 0005:** registra o viés de retrospectiva, porque a escolha foi feita em 25/11 com os preços de 17/11 a 25/11 visíveis.
 - **Correção da aluna:** o rascunho da ADR 0004 citava um "RF-52" que não existe na spec. Foi trocado por "(painel da carteira, tarefa T-52, RF-46 e RF-47)", e a T-52 foi conferida em `specs/tasks.md`.
 - Nenhum código de cálculo da carteira foi escrito, e `src/gold/carteira.py` não existe.
