@@ -4855,3 +4855,79 @@ Suíte completa (`.venv/bin/pytest -q`):
 
 ### Decisão humana
 Plano aprovado. Valor de liquidação diário como função pura sobre a composição da T-40 e as linhas da fato_cambio_diario e da fato_preco_diario: produtos pelo preço do dia em dólar, com taxa de venda, pela PTAX de compra do dia; caixa rendendo CDI composto só nos dias com taxa; dolar pela PTAX de compra; cdi pelo CDI acumulado. Taxa como parâmetro, com resultados para 0 e 0,15. Item sem unidade não exige preço; PTAX nula só é erro quando a carteira depende dela; preço ausente de item com unidade fica como erro provisório até a T-42. Testes falharam antes pelo motivo esperado e passaram depois.Plano aprovado. Valor de liquidação diário como função pura sobre a composição da T-40 e as linhas da fato_cambio_diario e da fato_preco_diario: produtos pelo preço do dia em dólar, com taxa de venda, pela PTAX de compra do dia; caixa rendendo CDI composto só nos dias com taxa; dolar pela PTAX de compra; cdi pelo CDI acumulado. Taxa como parâmetro, com resultados para 0 e 0,15. Item sem unidade não exige preço; PTAX nula só é erro quando a carteira depende dela; preço ausente de item com unidade fica como erro provisório até a T-42. Testes falharam antes pelo motivo esperado e passaram depois.
+
+## 2026-11-26 — Etapa: terceiro adendo de 2026-11-26 ao RF-47 (plano da T-42)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados Python que pratica desenvolvimento orientado a testes. Executa uma única tarefa, prova que ela funciona com a saída real do terminal e para.
+
+[R] Pedido
+Implemente somente a tarefa T-42 de specs/tasks.md (preço carregado, RF-46, e métricas, RF-47), substituindo o erro provisório da T-41. Siga esta ordem:
+1. mostre o plano: arquivos, funções, como o preço carregado é escolhido e marcado, as fórmulas de cada métrica (retorno acumulado, excesso sobre o CDI, perda máxima e dias com preço carregado) e o comando de verificação. Se o plano precisar de alguma regra que ainda não está escrita na spec ou nas ADRs, liste essas regras numa seção separada "Regras fora da spec" e espere minha decisão, sem implementá-las; espere minha confirmação;
+2. escreva primeiro os testes da tarefa, rode e mostre que falham pelo motivo esperado (função ainda inexistente, ou o erro provisório da T-41 onde agora se espera o preço carregado);
+3. implemente o mínimo para os testes passarem;
+4. rode a verificação da tarefa e o pytest inteiro e mostre a saída real;
+5. marque a T-42 como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit.
+
+[E] Exemplos
+Casos que os testes precisam cobrir (dados sintéticos, sem rede):
+  produto da carteira sem preço num dia (como 20/11): usa o último preço observado antes desse dia, e o dia fica marcado como preço carregado;
+  o preço carregado existe só no cálculo: nada é gravado na silver nem na fato_preco_diario;
+  item com 0 unidades sem preço não conta como preço carregado (adendo ao RF-46);
+  retorno acumulado = valor do dia / 1000 − 1;
+  excesso sobre o CDI = retorno da carteira menos o da carteira cdi no mesmo dia;
+  perda máxima = a maior queda do valor em relação ao maior valor anterior;
+  dias com preço carregado contados por carteira e por taxa de venda.
+Commit proposto: feat(T-42): preco carregado e metricas das carteiras [RF-46, RF-47]
+
+[A] Ajustes
+- Faça só a T-42; a publicação do carteira.parquet é da T-43 e o painel da T-52.
+- Funções puras em Python, sem S3 e sem rede; reaproveite as funções das T-40 e T-41.
+- Siga o RF-46, o RF-47 e as ADRs ao pé da letra; regras novas só depois da minha decisão.
+- Não leia nem imprima o .env.
+- Não rode git add, git commit nem git push.
+- Se a verificação falhar, tente corrigir no máximo duas vezes; depois disso, pare e explique.
+- Não declare sucesso sem mostrar a saída do comando.
+
+[T] Tipo de saída
+Os arquivos da tarefa, a saída do pytest antes e depois e um resumo de até cinco linhas com o que mudou e a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/tasks.md, docs/adr/0002 a 0005 e src/gold/carteira.py antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2 (literal)
+
+```text
+Plano da T-42 aprovado, incluindo a remoção do teste provisório da T-41. Item 1 aprovado: dias com preço carregado é a contagem acumulada de d0 até D, por carteira e taxa de venda, como a perda máxima. Antes do código, edite apenas specs/spec.md com o adendo de 2026-11-26 ao RF-47, acrescente esta mudança em docs/prompts.md e pare. Não rode git add, git commit nem git push.
+```
+
+### Observação do agente
+- O prompt 1 pedia a T-42 inteira, mas nesta etapa saiu só o plano. Ele trazia uma "Regra fora da spec": a janela da contagem de dias com preço carregado. O prompt 2 aprovou o plano e a regra e pediu o adendo antes do código.
+- **Plano aprovado:**
+  - **Em `src/gold/carteira.py`:**
+    - `valores_diarios` resolve os preços antes de calcular, só para os itens com unidades > 0, usando o último `market_price_usd` não nulo observado antes de D, de d0 em diante, quando a linha não existe ou o preço é nulo;
+    - `ValorDiario` ganha `carregados`, com os pares (product_id, acabamento), iguais nas duas taxas;
+    - o dicionário de preços recebido não é alterado;
+    - a nova função `metricas` devolve `Metrica(data, carteira, taxa_venda, valor_brl, retorno_acumulado, excesso_cdi, perda_maxima, dias_preco_carregado)`.
+  - **Testes:**
+    - teste novo em `tests/unidade/test_gold_carteira_metricas.py`;
+    - remoção do teste provisório `test_preco_ausente_com_unidades_levanta_erro_provisorio` de `tests/unidade/test_gold_carteira_valor.py`.
+- O adendo se chama "terceiro adendo de 2026-11-26", porque o RF-44 (19ef880) e o RF-45 e o RF-46 (5da0fb2) já receberam adendos nesta data.
+- **No RF-47 entraram:**
+  - dias com preço carregado é a contagem acumulada de d0 até D, por carteira e taxa_venda, como a perda máxima;
+  - o motivo e o teste na Verificação.
+
+  O cabeçalho cita o adendo.
+- **Ficam sem regra nova, como proteção contra erro de programação:** `ValueError` quando não há nenhum preço observado antes de D (a composição saiu do preço de d0 da própria fato) e quando falta a carteira "cdi" nas métricas.
+- A T-42 (testes e código) continua pendente até o commit deste adendo.
+
+### Arquivos gerados
+- `specs/spec.md` (terceiro adendo de 2026-11-26 ao RF-47, e menção no cabeçalho)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Regra encontrada no plano da T-42 escrita no RF-47 antes do código: dias com preço carregado é a contagem acumulada de d0 até D, por carteira e taxa de venda.
