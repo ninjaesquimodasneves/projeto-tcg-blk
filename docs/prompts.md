@@ -4998,3 +4998,79 @@ Suíte completa (`.venv/bin/pytest -q`):
 
 ### Decisão humana
 Plano aprovado. Preço carregado só no cálculo: produto da carteira sem preço no dia usa o último preço observado antes de D, marcado por carteira e dia, sem alterar a entrada nem gravar nada; item com 0 unidades não é marcado. Métricas por data, carteira e taxa de venda: retorno acumulado, excesso sobre o CDI, perda máxima como fração e dias com preço carregado acumulados até D. Teste provisório da T-41 removido por ter sido substituído. Testes falharam antes pelo motivo esperado e passaram depois.
+## 2026-11-26 — Etapa: quarto adendo de 2026-11-26 ao RF-44 e ao RF-48 (plano da T-43)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados Python que pratica desenvolvimento orientado a testes. Executa uma única tarefa, prova que ela funciona com a saída real do terminal e para.
+
+[R] Pedido
+Implemente somente a tarefa T-43 de specs/tasks.md (gold_turma/carteira no contrato comum, dentro do python -m gold e da integração). Siga esta ordem:
+1. mostre o plano: arquivos, funções, como as linhas do carteira.parquet são montadas a partir das funções das T-40 a T-42, o contrato do arquivo, onde a carteira entra na sequência do python -m gold, o que acontece no log e nos códigos de saída, e o comando de verificação. Se o plano precisar de alguma regra que ainda não está escrita na spec ou nas ADRs, liste essas regras numa seção separada "Regras fora da spec" e espere minha decisão, sem implementá-las; espere minha confirmação;
+2. escreva primeiro os testes da tarefa, rode e mostre que falham pelo motivo esperado;
+3. implemente o mínimo para os testes passarem;
+4. rode a verificação da tarefa, os testes de integração e o pytest inteiro e mostre a saída real;
+5. marque a T-43 como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit.
+
+[E] Exemplos
+Contrato comum do enunciado: data DATE, group_id INTEGER, carteira VARCHAR, valor_brl DOUBLE, retorno_acumulado DOUBLE, taxa_venda DOUBLE; colunas extras permitidas.
+Casos que os testes precisam cobrir:
+  uma linha por data, carteira e taxa de venda, de d0 ao último dia, com as cinco carteiras;
+  DESCRIBE do carteira.parquet igual ao contrato comum, com hive_partitioning desligado;
+  publicado em gold_turma/carteira/group_id=24325/carteira.parquet pela mesma publicação da gold, com a guarda do RNF-07;
+  o preço carregado não grava nada na silver nem na fato_preco_diario (conferência por sha256 na integração);
+  python -m gold rodado duas vezes produz o mesmo carteira.parquet;
+  a carteira de outro group_id em gold_turma/carteira/ fica intacta.
+Commit proposto: feat(T-43): carteira no contrato comum da turma [RF-48, RF-50, RNF-07, RF-46]
+
+[A] Ajustes
+- Faça só a T-43; a primeira gold real é da T-44.
+- Use as funções das T-40 a T-42 e a publicação da T-36; nada de reimplementar.
+- Testes de unidade só com S3 falso; integração com Testcontainers (fixtures existentes); nenhum acesso ao bucket real.
+- Siga o RF-48, o RF-50 e as ADRs ao pé da letra; regras novas só depois da minha decisão.
+- Não leia nem imprima o .env.
+- Não rode git add, git commit nem git push.
+- Se a verificação falhar, tente corrigir no máximo duas vezes; depois disso, pare e explique.
+- Não declare sucesso sem mostrar a saída do comando.
+
+[T] Tipo de saída
+Os arquivos da tarefa, a saída do pytest antes e depois e um resumo de até cinco linhas com o que mudou e a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/tasks.md, docs/adr/, src/gold/ e tests/integracao/test_gold_minio.py antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2 (literal)
+
+```text
+Plano da T-43 aprovado. Decisões: 1) d0 = min(data) da fato_preco_diario da 24325, que é o primeiro dia de coleta; 2) o carteira.parquet inclui as colunas extras excesso_cdi, perda_maxima e dias_preco_carregado, além das seis do contrato comum, para o painel da T-52 não refazer as contas; 3) erro no cálculo da carteira é tratado como exceção inesperada do quarto adendo ao RF-50 (código 1, nada publicado nem apagado, log só com a classe); 4) corrija a lista de arquivos da T-43 em specs/tasks.md, incluindo src/gold/parquet.py e tests/unidade/test_gold_cli.py. Antes do código, edite apenas specs/spec.md (adendo de 2026-11-26 ao RF-44 e ao RF-48 com os itens 1 a 3) e specs/tasks.md (item 4), acrescente esta mudança em docs/prompts.md e pare. Não rode git add, git commit nem git push.
+```
+
+### Observação do agente
+- O prompt 1 pedia a T-43 inteira, mas nesta etapa saiu só o plano. O plano trazia quatro "Regras fora da spec": como achar d0, as colunas extras, o erro no cálculo da carteira e dois arquivos fora da lista da T-43. O prompt 2 aprovou o plano, decidiu as quatro e pediu a spec e as tarefas antes do código.
+- **Plano aprovado:**
+  - `CONTRATO_CARTEIRA` e a chave `gold_turma/carteira/group_id=24325/carteira.parquet` ficam em `src/gold/contrato.py`; `CONTRATO_GOLD` não muda;
+  - `montar_carteira(con)` em `src/gold/reprocessamento.py` lê as fatos e a `dim_produto` já montadas em DuckDB e encadeia `precos_de_d0`, `compor_carteiras`, `valores_diarios` (com `TAXAS_VENDA`) e `metricas`, das T-40 a T-42, sem reimplementar nenhuma;
+  - `escrever_carteira` em `src/gold/parquet.py` grava o arquivo ordenado por (data, carteira, taxa_venda), e `comparar_esquema_gold` passa a conhecer o contrato da carteira; assim o `publicar_gold` da T-36 verifica, publica e apaga na mesma ordem do RF-50;
+  - no log, a carteira aparece como mais uma linha por tabela; os códigos de saída não mudam.
+- O adendo se chama "quarto adendo de 2026-11-26", porque o RF-44 (19ef880), o RF-45 e o RF-46 (5da0fb2) e o RF-47 (244eb61) já receberam adendos nesta data.
+- **No RF-44 entrou:** d0 é a menor data da fato_preco_diario da 24325, calculada na geração e não fixa no código, com o motivo e o teste na Verificação.
+- **No RF-48 entraram:**
+  - as colunas extras excesso_cdi DOUBLE, perda_maxima DOUBLE e dias_preco_carregado INTEGER, conferidas com DESCRIBE com tipos exatos;
+  - o erro no cálculo da carteira tratado como exceção inesperada do RF-50 (código 1, nada publicado nem apagado, log só com a classe);
+  - o motivo e os testes na Verificação.
+
+  O cabeçalho cita o adendo.
+- **Tipos das extras:** os tipos (DOUBLE, DOUBLE, INTEGER) e a conferência com tipos exatos das extras vêm dos tipos de `Metrica` (T-42). A decisão 2 não os citava; ficam escritos para a verificação do RF-48 ter um tipo a conferir. Confira se concorda.
+- **Em `specs/tasks.md`:** a lista de arquivos da T-43 ganhou `src/gold/parquet.py` e `tests/unidade/test_gold_cli.py`, com uma nota que explica o motivo e cita o adendo.
+- A T-43 (testes e código) continua pendente até o commit desta mudança.
+
+### Arquivos gerados
+- `specs/spec.md` (quarto adendo de 2026-11-26 ao RF-44 e ao RF-48, e menção no cabeçalho)
+- `specs/tasks.md` (lista de arquivos da T-43 e nota do plano)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Regras encontradas no plano da T-43 escritas na spec antes do código: d0 calculado como o primeiro dia de preço da 24325; carteira.parquet com as colunas extras excesso_cdi, perda_maxima e dias_preco_carregado para o painel; erro no cálculo da carteira tratado como exceção inesperada, sem publicar nada. Lista de arquivos da T-43 corrigida no tasks.md.

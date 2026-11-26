@@ -384,10 +384,11 @@ Comando base da gold: `PYTHONPATH=src python -m gold`. Dashboard: `PYTHONPATH=sr
 
 ## T-43 Publicação de gold_turma/carteira no contrato comum
 - Requisitos: RF-48, RF-50, RNF-07, RF-46
-- Arquivos: `src/gold/contrato.py`, `src/gold/reprocessamento.py`, `tests/unidade/test_gold_carteira_publicacao.py`, `tests/integracao/test_gold_minio.py`
+- Arquivos: `src/gold/contrato.py`, `src/gold/parquet.py`, `src/gold/reprocessamento.py`, `tests/unidade/test_gold_carteira_publicacao.py`, `tests/unidade/test_gold_cli.py`, `tests/integracao/test_gold_minio.py`
 - Teste: test_carteira_parquet_tem_os_tipos_do_contrato; test_grao_uma_linha_por_data_carteira_e_taxa_venda; test_esquema_divergente_da_carteira_nada_publicado; test_carteira_publicada_em_gold_turma_group_id_24325; test_carteira_nao_altera_silver_nem_fato_preco_diario (integração)
 - Comando: pytest tests/unidade/test_gold_carteira_publicacao.py -q && pytest -m integracao -q
 - Depende de: T-42. Exige Docker para a integração.
+- Nota (2026-11-26, plano da T-43): segue o quarto adendo de 2026-11-26 ao RF-44 e ao RF-48 (d0 = menor data da fato_preco_diario da 24325; colunas extras excesso_cdi, perda_maxima e dias_preco_carregado; erro no cálculo da carteira como exceção inesperada do RF-50). `src/gold/parquet.py` entra na lista para gravar o carteira.parquet e para a verificação do `publicar_gold` (T-36) aceitar o contrato da carteira; `tests/unidade/test_gold_cli.py` entra porque o log da T-37 passa a ter a tabela "carteira" (só as constantes e a lista de puts esperados mudam).
 
 ## T-44 Primeira gold real, primeira carteira e evidência
 - Requisitos: RF-35, RF-50, RF-28
