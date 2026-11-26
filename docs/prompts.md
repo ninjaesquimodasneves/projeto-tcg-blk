@@ -4647,3 +4647,69 @@ Correção de redação, sem mudar nenhuma regra: a aluna não consultou o profe
 
 ### Decisão humana
 Correção de redação aprovada: as ADRs 0002 e 0003 diziam que o professor tinha sido consultado no canal da turma, o que não aconteceu. Passam a dizer que a questão será levada à mentoria de 05/12/2026. Nenhuma regra mudou, e nenhum cálculo da carteira tinha sido feito.
+## 2026-11-26 — Etapa: implementação da T-40 (composição das cinco carteiras em d0)
+
+O pedido original da T-40 (prompt 1) e a decisão sobre as seis regras (prompt 2) estão na entrada "adendo de 2026-11-26 ao RF-44 (plano da T-40)".
+
+### Prompt 3 (literal)
+
+```text
+Spec do adendo ao RF-44 commitada (19ef880) e correções de redação commitadas (f38e360 e 0ae06cd). Pode implementar a T-40 conforme o plano aprovado, incluindo os seis itens do adendo de 2026-11-26 ao RF-44, com um teste para cada. Ao final, mostre a saída do pytest antes e depois e um resumo de até cinco linhas com o que mudou e a mensagem de commit proposta. Não rode git add, git commit nem git push.
+```
+
+### Observação do agente
+- **Testes antes do código:** na primeira execução, a coleta falhou com `ModuleNotFoundError: No module named 'gold.carteira'`. Depois da implementação, todos passaram na primeira execução, sem nenhuma tentativa de correção.
+- **`src/gold/carteira.py`** é uma função pura, sem S3, rede nem DuckDB, e tem estas partes:
+  - `PrecoD0`, sem campo de data;
+  - `precos_de_d0(linhas, d0)`;
+  - `compor_carteiras(precos_d0, ptax_venda_d0)`, que devolve `Composicao(carteira, itens, caixa_brl, dolares)` das cinco carteiras;
+  - `Item(product_id, acabamento, unidades, preco_usd_d0, custo_unitario_brl)`. Os pares com 0 unidades ficam listados.
+
+  As contas usam `Decimal(str(x))`, e o custo de exatamente R$ 100 compra 1 unidade (teste com 12,5 × 8).
+- **Seis itens do adendo de 2026-11-26, um teste para cada:**
+  - preço zero como sem preço;
+  - PTAX de d0 nula ou zero com `ValueError`, parametrizado com None, 0.0 e 0;
+  - "case" minúsculo, espaço no fim e "ShowCase";
+  - nenhum selado elegível;
+  - cesta com menos de 10 pares;
+  - 630686 em dois acabamentos, com desempate.
+- **Preços reais de 17/11 no teste:**
+  - os preços em USD do 630687 e do 630686 vêm das ADRs 0002 e 0005;
+  - os do 630432, do 642546 e do 642541 foram recuperados dos valores em reais das ADRs (R$ / 5,7851, arredondado a centavos, que volta ao mesmo valor em R$);
+  - os 8 pares entre o 1º e o 10º da cesta não estão nas ADRs e são sintéticos, entre os dois extremos.
+
+  Resultado: selado e cesta_raras ficam com R$ 1.000 em caixa, e propria fica com 1 unidade e caixa de 1000 − 151,99 × 5,7851 = 120,7227 (R$ 120,72).
+- **Commit da ADR 0005:** `git log --format="%h %ad" -- docs/adr/0005-carteira-propria.md src/gold/carteira.py` mostra só `0d47def Wed Nov 25 18:02:36 2026 +0000`, porque `src/gold/carteira.py` ainda não foi commitado. A ordem precisa ser conferida de novo depois do commit da T-40.
+- Nenhum teste acessa rede, Docker nem o bucket real. O valor diário fica para a T-41.
+
+### Saída dos testes
+Antes da implementação (`.venv/bin/pytest tests/unidade/test_gold_carteira_composicao.py -q`):
+```text
+tests/unidade/test_gold_carteira_composicao.py:11: in <module>
+    from gold.carteira import CARTEIRAS, Composicao, Item, PrecoD0, compor_carteiras, precos_de_d0
+E   ModuleNotFoundError: No module named 'gold.carteira'
+=========================== short test summary info ============================
+ERROR tests/unidade/test_gold_carteira_composicao.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.37s
+```
+
+Depois da implementação (`.venv/bin/pytest tests/unidade/test_gold_carteira_composicao.py -q`):
+```text
+.........................                                                [100%]
+25 passed in 0.04s
+```
+
+Suíte completa (`.venv/bin/pytest -q`):
+```text
+511 passed in 173.78s (0:02:53)
+```
+
+### Arquivos gerados
+- `src/gold/carteira.py`
+- `tests/unidade/test_gold_carteira_composicao.py`
+- `specs/tasks.md` (T-40 concluída, com nota)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Plano aprovado. Composição das cinco carteiras como função pura que recebe só as linhas de d0, sem campo de data: selado sem Case nem Display, cesta_raras com R$ 100 em cada um dos 10 pares mais caros sem Code Card, propria com o 630686, dolar pela PTAX de venda de d0 e cdi em caixa; unidades inteiras com a sobra em caixa. Casos-limite do adendo ao RF-44 testados. Teste "sem futuro" e teste com os preços reais de 17/11: selado e cesta_raras em caixa, propria com 1 unidade e R$ 120,72 em caixa. Testes falharam antes pelo motivo esperado e passaram depois.

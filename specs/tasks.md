@@ -358,12 +358,13 @@ Comando base da gold: `PYTHONPATH=src python -m gold`. Dashboard: `PYTHONPATH=sr
 - Depende de: T-38. A regra da carteira "propria" é decidida pela aluna nesta tarefa; o agente não a propõe sem pedido. Commit antes de qualquer cálculo da carteira (T-40), conferido com `git log --format="%h %ad" -- docs/adr/0005-carteira-propria.md src/gold/carteira.py`.
 - Nota (2026-11-25): antes dos rascunhos, a silver real da 24325 de 17/11 (produto, preco_diario e cambio_diario) foi lida só com list_objects_v2 e get_object, com hive_partitioning desligado; nada foi escrito no bucket. PTAX de venda de 17/11 = 5,7851. Pelas regras literais do RF-44 (opção (a), decisão da aluna), a carteira "selado" escolhe o 630687 "Black Bolt Pokemon Center Elite Trainer Box (Exclusive)" (R$ 1.503,95) e fica 100% em caixa, e a "cesta_raras" também (carta mais barata do top 10 a R$ 245,81); a questão será levada ao professor na mentoria de 05/12/2026 e está registrado em Consequências, Riscos e Condição de revisão das ADRs 0002 e 0003. A carteira "propria" (ADR 0005, decisão da aluna) compra 1 unidade do 630686 "Black Bolt Elite Trainer Box" (R$ 879,28), com R$ 120,72 em caixa; a ADR registra o viés de retrospectiva da escolha feita em 25/11. A taxa de venda de 15% é hipótese, validação pendente (ADR 0004). `src/gold/carteira.py` ainda não existe; nenhum código mudou.
 
-## T-40 Composição das cinco carteiras em d0
+## T-40 Composição das cinco carteiras em d0 — concluída (2026-11-26)
 - Requisitos: RF-44
 - Arquivos: `src/gold/carteira.py`, `tests/unidade/test_gold_carteira_composicao.py`
 - Teste: test_unidades_inteiras_e_sobra_em_caixa; test_selado_exclui_case_e_display; test_selado_acima_de_1000_reais_zero_unidades; test_cesta_sem_code_card; test_cesta_carta_acima_de_100_reais_zero_unidades; test_cesta_desempate_por_product_id_e_acabamento; test_dolar_sem_unidade_inteira; test_propria_segue_o_adr_0005; test_sem_futuro_alterar_precos_e_ptax_depois_de_d0_nao_muda_a_composicao
 - Comando: pytest tests/unidade/test_gold_carteira_composicao.py -q
 - Depende de: T-39 (ADRs commitados)
+- Nota (2026-11-26): além dos 9 testes listados, entraram 16 casos: as cinco carteiras, desempate do selado, cesta só com cartas, cdi, propria sem preço, filtro precos_de_d0, preços reais de 17/11 das ADRs, Item imutável e um teste para cada item do adendo de 2026-11-26 ao RF-44 (PTAX parametrizada com None, 0.0 e 0). Função pura, sem S3, rede nem DuckDB. Commit da ADR 0005 (0d47def, 25/11) anterior ao de `src/gold/carteira.py`, a conferir com `git log --format="%h %ad" -- docs/adr/0005-carteira-propria.md src/gold/carteira.py` depois do commit da T-40.
 
 ## T-41 Valor de liquidação diário e CDI
 - Requisitos: RF-45
