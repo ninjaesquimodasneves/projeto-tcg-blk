@@ -39,14 +39,14 @@ Aceita em 2026-11-25 pela aluna (T-39), antes de qualquer cálculo da carteira (
   - A exclusão depende do nome terminar em "Case" ou "Display". Um produto de distribuidor com outro nome passaria.
 
 ## Riscos
-- **Carteira sem exposição a selados.** Com os preços reais de 17/11 ela fica toda em caixa (R$ 1.503,95 contra R$ 1.000). Isso foi consultado ao professor no canal da turma; a resposta está pendente.
+- **Carteira sem exposição a selados.** Com os preços reais de 17/11 ela fica toda em caixa (R$ 1.503,95 contra R$ 1.000). A questão será levada ao professor na mentoria de 05/12/2026.
 - **Nome fora do padrão:** um produto de distribuidor cujo nome não termina em "Case" nem "Display" seria escolhido.
 - **Preço de d0 de um produto pouco negociado** pode estar fora da realidade. O market_price é o do TCGplayer, sem garantia de liquidez.
 
 ## Evidência necessária
 - T-40: teste de unidade com preços sintéticos de d0 (Case e Display excluídos, unidades inteiras, sobra em caixa, selado acima de R$ 1.000 com 0 unidades, desempate) e o teste "sem futuro".
 - T-44: composição real em d0, conferindo o 630687 com 0 unidades e R$ 1.000 em caixa.
-- Resposta do professor no canal da turma.
+- Posição do professor na mentoria de 05/12/2026.
 
 ## Condição de revisão
 - Se o professor definir outra regra, a spec ganha um adendo e esta ADR é revista antes da entrega.

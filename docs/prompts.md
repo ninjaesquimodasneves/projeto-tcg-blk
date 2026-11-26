@@ -4534,7 +4534,7 @@ Rascunhos aprovados, com uma correção na ADR 0004: em Riscos, troque "(RF-52, 
 - `docs/prompts.md` (esta entrada)
 
 ### Decisão humana
-ADRs 0002 a 0005 aprovadas antes de qualquer cálculo da carteira. Selado: maior selado com preço em d0 sem Case nem Display; cesta_raras: R$ 100 em cada um dos 10 pares mais caros sem Code Card, em unidades inteiras; taxa de venda de 15% como hipótese, com resultado também sem taxa; carteira própria, decisão da aluna: unidades inteiras do Black Bolt Elite Trainer Box de varejo (630686). Com os preços reais de 17/11, selado e cesta_raras ficam 100% em caixa pela regra literal; mantida a regra do enunciado e consultado o professor no canal da turma. Viés de retrospectiva da escolha da carteira própria registrado na ADR 0005.
+ADRs 0002 a 0005 aprovadas antes de qualquer cálculo da carteira. Selado: maior selado com preço em d0 sem Case nem Display; cesta_raras: R$ 100 em cada um dos 10 pares mais caros sem Code Card, em unidades inteiras; taxa de venda de 15% como hipótese, com resultado também sem taxa; carteira própria, decisão da aluna: unidades inteiras do Black Bolt Elite Trainer Box de varejo (630686). Com os preços reais de 17/11, selado e cesta_raras ficam 100% em caixa pela regra literal; mantida a regra do enunciado, e a questão será levada ao professor na mentoria de 05/12/2026. Viés de retrospectiva da escolha da carteira própria registrado na ADR 0005.
 
 ## 2026-11-26 — Etapa: adendo de 2026-11-26 ao RF-44 (plano da T-40)
 
@@ -4612,3 +4612,37 @@ Plano da T-40 aprovado, e os itens 1 a 6 como você sugeriu: 1) reserva da cesta
 
 ### Decisão humana
 Casos-limite encontrados no plano da T-40 escritos no RF-44 antes de qualquer cálculo: reserva da cesta sem par e selado sem candidato vão para o caixa; acabamento de maior preço do 630686; preço zero conta como ausente; PTAX nula ou zero em d0 impede a composição; comparação de Case e Display ao pé da letra.
+## 2026-11-26 — Etapa: correção de redação das ADRs 0002 e 0003 (mentoria de 05/12/2026)
+
+### Prompt 1 (literal)
+
+```text
+Correção de redação, sem mudar nenhuma regra: a aluna não consultou o professor no canal da turma; ela vai levar a questão à mentoria de 05/12/2026. Nas ADRs 0002 e 0003, troque todas as menções a "consultado ao professor no canal da turma" e "resposta pendente" por "a questão será levada ao professor na mentoria de 05/12/2026". Na Evidência necessária, troque "Resposta do professor no canal da turma" por "Posição do professor na mentoria de 05/12/2026". Faça a mesma correção na "Decisão humana" da T-39 em docs/prompts.md, se ela citar o canal da turma. Rode o test_adr.py, acrescente esta correção em docs/prompts.md e pare. Não rode git add, git commit nem git push.
+```
+
+### Observação do agente
+- **ADRs 0002 e 0003, em Riscos:** "Isso foi consultado ao professor no canal da turma; a resposta está pendente." virou "A questão será levada ao professor na mentoria de 05/12/2026." Cada ADR tinha uma ocorrência.
+- **ADRs 0002 e 0003, em Evidência necessária:** "Resposta do professor no canal da turma." virou "Posição do professor na mentoria de 05/12/2026."
+- **Decisão humana da T-39:** "mantida a regra do enunciado e consultado o professor no canal da turma" virou "mantida a regra do enunciado, e a questão será levada ao professor na mentoria de 05/12/2026".
+- Nenhuma regra mudou, e as Condições de revisão das ADRs continuam iguais.
+- **Menções ao canal da turma que ficaram sem mudança, por estarem fora do pedido:**
+  - o prompt 2 literal da T-39 em `docs/prompts.md`, que é registro literal e não se edita;
+  - a "Observação do agente" da T-39 em `docs/prompts.md`;
+  - a nota de 2026-11-25 da T-39 em `specs/tasks.md`.
+
+  As duas últimas ficam para decisão da aluna.
+
+### Saída do teste
+`.venv/bin/pytest tests/unidade/test_adr.py -q`:
+```text
+.......                                                                  [100%]
+7 passed in 0.02s
+```
+
+### Arquivos gerados
+- `docs/adr/0002-carteira-selado-sem-case-display.md`
+- `docs/adr/0003-cesta-raras-unidades-inteiras-sem-code-cards.md`
+- `docs/prompts.md` (Decisão humana da T-39 e esta entrada)
+
+### Decisão humana
+Correção de redação aprovada: as ADRs 0002 e 0003 diziam que o professor tinha sido consultado no canal da turma, o que não aconteceu. Passam a dizer que a questão será levada à mentoria de 05/12/2026. Nenhuma regra mudou, e nenhum cálculo da carteira tinha sido feito.

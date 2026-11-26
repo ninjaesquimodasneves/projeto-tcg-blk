@@ -40,14 +40,14 @@ Aceita em 2026-11-25 pela aluna (T-39), antes de qualquer cálculo da carteira (
   - As cartas mais valiosas da coleção custam várias vezes os R$ 100 reservados a cada uma.
 
 ## Riscos
-- **Carteira sem exposição a cartas.** Com os preços reais de 17/11 ela fica toda em caixa (carta mais barata do top 10 a R$ 245,81 contra R$ 100). Isso foi consultado ao professor no canal da turma; a resposta está pendente.
+- **Carteira sem exposição a cartas.** Com os preços reais de 17/11 ela fica toda em caixa (carta mais barata do top 10 a R$ 245,81 contra R$ 100). A questão será levada ao professor na mentoria de 05/12/2026.
 - **Preço de d0 de cartas pouco negociadas** pode distorcer a escolha do top 10.
 - **Empates** de preço entre pares: tratados pelo desempate, mas dependem do arredondamento do market_price na fonte.
 
 ## Evidência necessária
 - T-40: teste de unidade com preços sintéticos de d0 (Code Card fora, unidades inteiras, sobra em caixa, carta acima de R$ 100 com 0 unidades, desempate) e o teste "sem futuro".
 - T-44: composição real em d0, conferindo 0 unidades nos 10 pares e R$ 1.000 em caixa.
-- Resposta do professor no canal da turma.
+- Posição do professor na mentoria de 05/12/2026.
 
 ## Condição de revisão
 - Se o professor definir outra regra, a spec ganha um adendo e esta ADR é revista antes da entrega.
