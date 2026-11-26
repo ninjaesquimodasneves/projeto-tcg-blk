@@ -4535,3 +4535,80 @@ Rascunhos aprovados, com uma correção na ADR 0004: em Riscos, troque "(RF-52, 
 
 ### Decisão humana
 ADRs 0002 a 0005 aprovadas antes de qualquer cálculo da carteira. Selado: maior selado com preço em d0 sem Case nem Display; cesta_raras: R$ 100 em cada um dos 10 pares mais caros sem Code Card, em unidades inteiras; taxa de venda de 15% como hipótese, com resultado também sem taxa; carteira própria, decisão da aluna: unidades inteiras do Black Bolt Elite Trainer Box de varejo (630686). Com os preços reais de 17/11, selado e cesta_raras ficam 100% em caixa pela regra literal; mantida a regra do enunciado e consultado o professor no canal da turma. Viés de retrospectiva da escolha da carteira própria registrado na ADR 0005.
+
+## 2026-11-26 — Etapa: adendo de 2026-11-26 ao RF-44 (plano da T-40)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados Python que pratica desenvolvimento orientado a testes. Executa uma única tarefa, prova que ela funciona com a saída real do terminal e para.
+
+[R] Pedido
+Implemente somente a tarefa T-40 de specs/tasks.md (composição das cinco carteiras em d0, sem informação do futuro), seguindo as ADRs 0002 a 0005. Siga esta ordem:
+1. mostre o plano: arquivos, funções, a entrada (só as linhas de d0), o que cada carteira compra e como a sobra vai para o caixa, e o comando de verificação. Se o plano precisar de alguma regra que ainda não está escrita na spec ou nas ADRs, liste essas regras numa seção separada "Regras fora da spec" e espere minha decisão, sem implementá-las; espere minha confirmação;
+2. escreva primeiro os testes da tarefa, rode e mostre que falham pelo motivo esperado (função ou módulo ainda inexistente, e não falta de dependência);
+3. implemente o mínimo para os testes passarem;
+4. rode a verificação da tarefa e o pytest inteiro e mostre a saída real;
+5. marque a T-40 como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit.
+
+[E] Exemplos
+Casos que os testes precisam cobrir (preços sintéticos de d0, sem rede):
+  selado: Case e Display excluídos, unidades inteiras pela PTAX de venda de d0, sobra em caixa, selado acima de R$ 1.000 com 0 unidades;
+  cesta_raras: os 10 pares mais caros sem Code Card, R$ 100 em cada, unidades inteiras, carta acima de R$ 100 com 0 unidades;
+  propria: unidades inteiras do 630686 e sobra em caixa; sem preço em d0, tudo em caixa;
+  dolar: R$ 1.000 convertidos em dólar pela PTAX de venda de d0;
+  cdi: R$ 1.000 em caixa;
+  sem futuro: a função recebe só as linhas de d0, e mudar qualquer preço posterior a d0 não altera a composição;
+  com os preços reais de 17/11 registrados nas ADRs (passados como dados no teste): selado e cesta_raras 100% em caixa, propria com 1 unidade e R$ 120,72 em caixa.
+Commit proposto: feat(T-40): composicao das carteiras em d0 [RF-44]
+
+[A] Ajustes
+- Faça só a T-40; o valor diário é da T-41.
+- Função pura em Python, sem S3 e sem rede.
+- Siga o RF-44 e as ADRs 0002 a 0005 ao pé da letra; regras novas só depois da minha decisão.
+- Não leia nem imprima o .env.
+- Não rode git add, git commit nem git push.
+- Se a verificação falhar, tente corrigir no máximo duas vezes; depois disso, pare e explique.
+- Não declare sucesso sem mostrar a saída do comando.
+
+[T] Tipo de saída
+Os arquivos da tarefa, a saída do pytest antes e depois e um resumo de até cinco linhas com o que mudou e a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/tasks.md, docs/adr/0002 a 0005 e src/gold/ antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2 (literal)
+
+```text
+Plano da T-40 aprovado, e os itens 1 a 6 como você sugeriu: 1) reserva da cesta sem par vai inteira para o caixa; 2) nenhum selado elegível em d0 deixa R$ 1.000 em caixa; 3) 630686 com preço em mais de um acabamento usa o de maior preço, com desempate por acabamento crescente; 4) market_price_usd igual a zero em d0 conta como sem preço; 5) ptax_venda de d0 nula ou zero levanta erro sem compor nenhuma carteira; 6) comparação de "Case" e "Display" ao pé da letra (endswith, com maiúsculas). Antes do código, edite apenas specs/spec.md com o adendo de 2026-11-26 ao RF-44, citando as ADRs 0002, 0003 e 0005, acrescente esta mudança em docs/prompts.md e pare. Não rode git add, git commit nem git push.
+```
+
+### Observação do agente
+- O prompt 1 pedia a T-40 inteira, mas nesta etapa saiu só o plano. Ele trazia seis "Regras fora da spec", porque o RF-44 e as ADRs 0002, 0003 e 0005 não cobrem esses casos. O prompt 2 aprovou o plano e as seis regras e pediu o adendo antes do código.
+- **Plano aprovado:**
+  - `src/gold/carteira.py`, função pura, sem S3 e sem rede;
+  - `PrecoD0`, sem campo de data;
+  - `precos_de_d0(linhas, d0)`, que filtra as linhas de d0;
+  - `compor_carteiras(precos_d0, ptax_venda_d0)`, que devolve as cinco composições, com itens (inclusive os de 0 unidades), caixa_brl e dólares;
+  - `floor` sobre `Decimal(str(x))`, para que um custo de exatamente R$ 100 ou R$ 1.000 compre a unidade sem erro de ponto flutuante.
+- **No RF-44 entraram, como "adendo de 2026-11-26":**
+  - preço zero em d0 conta como sem preço;
+  - PTAX de venda de d0 nula ou zero levanta erro, sem compor nenhuma carteira;
+  - comparação literal de "Case" e "Display" (ADR 0002);
+  - nenhum selado elegível deixa R$ 1.000 em caixa (ADR 0002);
+  - reserva da cesta sem par vai inteira para o caixa (ADR 0003);
+  - 630686 em mais de um acabamento usa o de maior preço, com desempate por acabamento crescente (ADR 0005);
+  - o motivo e os testes na Verificação.
+
+  O cabeçalho cita o adendo.
+- As ADRs 0002, 0003 e 0005 não foram editadas: o adendo fica na spec e cita as ADRs.
+- A T-40 (testes e código) continua pendente até o commit deste adendo. `src/gold/carteira.py` não existe.
+
+### Arquivos gerados
+- `specs/spec.md` (adendo de 2026-11-26 ao RF-44, e menção no cabeçalho)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Casos-limite encontrados no plano da T-40 escritos no RF-44 antes de qualquer cálculo: reserva da cesta sem par e selado sem candidato vão para o caixa; acabamento de maior preço do 630686; preço zero conta como ausente; PTAX nula ou zero em d0 impede a composição; comparação de Case e Display ao pé da letra.
