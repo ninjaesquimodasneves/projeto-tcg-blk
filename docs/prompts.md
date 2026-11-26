@@ -4713,3 +4713,83 @@ Suíte completa (`.venv/bin/pytest -q`):
 
 ### Decisão humana
 Plano aprovado. Composição das cinco carteiras como função pura que recebe só as linhas de d0, sem campo de data: selado sem Case nem Display, cesta_raras com R$ 100 em cada um dos 10 pares mais caros sem Code Card, propria com o 630686, dolar pela PTAX de venda de d0 e cdi em caixa; unidades inteiras com a sobra em caixa. Casos-limite do adendo ao RF-44 testados. Teste "sem futuro" e teste com os preços reais de 17/11: selado e cesta_raras em caixa, propria com 1 unidade e R$ 120,72 em caixa. Testes falharam antes pelo motivo esperado e passaram depois.
+
+## 2026-11-26 — Etapa: segundo adendo de 2026-11-26 ao RF-45 e ao RF-46 (plano da T-41)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados Python que pratica desenvolvimento orientado a testes. Executa uma única tarefa, prova que ela funciona com a saída real do terminal e para.
+
+[R] Pedido
+Implemente somente a tarefa T-41 de specs/tasks.md (valor de liquidação diário, RF-45), seguindo as ADRs 0002 a 0005. Siga esta ordem:
+1. mostre o plano: arquivos, funções, a fórmula do valor de liquidação, como o caixa rende CDI (juros compostos, só em dia útil, a partir de quando), como o dólar é avaliado, em que dias de calendário a carteira é avaliada e o comando de verificação. Se o plano precisar de alguma regra que ainda não está escrita na spec ou nas ADRs, liste essas regras numa seção separada "Regras fora da spec" e espere minha decisão, sem implementá-las; espere minha confirmação;
+2. escreva primeiro os testes da tarefa, rode e mostre que falham pelo motivo esperado (função ou módulo ainda inexistente, e não falta de dependência);
+3. implemente o mínimo para os testes passarem;
+4. rode a verificação da tarefa e o pytest inteiro e mostre a saída real;
+5. marque a T-41 como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit.
+
+[E] Exemplos
+Fórmula do RF-45: valor = soma de unidades × market_price_usd(D) × (1 − taxa_venda) × ptax_compra(D), mais o caixa rendendo CDI.
+Casos que os testes precisam cobrir (dados sintéticos, sem rede):
+  taxa_venda 0 e 0,15 em cada dia, com a taxa só sobre os produtos (nunca sobre o dólar nem sobre o caixa);
+  liquidação pela PTAX de compra do dia (a da fato_cambio_diario, que no fim de semana e no feriado é a do dia útil anterior);
+  caixa rendendo CDI em juros compostos só nos dias úteis;
+  carteira cdi: R$ 1.000 corrigidos pelo CDI acumulado;
+  carteira dolar: dólares de d0 vezes a PTAX de compra do dia;
+  em d0, uma carteira com produto e taxa 15% já vale menos que R$ 1.000.
+Commit proposto: feat(T-41): valor de liquidacao diario das carteiras [RF-45]
+
+[A] Ajustes
+- Faça só a T-41; preço carregado e métricas são da T-42.
+- Função pura em Python, sem S3 e sem rede; reaproveite a composição da T-40.
+- Siga o RF-45 e as ADRs ao pé da letra; regras novas só depois da minha decisão.
+- Não leia nem imprima o .env.
+- Não rode git add, git commit nem git push.
+- Se a verificação falhar, tente corrigir no máximo duas vezes; depois disso, pare e explique.
+- Não declare sucesso sem mostrar a saída do comando.
+
+[T] Tipo de saída
+Os arquivos da tarefa, a saída do pytest antes e depois e um resumo de até cinco linhas com o que mudou e a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/tasks.md, docs/adr/0002 a 0005 e src/gold/ antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2 (literal)
+
+```text
+Plano da T-41 aprovado. Decisões: item 1 aprovado só como comportamento provisório, sem regra nova (o RF-46 já define o preço carregado; registre na nota da T-41 que a T-42 substitui o ValueError); item 4 aprovado como proteção contra erro de programação, sem regra nova. Itens 2 e 3 aprovados como regras: antes do código, edite apenas specs/spec.md com o adendo de 2026-11-26 ao RF-45 e ao RF-46: 2) item com 0 unidades não exige preço em D, contribui com 0 e não conta como preço carregado; 3) ptax_compra(D) nula levanta erro quando a carteira precisa dela (produto com unidades > 0 ou dolar); cdi e carteiras só com caixa não dependem da PTAX. Acrescente esta mudança em docs/prompts.md e pare. Não rode git add, git commit nem git push.
+```
+
+### Observação do agente
+- O prompt 1 pedia a T-41 inteira, mas nesta etapa saiu só o plano. Ele trazia quatro "Regras fora da spec". O prompt 2 aprovou o plano e:
+  - itens 1 e 4 sem regra nova;
+  - itens 2 e 3 como regras, a escrever na spec antes do código.
+- **Plano aprovado:**
+  - em `src/gold/carteira.py`, reaproveitando `Composicao` e `Item` da T-40: `DiaCambio(data, ptax_compra, cdi_taxa_dia)`, `fatores_cdi`, `valor_de_liquidacao`, `valores_diarios` e `ValorDiario(data, carteira, taxa_venda, valor_brl)`;
+  - a constante `TAXAS_VENDA = (0.0, 0.15)` para quem chama, comentada como hipótese, validação pendente (ADR 0004); a taxa é parâmetro obrigatório das funções;
+  - fator do CDI = Π (1 + cdi_taxa_dia / 100) nos dias depois de d0 até D, com fator 1 em d0;
+  - teste novo em `tests/unidade/test_gold_carteira_valor.py`.
+- O adendo se chama "segundo adendo de 2026-11-26", porque o RF-44 já recebeu um adendo nesta data (commit 19ef880).
+- **No RF-45 entraram:**
+  - item com 0 unidades não exige preço em D e contribui com 0;
+  - ptax_compra(D) nula levanta erro quando há produto com unidades > 0 ou na carteira "dolar", e "cdi" e carteiras só com caixa são calculadas normalmente;
+  - o motivo e os testes na Verificação.
+- **No RF-46 entraram:**
+  - item com 0 unidades sem preço em D não usa preço carregado nem conta como "preço carregado";
+  - o motivo e o teste na Verificação, que é da T-42.
+
+  O cabeçalho cita o adendo.
+- **Fica sem regra nova, só na implementação:**
+  - item 1: preço ausente em D de um item com unidades > 0 levanta `ValueError`. É um comportamento provisório, que a T-42 substitui pelo preço carregado do RF-46. Isso fica na nota da T-41 em `specs/tasks.md`, ao concluir a tarefa.
+  - item 4: fato_cambio_diario que não começa em d0 ou com dia de calendário faltando levanta `ValueError`, como proteção contra erro de programação.
+- A T-41 (testes e código) continua pendente até o commit deste adendo.
+
+### Arquivos gerados
+- `specs/spec.md` (segundo adendo de 2026-11-26 ao RF-45 e ao RF-46, e menção no cabeçalho)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Regras encontradas no plano da T-41 escritas no RF-45 e no RF-46 antes do código: item com 0 unidades não exige preço e não conta como preço carregado; PTAX de compra nula levanta erro só quando a carteira depende dela. O erro para preço ausente de item com unidades é provisório até a T-42.
