@@ -227,21 +227,6 @@ def test_adendo_ptax_compra_nula_cdi_e_carteira_so_com_caixa_calculadas():
         valores_diarios(comp, D0, cambio, precos_constantes(2), TAXAS_VENDA)
 
 
-# Item 1 do plano (provisorio, a T-42 substitui pelo preco carregado do RF-46)
-
-
-def test_preco_ausente_com_unidades_levanta_erro_provisorio():
-    precos = precos_constantes(4)
-    del precos[(dia(3), ETB, "Normal")]
-
-    with pytest.raises(ValueError, match=r"propria.*630686.*2026-11-20"):
-        valores_diarios(composicoes(), D0, SEMANA[:4], precos, (0.0,))
-
-    precos[(dia(3), ETB, "Normal")] = None  # preco nulo na fato tambem
-    with pytest.raises(ValueError, match="propria"):
-        valores_diarios(composicoes(), D0, SEMANA[:4], precos, (0.0,))
-
-
 # Item 4 do plano (protecao contra erro de programacao)
 
 

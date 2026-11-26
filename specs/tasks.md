@@ -374,12 +374,13 @@ Comando base da gold: `PYTHONPATH=src python -m gold`. Dashboard: `PYTHONPATH=sr
 - Depende de: T-40
 - Nota (2026-11-26): além dos 6 testes listados, entraram 14 casos: composições sintéticas, fator do CDI em d0, CDI acumulado na carteira "cdi", dólar pela PTAX de compra do dia, PTAX de fim de semana vinda da fato, taxa de 15% abaixo de R$ 1.000 em d0, valor de uma carteira, os três testes do segundo adendo de 2026-11-26 ao RF-45 e ao RF-46, o do preço ausente e os do câmbio que não começa em d0 ou tem buraco (parametrizado com 3 casos). Preço ausente (ou nulo) em D de item com unidades > 0 levanta ValueError: comportamento provisório, sem regra nova, que a T-42 substitui pelo preço carregado do RF-46. fato_cambio_diario que não começa em d0 ou com dia de calendário faltando levanta ValueError, como proteção contra erro de programação, sem regra nova. TAXAS_VENDA = (0.0, 0.15) fica em `src/gold/carteira.py` para quem chama (0,15 é hipótese, validação pendente, ADR 0004); a taxa é parâmetro obrigatório das funções.
 
-## T-42 Preço carregado e métricas
+## T-42 Preço carregado e métricas — concluída (2026-11-26)
 - Requisitos: RF-46, RF-47
 - Arquivos: `src/gold/carteira.py`, `tests/unidade/test_gold_carteira_metricas.py`
 - Teste: test_dia_sem_coleta_usa_preco_anterior_e_marca; test_preco_nulo_usa_preco_anterior_e_marca; test_retorno_acumulado; test_excesso_zero_na_carteira_cdi; test_perda_maxima_com_queda_e_recuperacao; test_dias_com_preco_carregado
 - Comando: pytest tests/unidade/test_gold_carteira_metricas.py -q
 - Depende de: T-41
+- Nota (2026-11-26): além dos 6 testes listados, entraram 9 casos: volta ao preço observado, preço zero observado sem carregar, item com 0 unidades sem marca (segundo adendo de 2026-11-26 ao RF-46), entrada de preços não alterada, erro sem nenhum preço observado antes de D (proteção), excesso sobre o CDI, métricas da série com a lacuna de 20/11, ordem das métricas e erro sem a carteira cdi (proteção). O ValueError provisório da T-41 foi substituído pelo preço carregado do RF-46, e o teste test_preco_ausente_com_unidades_levanta_erro_provisorio saiu de tests/unidade/test_gold_carteira_valor.py. Dias com preço carregado acumulados de d0 até D, por carteira e taxa_venda (terceiro adendo de 2026-11-26 ao RF-47). A conferência de que a silver e a fato_preco_diario não mudam (integração) é da T-43.
 
 ## T-43 Publicação de gold_turma/carteira no contrato comum
 - Requisitos: RF-48, RF-50, RNF-07, RF-46

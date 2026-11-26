@@ -4931,3 +4931,70 @@ Plano da T-42 aprovado, incluindo a remoção do teste provisório da T-41. Item
 
 ### Decisão humana
 Regra encontrada no plano da T-42 escrita no RF-47 antes do código: dias com preço carregado é a contagem acumulada de d0 até D, por carteira e taxa de venda.
+
+## 2026-11-26 — Etapa: implementação da T-42 (preço carregado e métricas)
+
+O pedido original da T-42 (prompt 1) e a decisão sobre a janela de dias com preço carregado (prompt 2) estão na entrada "terceiro adendo de 2026-11-26 ao RF-47 (plano da T-42)".
+
+### Prompt 3 (literal)
+
+```text
+Spec commitada (244eb61). Pode implementar a T-42 conforme o plano aprovado, com a contagem acumulada de dias com preço carregado agora escrita no RF-47. Ao final, mostre a saída do pytest antes e depois e um resumo de até cinco linhas com o que mudou e a mensagem de commit proposta. Não rode git add, git commit nem git push.
+```
+
+### Observação do agente
+- **Testes antes do código:** na primeira execução, a coleta falhou com `ImportError: cannot import name 'Metrica' from 'gold.carteira'`.
+- **Primeira execução depois do código:** 14 testes passaram e 1 falhou com `KeyError: (datetime.date(2026, 11, 17), 0.15)`. O erro era do teste `test_dias_com_preco_carregado`, que montava a carteira "propria" com taxa 0,15 sem a carteira "cdi" com taxa 0,15. Foi a 1ª das duas tentativas permitidas:
+  - o teste ganhou a série da "cdi" com taxa 0,15;
+  - o código passou a levantar `ValueError` com a data e a taxa quando falta a "cdi" daquele dia e taxa, em vez do `KeyError`;
+  - `test_metricas_sem_carteira_cdi_levanta_erro` ganhou esse caso.
+- **`src/gold/carteira.py`:**
+  - `_resolver_precos` resolve os preços dos itens com unidades > 0. Quando a linha não existe ou o preço é nulo, usa o último preço não nulo observado antes de D, de d0 em diante, e marca o par;
+  - `ValorDiario.carregados` guarda os pares marcados no dia e na carteira, iguais nas duas taxas;
+  - `metricas` devolve `Metrica` com retorno acumulado, excesso sobre o CDI na mesma data e taxa, perda máxima até D e dias com preço carregado acumulados de d0 até D;
+  - o dicionário de preços recebido não é alterado.
+- **Erro provisório da T-41:** o `ValueError` provisório foi substituído pelo preço carregado, e `test_preco_ausente_com_unidades_levanta_erro_provisorio` saiu de `tests/unidade/test_gold_carteira_valor.py`. O `ValueError` só continua quando não há nenhum preço observado antes de D, como proteção.
+- **Preço zero:** é preço observado (RF-20) e não é carregado.
+- A conferência de que a silver e a fato_preco_diario não mudam (integração) é da T-43. Nenhum teste acessa rede, Docker nem o bucket real.
+
+### Saída dos testes
+Antes da implementação (`.venv/bin/pytest tests/unidade/test_gold_carteira_metricas.py -q`):
+```text
+    from gold.carteira import (
+E   ImportError: cannot import name 'Metrica' from 'gold.carteira' (/workspaces/projeto-tcg-blk/src/gold/carteira.py)
+=========================== short test summary info ============================
+ERROR tests/unidade/test_gold_carteira_metricas.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.18s
+```
+
+Primeira execução depois do código:
+```text
+E           KeyError: (datetime.date(2026, 11, 17), 0.15)
+
+src/gold/carteira.py:300: KeyError
+=========================== short test summary info ============================
+FAILED tests/unidade/test_gold_carteira_metricas.py::test_dias_com_preco_carregado
+1 failed, 14 passed in 0.09s
+```
+
+Depois da correção (`.venv/bin/pytest tests/unidade/test_gold_carteira_metricas.py -q`):
+```text
+...............                                                          [100%]
+15 passed in 0.08s
+```
+
+Suíte completa (`.venv/bin/pytest -q`):
+```text
+545 passed in 184.08s (0:03:04)
+```
+
+### Arquivos gerados
+- `src/gold/carteira.py`
+- `tests/unidade/test_gold_carteira_metricas.py`
+- `tests/unidade/test_gold_carteira_valor.py` (teste provisório da T-41 removido)
+- `specs/tasks.md` (T-42 concluída, com nota)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Plano aprovado. Preço carregado só no cálculo: produto da carteira sem preço no dia usa o último preço observado antes de D, marcado por carteira e dia, sem alterar a entrada nem gravar nada; item com 0 unidades não é marcado. Métricas por data, carteira e taxa de venda: retorno acumulado, excesso sobre o CDI, perda máxima como fração e dias com preço carregado acumulados até D. Teste provisório da T-41 removido por ter sido substituído. Testes falharam antes pelo motivo esperado e passaram depois.

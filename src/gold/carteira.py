@@ -19,9 +19,14 @@ dia, para cada taxa_venda recebida: produtos valem unidades x market_price_usd(D
 ptax_compra(D); o caixa rende CDI composto, fator(D) = produto de (1 + cdi_taxa_dia / 100) nos dias
 depois de d0 ate D (zero fora dos dias uteis, RF-33); "dolar" vale dolares x ptax_compra(D) e "cdi"
 vale 1000 x fator(D), sem taxa. Item com 0 unidades nao exige preco em D; ptax_compra(D) nula so levanta
-erro quando a carteira precisa dela (segundo adendo de 2026-11-26 ao RF-45). Preco ausente em D de item
-com unidades levanta ValueError: comportamento provisorio, que a T-42 substitui pelo preco carregado do
-RF-46. Uma fato_cambio_diario que nao comeca em d0 ou com dia faltando levanta ValueError (protecao).
+erro quando a carteira precisa dela (segundo adendo de 2026-11-26 ao RF-45). Uma fato_cambio_diario que
+nao comeca em d0 ou com dia faltando levanta ValueError (protecao).
+
+Preco carregado (T-42, RF-46): item com unidades > 0 sem market_price_usd em D (linha ausente ou preco
+nulo) usa o ultimo preco nao nulo observado antes de D, de d0 em diante, e o par fica em
+ValorDiario.carregados nesse dia e carteira; o dicionario recebido nao muda. metricas (RF-47) devolve
+retorno acumulado, excesso sobre o CDI, perda maxima ate D e dias com preco carregado acumulados de d0
+ate D, por carteira e taxa_venda (terceiro adendo de 2026-11-26).
 """
 
 from collections.abc import Iterable, Mapping, Sequence
@@ -154,6 +159,19 @@ class ValorDiario:
     carteira: str
     taxa_venda: float
     valor_brl: float
+    carregados: tuple[tuple[int, str], ...] = ()
+
+
+@dataclass(frozen=True)
+class Metrica:
+    data: date
+    carteira: str
+    taxa_venda: float
+    valor_brl: float
+    retorno_acumulado: float
+    excesso_cdi: float
+    perda_maxima: float
+    dias_preco_carregado: int
 
 
 def fatores_cdi(cambio: Sequence[DiaCambio]) -> dict[date, float]:
@@ -192,7 +210,7 @@ def valor_de_liquidacao(
         if preco is None:
             raise ValueError(
                 f"preco ausente na carteira {comp.carteira}: product_id {item.product_id} "
-                f"({item.acabamento}) em {data.isoformat()} (preco carregado do RF-46 fica para a T-42)"
+                f"({item.acabamento}) em {data.isoformat()}, sem preco observado antes"
             )
         produtos += item.unidades * preco * (1 - taxa_venda) * ptax
     return produtos + comp.caixa_brl * fator_cdi
@@ -206,6 +224,32 @@ def _conferir_cambio(cambio: Sequence[DiaCambio], d0: date) -> None:
             raise ValueError(f"fato_cambio_diario com dia faltando depois de {anterior.data.isoformat()}")
 
 
+def _resolver_precos(
+    composicoes: Mapping[str, Composicao],
+    cambio: Sequence[DiaCambio],
+    precos_usd: Mapping[tuple[date, int, str], float | None],
+) -> tuple[dict[tuple[date, int, str], float], dict[tuple[date, str], tuple[tuple[int, str], ...]]]:
+    """Precos dos itens com unidades em cada dia, com o preco carregado do RF-46, e as marcas."""
+    resolvidos: dict[tuple[date, int, str], float] = {}
+    marcas: dict[tuple[date, str], tuple[tuple[int, str], ...]] = {}
+    for carteira, comp in composicoes.items():
+        pares = [(i.product_id, i.acabamento) for i in comp.itens if i.unidades > 0]
+        ultimo: dict[tuple[int, str], float] = {}
+        for dia in cambio:
+            carregados = []
+            for par in pares:
+                preco = precos_usd.get((dia.data, *par))
+                if preco is not None:
+                    ultimo[par] = preco
+                elif par in ultimo:
+                    preco = ultimo[par]
+                    carregados.append(par)
+                if preco is not None:
+                    resolvidos[(dia.data, *par)] = preco
+            marcas[(dia.data, carteira)] = tuple(carregados)
+    return resolvidos, marcas
+
+
 def valores_diarios(
     composicoes: Mapping[str, Composicao],
     d0: date,
@@ -216,15 +260,47 @@ def valores_diarios(
     """Uma linha por dia, carteira e taxa_venda, ordenadas por data, carteira (CARTEIRAS) e taxa."""
     _conferir_cambio(cambio, d0)
     fatores = fatores_cdi(cambio)
+    precos, marcas = _resolver_precos(composicoes, cambio, precos_usd)
     ordem = [c for c in CARTEIRAS if c in composicoes]
     return [
         ValorDiario(
             dia.data,
             carteira,
             taxa,
-            valor_de_liquidacao(composicoes[carteira], dia.data, precos_usd, dia.ptax_compra, fatores[dia.data], taxa),
+            valor_de_liquidacao(composicoes[carteira], dia.data, precos, dia.ptax_compra, fatores[dia.data], taxa),
+            marcas[(dia.data, carteira)],
         )
         for dia in cambio
         for carteira in ordem
         for taxa in taxas_venda
     ]
+
+
+def metricas(valores: Sequence[ValorDiario]) -> list[Metrica]:
+    """Metricas do RF-47 por (data, carteira, taxa_venda), na ordem de valores."""
+    retorno_cdi = {(v.data, v.taxa_venda): v.valor_brl / float(ORCAMENTO) - 1 for v in valores if v.carteira == "cdi"}
+    if not retorno_cdi:
+        raise ValueError("metricas sem a carteira cdi: excesso sobre o CDI indefinido")
+    pico: dict[tuple[str, float], float] = {}
+    perda: dict[tuple[str, float], float] = {}
+    dias: dict[tuple[str, float], int] = {}
+    por_serie: dict[int, Metrica] = {}
+    for n, v in sorted(enumerate(valores), key=lambda par: par[1].data):
+        serie = (v.carteira, v.taxa_venda)
+        pico[serie] = max(pico.get(serie, v.valor_brl), v.valor_brl)
+        perda[serie] = min(perda.get(serie, 0.0), v.valor_brl / pico[serie] - 1)
+        dias[serie] = dias.get(serie, 0) + (1 if v.carregados else 0)
+        retorno = v.valor_brl / float(ORCAMENTO) - 1
+        if (v.data, v.taxa_venda) not in retorno_cdi:
+            raise ValueError(f"metricas sem a carteira cdi em {v.data.isoformat()} com taxa_venda {v.taxa_venda}")
+        por_serie[n] = Metrica(
+            v.data,
+            v.carteira,
+            v.taxa_venda,
+            v.valor_brl,
+            retorno,
+            retorno - retorno_cdi[(v.data, v.taxa_venda)],
+            perda[serie],
+            dias[serie],
+        )
+    return [por_serie[n] for n in range(len(valores))]
