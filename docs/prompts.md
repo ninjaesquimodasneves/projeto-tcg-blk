@@ -5455,3 +5455,73 @@ sys	0m5.098s
 
 ### Decisão humana
 Plano aprovado. streamlit==1.67.0 e altair==6.3.0 fixados e testados no Python 3.14. Dashboard lê a gold publicada só com get_object, com cache de 1 hora, e nunca grava no lake; consultas como funções puras sobre DuckDB, testadas sem Streamlit; chave reais/dólar, filtro de preço mínimo por par no primeiro dia, série de calendário com lacuna como ponto nulo, dias desde o lançamento calculados na consulta e aviso sobre os limites do dado. Tempo da suíte medido de novo para a pendência da T-22. Testes falharam antes pelo motivo esperado e passaram depois.
+## 2026-11-27 — Etapa: segundo adendo de 2026-11-27 ao RF-39 (plano da T-47)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados Python que constrói dashboards testáveis, com a lógica separada da interface. Pratica desenvolvimento orientado a testes, executa uma única tarefa, prova com a saída real do terminal e para.
+
+[R] Pedido
+Implemente somente a tarefa T-47 de specs/tasks.md (P1: rankings com decomposição, RF-39). Siga esta ordem:
+1. mostre o plano: a consulta (pura, sobre DuckDB), os dias usados (primeiro e último), o filtro de cartas, como a decomposição da T-35 é aplicada, as colunas e a ordem dos dois rankings, como imagem e link aparecem, e o comando de verificação. Se o plano precisar de alguma regra que ainda não está escrita na spec, liste essas regras numa seção separada "Regras fora da spec" e espere minha decisão, sem implementá-las; espere minha confirmação;
+2. escreva primeiro os testes da tarefa, rode e mostre que falham pelo motivo esperado;
+3. implemente o mínimo para os testes passarem;
+4. rode a verificação da tarefa e o pytest inteiro e mostre a saída real;
+5. marque a T-47 como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit.
+
+[E] Exemplos
+Casos que os testes precisam cobrir (gold sintética, sem rede):
+  só cartas da 24325, sem Code Card, com preço acima de US$ 1 no primeiro dia;
+  dois rankings de 10: maiores valorizações e maiores desvalorizações em reais, por par (produto e acabamento);
+  cada linha com a variação em reais e os efeitos da carta, do câmbio e cruzado, que somam a variação (decomposição da T-35);
+  carta sem preço no primeiro ou no último dia fica fora, sem inventar preço;
+  imagem da carta e link para a página do produto em cada linha (AppTest);
+  a chave reais/dólar troca os preços exibidos, sem mudar a ordem do ranking, que é sempre em reais (confirme no plano o que a spec diz).
+Commit proposto: feat(T-47): pergunta 1 com rankings e decomposicao [RF-37, RF-38, RF-39]
+
+[A] Ajustes
+- Faça só a T-47; as outras perguntas são das T-48 a T-51.
+- Reaproveite as consultas e a leitura da T-46 e a decomposição da T-35; nada de reimplementar.
+- Testes sem rede e sem o bucket real.
+- Siga o RF-37, o RF-38 e o RF-39 ao pé da letra; regras novas só depois da minha decisão.
+- Não leia nem imprima o .env.
+- Não rode git add, git commit nem git push.
+- Se a verificação falhar, tente corrigir no máximo duas vezes; depois disso, pare e explique.
+- Não declare sucesso sem mostrar a saída do comando.
+
+[T] Tipo de saída
+Os arquivos da tarefa, a saída do pytest antes e depois e um resumo de até cinco linhas com a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/tasks.md, src/gold/decomposicao.py, src/painel/ e dashboard/app.py antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2 (literal)
+
+```text
+Plano da T-47 aprovado, e as três regras como você propôs. Antes do código: edite specs/spec.md com o adendo de 2026-11-27 ao RF-39 (regra 1: rankings independentes, cada um com até 10 linhas, sem linha vazia, um par pode aparecer nos dois; regra 2: a chave em dólar não reordena nada, a ordem é sempre pela variação em reais, em dólar aparecem os preços em US$ e a variação em dólar, sem os efeitos, com a legenda "ordem pela variação em reais") e specs/tasks.md (regra 3: acrescente tests/unidade/gold_sintetica.py à lista de arquivos da T-47). Acrescente esta mudança em docs/prompts.md e pare, sem criar código. Não rode git add, git commit nem git push.
+```
+
+### Observação do agente
+- O prompt 1 pedia a T-47 inteira, mas nesta etapa saiu só o plano. O plano trazia três "Regras fora da spec"; o prompt 2 aprovou o plano e as três e pediu a spec e as tarefas antes do código.
+- **Plano aprovado:**
+  - `ranking_p1(con, minimo_usd)` em `src/painel/consultas.py`: d0 e d1 são a menor e a maior data da fato_preco_diario da 24325; pares (product_id, acabamento) de cartas da 24325 sem "Code Card" (comparação literal), com market_price_usd > 1 em d0, que passam no filtro de preço mínimo da T-46 (`pares_acima_do_minimo`) e têm linha e preço não nulo em d0 e d1;
+  - decomposição por `gold.decomposicao.decompor` (T-35), sem reimplementar; par sem decomposição (por exemplo, PTAX nula) fica fora, como no RF-37;
+  - valorização por r_brl decrescente e desvalorização por r_brl crescente, com desempate por product_id e acabamento crescentes;
+  - na página, duas tabelas com `ImageColumn` (image_url) e `LinkColumn` (url) em todas as linhas; em reais, preços de d0 e d1 em R$ (market_price_brl da gold), r_brl e os três efeitos.
+- O adendo se chama "segundo adendo de 2026-11-27", porque o RF-38 já recebeu um adendo nesta data (d47ec78).
+- **No RF-39 entraram:** os rankings independentes com até 10 linhas, sem linha vazia, e o mesmo par nos dois com menos de 20 elegíveis; a chave em dólar sem reordenar, com preços em US$ e r_usd, sem r_brl nem os três efeitos, e a legenda "ordem pela variação em reais". Entraram também o motivo e os testes na Verificação. O cabeçalho cita o adendo.
+- **Para conferir:** o prompt 2 diz "sem os efeitos"; o texto também tira a r_brl em dólar, como na regra 2 do plano ("saem r_brl e os três efeitos"), porque o RF-38 troca todos os valores para dólar.
+- **Para conferir:** a Verificação do adendo cita um teste com menos de 10 cartas elegíveis, que não está na lista de testes da T-47 em `specs/tasks.md`. Esta etapa só acrescentou o arquivo de apoio à lista, como pedido; o teste entra na implementação da T-47 se você concordar, e a lista é corrigida junto.
+- **Em `specs/tasks.md`:** `tests/unidade/gold_sintetica.py` entrou na lista de arquivos da T-47.
+- Nenhum código foi criado. A T-47 (testes e código) continua pendente até o commit desta mudança.
+
+### Arquivos gerados
+- `specs/spec.md` (segundo adendo de 2026-11-27 ao RF-39 e menção no cabeçalho)
+- `specs/tasks.md` (lista de arquivos da T-47)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Regras encontradas no plano da T-47 escritas no RF-39 antes do código: rankings independentes de até 10 linhas, sem linha vazia; a chave em dólar não reordena, a ordem é sempre pela variação em reais, e em dólar aparecem os preços e a variação em dólar, sem os efeitos. Módulo de apoio gold_sintetica.py acrescentado à lista de arquivos da T-47.

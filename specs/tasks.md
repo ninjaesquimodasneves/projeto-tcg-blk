@@ -419,7 +419,7 @@ Comando base da gold: `PYTHONPATH=src python -m gold`. Dashboard: `PYTHONPATH=sr
 
 ## T-47 P1: cartas que mais valorizaram e desvalorizaram em reais
 - Requisitos: RF-39, RF-37, RF-38
-- Arquivos: `src/painel/consultas.py`, `dashboard/app.py`, `tests/unidade/test_painel_p1.py`
+- Arquivos: `src/painel/consultas.py`, `dashboard/app.py`, `tests/unidade/test_painel_p1.py`, `tests/unidade/gold_sintetica.py` (construtor da gold sintética da T-46, reaproveitado pela P1; decisão do plano da T-47)
 - Teste: test_carta_de_0_90_fora; test_code_card_fora; test_preco_nulo_no_ultimo_dia_fora; test_dois_rankings_de_10_com_decomposicao; test_desempate_por_product_id_e_acabamento; test_em_dolar_sem_decomposicao (AppTest); test_carta_citada_com_imagem_e_link
 - Comando: pytest tests/unidade/test_painel_p1.py -q
 - Depende de: T-46
