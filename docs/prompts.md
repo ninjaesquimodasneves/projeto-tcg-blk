@@ -5656,3 +5656,53 @@ Plano da T-48 aprovado. Regras 1, 2, 4, 5 e 6 aprovadas como você propôs. Regr
 
 ### Decisão humana
 Regras encontradas no plano da T-48 escritas no RF-40 antes do código: média dos selados por par com preço no dia; exemplar no acabamento de menor preço do primeiro dia, com desempate; soma das raras com conjunto fixo só de exemplares com preço em todos os dias do período, para evitar quedas falsas sem inventar preço, com a contagem dos que ficaram fora visível na página; base 100 na moeda escolhida, sem dividir por zero; exemplar escolhido antes do filtro de preço mínimo. Testes extras acrescentados à T-48.
+## 2026-11-27 — Etapa: implementação da T-48 (P2: selados contra raras em base 100)
+
+O pedido original da T-48 (prompt 1) e a aprovação do plano com as regras 1 a 6 (prompt 2) estão na entrada "terceiro adendo de 2026-11-27 ao RF-40 (plano da T-48)".
+
+### Prompt 3 (literal)
+
+```text
+Spec e tasks commitados (67cc0fa), e os três pontos que você completou na regra 3 estão aprovados. Pode implementar a T-48 conforme o plano aprovado, com as regras do terceiro adendo de 2026-11-27 ao RF-40 e os testes listados na T-48. Se um teste existente quebrar por causa da página ganhar mais elementos, pare e me mostre antes de mudar o arquivo dele. Ao final, mostre a saída do pytest antes e depois, com a última linha da suíte inteira, e um resumo de até cinco linhas com a mensagem de commit proposta. Não acesse o bucket real e não abra o dashboard. Não rode git add, git commit nem git push.
+```
+
+### Observação do agente
+- Os nove testes da lista da T-48 foram escritos primeiro. Entraram mais dois, porque o terceiro adendo de 2026-11-27 ao RF-40 os exige: `test_soma_em_reais_nula_quando_falta_preco_em_reais_de_um_exemplar` (ponto 1 da regra 3) e `test_primeiro_dia_nulo_ou_zero_sem_indice_com_aviso` (regra 4, na Verificação). A lista e a rastreabilidade do RF-40 em `specs/tasks.md` foram atualizadas.
+- `serie_diaria` (T-46) ganhou o parâmetro `agregacao`; com "soma", o dia só tem valor quando todos os pares escolhidos têm preço, o que garante que a série em reais nunca seja uma soma parcial. As chamadas da T-46 não mudaram.
+- A tabela da P2 usa a coluna "Data" com maiúscula e não tem a coluna "Carta"; os auxiliares dos testes da T-46 e da T-47 não a confundem, e nenhum teste existente quebrou ou mudou.
+- Nenhum acesso ao bucket, o dashboard não foi aberto e o `.env` não foi lido.
+
+### Saída dos testes
+Antes do código da P2 (`.venv/bin/pytest tests/unidade/test_painel_p2.py -q`, linhas de erro agrupadas):
+```text
+      4 E           AttributeError: module 'painel.consultas' has no attribute 'serie_p2'
+      1 E       AttributeError: module 'painel.consultas' has no attribute 'exemplares'
+      5 E       AttributeError: module 'painel.consultas' has no attribute 'serie_p2'
+      1 E       ValueError: not enough values to unpack (expected 1, got 0)
+      1 11 failed in 20.29s
+```
+
+Depois da consulta, antes da seção na página:
+```text
+FAILED tests/unidade/test_painel_p2.py::test_soma_so_com_exemplares_com_preco_em_todos_os_dias
+FAILED tests/unidade/test_painel_p2.py::test_chave_dolar_troca_a_moeda_das_duas_series
+FAILED tests/unidade/test_painel_p2.py::test_primeiro_dia_nulo_ou_zero_sem_indice_com_aviso
+3 failed, 8 passed in 3.92s
+```
+
+Depois da seção na página:
+```text
+tests/unidade/test_painel_p2.py: 11 passed in 4.03s
+tests/unidade/test_painel_base.py e test_painel_p1.py: 16 passed in 4.63s
+pytest -q: 588 passed in 94.82s (0:01:34)
+```
+
+### Arquivos gerados
+- `tests/unidade/test_painel_p2.py`
+- `src/painel/consultas.py` (`agregacao` em `serie_diaria`, `exemplares`, `serie_p2`, `LinhaP2` e `ResultadoP2`)
+- `dashboard/app.py` (seção da P2)
+- `specs/tasks.md` (T-48 concluída, lista de testes, nota e rastreabilidade do RF-40)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Plano aprovado. P2 como consulta pura, só da 24325: média dos selados com preço no dia e soma das cartas Double Rare em diante, um exemplar por carta no acabamento de menor preço do primeiro dia, num conjunto fixo só com as cartas que têm preço em todos os dias; as duas séries em base 100 na moeda escolhida, com a lacuna de 20/11 como ponto nulo e a contagem das cartas fora visível na página. Testes falharam antes pelo motivo esperado e passaram depois.

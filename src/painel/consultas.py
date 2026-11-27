@@ -11,6 +11,10 @@ Nenhuma funcao aqui usa Streamlit: a pagina so exibe o que estas funcoes devolve
 - P1 (RF-39, segundo adendo de 2026-11-27): cartas da 24325 sem "Code Card", por par, com preco > US$ 1
   no primeiro dia e preco nao nulo no primeiro e no ultimo dia, decompostas por gold.decomposicao (RF-37);
   dois rankings independentes de ate 10 linhas por r_brl, com desempate por product_id e acabamento.
+- P2 (RF-40, terceiro adendo de 2026-11-27): so a 24325; media dos selados por par com preco no dia; soma
+  das raras ("Double Rare em diante") sobre um conjunto fixo de exemplares (acabamento de menor preco do
+  primeiro dia, filtro de preco minimo depois) com market_price_usd nao nulo em todos os dias com linha da
+  colecao; base 100 no primeiro dia da moeda escolhida; sem indice com valor nulo ou zero no primeiro dia.
 """
 
 import tempfile
@@ -58,12 +62,26 @@ def pares_acima_do_minimo(con, group_id: int, minimo_usd: float) -> list[Par]:
     return sorted(tuple(linha) for linha in con.execute(sql, parametros).fetchall())
 
 
+AGREGACOES = {
+    "media": "avg({coluna})",
+    # soma so quando todos os pares escolhidos tem preco no dia; senao nulo, nunca soma parcial (RF-40)
+    "soma": "CASE WHEN count({coluna}) = (SELECT count(*) FROM _pares) THEN sum({coluna}) END",
+}
+
+
 def serie_diaria(
-    con, group_id: int, moeda: str, minimo_usd: float = 0.0, pares: Iterable[Par] | None = None
+    con,
+    group_id: int,
+    moeda: str,
+    minimo_usd: float = 0.0,
+    pares: Iterable[Par] | None = None,
+    agregacao: str = "media",
 ) -> list[tuple[date, float | None]]:
-    """Media diaria do preco dos pares na moeda escolhida, com o dia sem preco como nulo (RF-38)."""
+    """Media (ou soma) diaria do preco dos pares na moeda escolhida, com o dia sem preco como nulo (RF-38)."""
     if moeda not in COLUNA_PRECO:
         raise ValueError(f"moeda deve ser 'brl' ou 'usd': {moeda!r}")
+    if agregacao not in AGREGACOES:
+        raise ValueError(f"agregacao deve ser 'media' ou 'soma': {agregacao!r}")
     escolhidos = set(pares_acima_do_minimo(con, group_id, minimo_usd))
     if pares is not None:
         escolhidos &= set(pares)
@@ -71,13 +89,14 @@ def serie_diaria(
     if escolhidos:
         con.executemany("INSERT INTO _pares VALUES (?, ?, ?)", sorted(escolhidos))
     coluna = COLUNA_PRECO[moeda]
+    expressao = AGREGACOES[agregacao].format(coluna=f"f.{coluna}")
     linhas = con.execute(
         f"""
         WITH limites AS (
             SELECT min(data) AS inicio, max(data) AS fim FROM fato_preco_diario WHERE group_id = ?
         ),
         media AS (
-            SELECT f.data, avg(f.{coluna}) AS valor
+            SELECT f.data, {expressao} AS valor
             FROM fato_preco_diario f
             JOIN _pares p USING (group_id, product_id, acabamento)
             GROUP BY f.data
@@ -173,3 +192,113 @@ def ranking_p1(con, minimo_usd: float = 0.0) -> tuple[list[LinhaP1], list[LinhaP
     maiores = sorted(pares, key=lambda l: (-l.r_brl, l.product_id, l.acabamento))[:TAMANHO_RANKING]
     menores = sorted(pares, key=lambda l: (l.r_brl, l.product_id, l.acabamento))[:TAMANHO_RANKING]
     return maiores, menores
+
+
+GROUP_ID_P2 = 24325
+RARIDADES_P2 = ("Double Rare", "Ultra Rare", "Illustration Rare", "Special Illustration Rare", "Black White Rare")
+
+
+def exemplares(con, group_id: int) -> dict[int, Par]:
+    """Um par por carta: acabamento de menor market_price_usd nao nulo no primeiro dia da colecao, com
+    desempate por acabamento crescente; carta sem preco no primeiro dia nao tem exemplar (RF-40)."""
+    linhas = con.execute(
+        """
+        SELECT f.product_id, f.acabamento
+        FROM fato_preco_diario f
+        JOIN dim_produto p USING (group_id, product_id)
+        WHERE f.group_id = ?
+          AND f.data = (SELECT min(data) FROM fato_preco_diario WHERE group_id = ?)
+          AND p.tipo_produto = 'carta'
+          AND f.market_price_usd IS NOT NULL
+        QUALIFY row_number() OVER (PARTITION BY f.product_id ORDER BY f.market_price_usd, f.acabamento) = 1
+        """,
+        [group_id, group_id],
+    ).fetchall()
+    return {pid: (group_id, pid, acabamento) for pid, acabamento in linhas}
+
+
+@dataclass(frozen=True)
+class LinhaP2:
+    data: date
+    selados: float | None
+    raras: float | None
+    indice_selados: float | None
+    indice_raras: float | None
+
+
+@dataclass(frozen=True)
+class ResultadoP2:
+    linhas: list[LinhaP2]
+    cartas_fora_sem_preco: int
+    sem_indice_selados: bool
+    sem_indice_raras: bool
+
+
+def _base_100(valores: list[float | None]) -> list[float | None] | None:
+    """Indice com base 100 no primeiro dia; None quando o primeiro valor e nulo ou zero (sem dividir)."""
+    if not valores or valores[0] is None or valores[0] == 0:
+        return None
+    return [None if v is None else v / valores[0] * 100 for v in valores]
+
+
+def serie_p2(con, moeda: str, minimo_usd: float = 0.0) -> ResultadoP2:
+    """P2: selados (media) contra cartas "Double Rare em diante" (soma), em base 100, so da 24325."""
+    g = GROUP_ID_P2
+    selados = [
+        tuple(l) for l in con.execute(
+            """
+            SELECT DISTINCT f.group_id, f.product_id, f.acabamento
+            FROM fato_preco_diario f JOIN dim_produto p USING (group_id, product_id)
+            WHERE f.group_id = ? AND p.tipo_produto = 'selado'
+            """,
+            [g],
+        ).fetchall()
+    ]
+    lista = [
+        pid for (pid,) in con.execute(
+            "SELECT product_id FROM dim_produto WHERE group_id = ? AND tipo_produto = 'carta' AND raridade IN ?",
+            [g, list(RARIDADES_P2)],
+        ).fetchall()
+    ]
+    por_carta = exemplares(con, g)
+    acima = set(pares_acima_do_minimo(con, g, minimo_usd))  # exemplar primeiro, filtro depois
+    candidatos = [por_carta[pid] for pid in lista if pid in por_carta and por_carta[pid] in acima]
+    # dias com alguma linha da colecao; o dia sem nenhuma linha (lacuna) nao entra na exigencia
+    completos = {
+        (grupo, pid, acabamento)
+        for grupo, pid, acabamento in con.execute(
+            """
+            SELECT group_id, product_id, acabamento FROM fato_preco_diario
+            WHERE group_id = ? AND market_price_usd IS NOT NULL
+            GROUP BY ALL
+            HAVING count(DISTINCT data) = (SELECT count(DISTINCT data) FROM fato_preco_diario WHERE group_id = ?)
+            """,
+            [g, g],
+        ).fetchall()
+    }
+    conjunto = [par for par in candidatos if par in completos]
+    sem_exemplar = sum(1 for pid in lista if pid not in por_carta)
+    fora = sem_exemplar + len(candidatos) - len(conjunto)
+
+    serie_selados = serie_diaria(con, g, moeda, minimo_usd, pares=selados)
+    serie_raras = serie_diaria(con, g, moeda, 0.0, pares=conjunto, agregacao="soma")
+    valores_selados = [v for _, v in serie_selados]
+    valores_raras = [v for _, v in serie_raras]
+    indice_selados = _base_100(valores_selados)
+    indice_raras = _base_100(valores_raras)
+    linhas = [
+        LinhaP2(
+            data=d,
+            selados=valores_selados[i],
+            raras=valores_raras[i],
+            indice_selados=None if indice_selados is None else indice_selados[i],
+            indice_raras=None if indice_raras is None else indice_raras[i],
+        )
+        for i, (d, _) in enumerate(serie_selados)
+    ]
+    return ResultadoP2(
+        linhas=linhas,
+        cartas_fora_sem_preco=fora,
+        sem_indice_selados=indice_selados is None,
+        sem_indice_raras=indice_raras is None,
+    )

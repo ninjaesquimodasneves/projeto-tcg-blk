@@ -2,7 +2,7 @@
 
 Abrir (so local, credenciais do ambiente): PYTHONPATH=src streamlit run dashboard/app.py
 A pagina so exibe: a leitura da gold publicada esta em painel.leitura (so get_object) e as contas em
-painel.consultas (DuckDB). P1 na T-47; P2 a P5 entram nas T-48 a T-51.
+painel.consultas (DuckDB). P1 na T-47; P2 na T-48; P3 a P5 entram nas T-49 a T-51.
 """
 
 import altair as alt
@@ -128,4 +128,48 @@ for titulo, linhas in (("Maiores valorizações", maiores), ("Maiores desvaloriz
         st.dataframe(_tabela_p1(linhas), hide_index=True, column_config=configuracao_p1)
     else:
         st.info("Nenhuma carta elegível com os filtros atuais.")
+
+# --- P2 (RF-40; terceiro adendo de 2026-11-27): base 100 no primeiro dia da moeda escolhida ---
+st.header("P2 — Selados contra cartas Double Rare em diante (base 100)")
+p2 = consultas.serie_p2(con, moeda, minimo_usd)
+st.caption(
+    f"Coleção 24325. Selados: média do preço dos selados com preço no dia. Raras: soma do preço de um exemplar "
+    f"de cada carta Double Rare, Ultra Rare, Illustration Rare, Special Illustration Rare ou Black White Rare "
+    f"(acabamento de menor preço no primeiro dia), só com os exemplares com preço em todos os dias. "
+    f"Base 100 no primeiro dia, em {simbolo}; em reais, o índice inclui a variação do câmbio."
+)
+st.caption(f"{p2.cartas_fora_sem_preco} cartas da lista ficaram fora por falta de preço em algum dia.")
+for nome, sem_indice in (("Selados", p2.sem_indice_selados), ("Raras", p2.sem_indice_raras)):
+    if sem_indice:
+        st.warning(f"{nome} sem índice: o valor do primeiro dia é nulo ou zero.")
+tabela_p2 = pd.DataFrame(
+    {
+        "Data": pd.to_datetime([l.data for l in p2.linhas]),
+        "Selados (índice)": [l.indice_selados for l in p2.linhas],
+        "Raras (índice)": [l.indice_raras for l in p2.linhas],
+        f"Selados ({simbolo})": [l.selados for l in p2.linhas],
+        f"Raras ({simbolo})": [l.raras for l in p2.linhas],
+    }
+)
+for coluna_p2 in tabela_p2.columns[1:]:
+    tabela_p2[coluna_p2] = tabela_p2[coluna_p2].astype("Float64")
+grafico_p2 = (
+    alt.Chart(tabela_p2)
+    .transform_fold(["Selados (índice)", "Raras (índice)"], as_=["Série", "Índice"])
+    .mark_line(point=True)
+    .encode(
+        x=alt.X("Data:T", title="Data"),
+        y=alt.Y("Índice:Q", title=f"Índice (base 100, {simbolo})"),
+        color=alt.Color("Série:N", title="Série"),
+    )
+)
+st.altair_chart(grafico_p2, width="stretch")
+st.dataframe(
+    tabela_p2,
+    hide_index=True,
+    column_config={
+        f"{nome} ({simbolo})": st.column_config.NumberColumn(f"{nome} ({simbolo})", format=formato_preco)
+        for nome in ("Selados", "Raras")
+    },
+)
 con.close()
