@@ -5583,3 +5583,76 @@ pytest -q: 577 passed in 87.46s (0:01:27)
 
 ### Decisão humana
 Plano aprovado. P1 como consulta pura: cartas da 24325 sem Code Card, acima de US$ 1 no primeiro dia e dentro do filtro de preço mínimo, sem preço inventado no primeiro ou no último dia; decomposição da T-35 em cada par; dois rankings de até 10 pela variação em reais, com desempate por product_id e acabamento. Página com imagem e link de cada carta; em dólar, preços e variação em dólar, sem os efeitos, sem reordenar; mensagem quando nenhuma carta é elegível. Construtor da gold sintética movido para gold_sintetica.py; no teste da T-46, só o auxiliar que encontra a tabela foi ajustado, porque a página passou a ter mais tabelas, sem mudar nenhuma asserção. Testes falharam antes pelo motivo esperado e passaram depois.
+## 2026-11-27 — Etapa: terceiro adendo de 2026-11-27 ao RF-40 (plano da T-48)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados Python que constrói dashboards testáveis, com a lógica separada da interface. Pratica desenvolvimento orientado a testes, executa uma única tarefa, prova com a saída real do terminal e para.
+
+[R] Pedido
+Implemente somente a tarefa T-48 de specs/tasks.md (P2: selados contra raras em base 100, RF-40). Siga esta ordem:
+1. mostre o plano: a consulta (pura, sobre DuckDB), quais produtos entram em cada série (selados; cartas Double Rare, Ultra Rare, Illustration Rare, Special Illustration Rare e Black White Rare, lista validada na T-30), como o conjunto é fixado, como cada série é calculada por dia, como a base 100 é definida, como a lacuna aparece, e o comando de verificação. Se o plano precisar de alguma regra que ainda não está escrita na spec, liste essas regras numa seção separada "Regras fora da spec" e espere minha decisão, sem implementá-las; espere minha confirmação;
+2. escreva primeiro os testes da tarefa, rode e mostre que falham pelo motivo esperado;
+3. implemente o mínimo para os testes passarem;
+4. rode a verificação da tarefa e o pytest inteiro e mostre a saída real;
+5. marque a T-48 como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit.
+
+[E] Exemplos
+Casos que os testes precisam cobrir (gold sintética, sem rede):
+  só a coleção 24325;
+  série dos selados: média do preço dos selados por dia, sem contar nulos;
+  série das raras: soma do preço das cartas da lista da P2 por dia;
+  as duas séries em base 100 no primeiro dia;
+  Common, Uncommon, Rare e Code Card ficam fora das raras;
+  dia sem coleta aparece como lacuna (ponto nulo), sem interpolar;
+  a chave reais/dólar troca a moeda das duas séries (confirme no plano o que acontece com a base 100);
+  o filtro de preço mínimo em dólar é aplicado conforme o RF-38.
+Commit proposto: feat(T-48): pergunta 2 com selados contra raras [RF-38, RF-40]
+
+[A] Ajustes
+- Faça só a T-48; as outras perguntas são das T-49 a T-51.
+- Reaproveite as consultas, a leitura e o módulo gold_sintetica.py das tarefas anteriores; nada de reimplementar.
+- Testes sem rede e sem o bucket real; se um teste existente quebrar por causa da página ganhar mais elementos, pare e me mostre antes de mudar o arquivo dele.
+- Siga o RF-38 e o RF-40 ao pé da letra; regras novas só depois da minha decisão.
+- Não leia nem imprima o .env.
+- Não rode git add, git commit nem git push.
+- Se a verificação falhar, tente corrigir no máximo duas vezes; depois disso, pare e explique.
+- Não declare sucesso sem mostrar a saída do comando.
+
+[T] Tipo de saída
+Os arquivos da tarefa, a saída do pytest antes e depois e um resumo de até cinco linhas com a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/tasks.md, docs/evidencias/T-30_raridades_e_turma.md, src/painel/ e dashboard/app.py antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2 (literal)
+
+```text
+Plano da T-48 aprovado. Regras 1, 2, 4, 5 e 6 aprovadas como você propôs. Regra 3 com outra solução: a soma das raras usa um conjunto fixo, só com os exemplares que têm preço não nulo em todos os dias do período exibido (do primeiro ao último dia da 24325, exceto os dias sem nenhuma linha, como a lacuna de 20/11, que continuam como ponto nulo); a página informa quantas cartas da lista ficaram fora por falta de preço em algum dia. Motivo: evita quedas falsas na soma quando falta o preço de uma carta e evita apagar dias inteiros, sem inventar preço. Antes do código, edite specs/spec.md com o adendo de 2026-11-27 ao RF-40 (regras 1 a 5) e specs/tasks.md (regra 6 e um teste para a regra 3, por exemplo test_soma_so_com_exemplares_com_preco_em_todos_os_dias), acrescente esta mudança em docs/prompts.md e pare, sem criar código. Não rode git add, git commit nem git push.
+```
+
+### Observação do agente
+- O prompt 1 pedia a T-48 inteira, mas nesta etapa saiu só o plano. O plano trazia seis "Regras fora da spec"; o prompt 2 aprovou o plano e as regras 1, 2, 4, 5 e 6, trocou a regra 3 e pediu a spec e as tarefas antes do código.
+- **Plano aprovado:**
+  - `serie_diaria` (T-46) ganha o parâmetro opcional `agregacao` ("media" por padrão, "soma" como alternativa), sem mudar as chamadas da T-46;
+  - `exemplares(con, group_id)` escolhe um par por carta, fixo a partir do primeiro dia;
+  - `serie_p2(con, moeda, minimo_usd)` devolve, por dia, os valores e os índices das duas séries, só da 24325, com as raridades de `RARIDADES_P2` em comparação literal;
+  - na página, seção da P2 depois da P1, com um gráfico Altair de duas linhas (quebra no ponto nulo) e uma tabela com a coluna "Data" em maiúscula, para não confundir os auxiliares dos testes da T-46 e da T-47.
+- O adendo se chama "terceiro adendo de 2026-11-27", porque o RF-38 e o RF-39 já receberam adendos nesta data (d47ec78 e c71d158).
+- **No RF-40 entraram:** a regra 1 (média dos selados por par com preço no dia); a regra 2 (exemplar no acabamento de menor market_price_usd do primeiro dia, desempate por acabamento, carta sem preço no primeiro dia sem exemplar); a regra 3 do prompt 2 (conjunto fixo de exemplares com preço em todos os dias, dias sem linha como ponto nulo, contagem na página); a regra 4 (base 100 na moeda escolhida, aviso sem índice com valor nulo ou zero no primeiro dia); a regra 5 (exemplar antes do filtro de preço mínimo). Entraram também o motivo e os testes na Verificação. O cabeçalho cita o adendo.
+- **Para conferir (regra 3):** o conjunto fixo é definido pelo market_price_usd e vale nas duas moedas; na série em reais, um dia em que falta o market_price_brl de algum exemplar do conjunto (por exemplo, PTAX nula) vira ponto nulo, em vez de soma parcial. O prompt 2 não dizia a moeda da exigência; com a exigência em reais, uma PTAX nula num dia tiraria todas as cartas do conjunto.
+- **Para conferir (regra 3):** a contagem "cartas fora por falta de preço" inclui as cartas da lista sem exemplar (sem preço no primeiro dia) e as com exemplar sem preço em algum dia do período, e não conta as que saíram pelo filtro de preço mínimo (regra 5).
+- **Para conferir (regra 3):** "dia sem nenhuma linha" foi escrito como dia sem nenhuma linha da 24325 na fato_preco_diario.
+- **Em `specs/tasks.md`:** a lista de testes da T-48 ganhou test_soma_so_com_exemplares_com_preco_em_todos_os_dias e os três testes da regra 6 (lacuna, filtro e chave em dólar), com uma nota. A rastreabilidade do RF-40 será atualizada na conclusão da T-48, como nas tarefas anteriores.
+- Nenhum código foi criado. A T-48 (testes e código) continua pendente até o commit desta mudança.
+
+### Arquivos gerados
+- `specs/spec.md` (terceiro adendo de 2026-11-27 ao RF-40 e menção no cabeçalho)
+- `specs/tasks.md` (lista de testes e nota da T-48)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Regras encontradas no plano da T-48 escritas no RF-40 antes do código: média dos selados por par com preço no dia; exemplar no acabamento de menor preço do primeiro dia, com desempate; soma das raras com conjunto fixo só de exemplares com preço em todos os dias do período, para evitar quedas falsas sem inventar preço, com a contagem dos que ficaram fora visível na página; base 100 na moeda escolhida, sem dividir por zero; exemplar escolhido antes do filtro de preço mínimo. Testes extras acrescentados à T-48.

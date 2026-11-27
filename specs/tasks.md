@@ -429,9 +429,10 @@ Comando base da gold: `PYTHONPATH=src python -m gold`. Dashboard: `PYTHONPATH=sr
 ## T-48 P2: selados contra cartas de raridade alta
 - Requisitos: RF-40
 - Arquivos: `src/painel/consultas.py`, `dashboard/app.py`, `tests/unidade/test_painel_p2.py`
-- Teste: test_indice_100_no_primeiro_dia; test_selado_com_preco_nulo_fora_da_media; test_carta_rare_fora_da_soma; test_um_exemplar_no_acabamento_de_menor_preco_do_primeiro_dia; test_so_colecao_24325
+- Teste: test_indice_100_no_primeiro_dia; test_selado_com_preco_nulo_fora_da_media; test_carta_rare_fora_da_soma; test_um_exemplar_no_acabamento_de_menor_preco_do_primeiro_dia; test_so_colecao_24325; test_soma_so_com_exemplares_com_preco_em_todos_os_dias (terceiro adendo de 2026-11-27 ao RF-40); test_lacuna_sem_linha_vira_ponto_nulo_nas_duas_series; test_filtro_de_preco_minimo_nas_duas_series; test_chave_dolar_troca_a_moeda_das_duas_series (AppTest)
 - Comando: pytest tests/unidade/test_painel_p2.py -q
 - Depende de: T-47 e lista de raridades conferida na T-30
+- Nota (2026-11-27, regra 6 do plano aprovada pela aluna): os testes da lacuna, do filtro e da chave em dólar entraram na lista a partir dos exemplos do pedido da T-48; test_soma_so_com_exemplares_com_preco_em_todos_os_dias cobre a regra 3 do plano (conjunto fixo das raras), com um exemplar sem preço num dia do meio (fora em todos os dias, sem queda na soma), um dia sem nenhuma linha da 24325 (ponto nulo, sem tirar exemplar) e a contagem das cartas fora exibida na página.
 
 ## T-49 P3: valor da coleção em base 100 por coleção da turma
 - Requisitos: RF-41
