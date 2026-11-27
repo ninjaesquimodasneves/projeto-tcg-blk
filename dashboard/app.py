@@ -2,7 +2,7 @@
 
 Abrir (so local, credenciais do ambiente): PYTHONPATH=src streamlit run dashboard/app.py
 A pagina so exibe: a leitura da gold publicada esta em painel.leitura (so get_object) e as contas em
-painel.consultas (DuckDB). P1 na T-47; P2 na T-48; P3 a P5 entram nas T-49 a T-51.
+painel.consultas (DuckDB). P1 na T-47; P2 na T-48; P3 na T-49; P4 e P5 entram nas T-50 e T-51.
 """
 
 import altair as alt
@@ -172,4 +172,66 @@ st.dataframe(
         for nome in ("Selados", "Raras")
     },
 )
+
+# --- P3 (RF-41; quarto adendo de 2026-11-27): dia base pelo valor em reais, fixo nas duas moedas ---
+st.header("P3 — Valor da coleção em base 100 por coleção da turma")
+colecoes = consultas.colecoes_p3(con)
+rotulo = {c.group_id: f"{c.sigla} ({c.group_id})" for c in colecoes}
+sigla = {c.group_id: c.sigla for c in colecoes}
+exibidas = st.multiselect(
+    "Coleções exibidas",
+    options=[c.group_id for c in colecoes],
+    default=[c.group_id for c in colecoes if c.tem_valor_em_reais],
+    format_func=lambda g: rotulo[g],
+)
+fora_do_padrao = [rotulo[c.group_id] for c in colecoes if not c.tem_valor_em_reais]
+if fora_do_padrao:
+    st.caption("Fora do padrão: " + "; ".join(f"{r}: nenhum preço em reais" for r in fora_do_padrao) + ".")
+st.caption(
+    "Valor no dia: soma de um exemplar de cada carta, sem Code Card (acabamento de menor preço no primeiro dia "
+    "da coleção), só com os exemplares com preço em todos os dias; base 100 no primeiro dia em comum com valor "
+    "em reais, o mesmo nas duas moedas. PTAX de venda na mesma base, em todos os dias de calendário."
+)
+if exibidas:
+    p3 = consultas.serie_p3(con, moeda, minimo_usd, exibidas)
+    if p3.dia_base is None:
+        st.warning("Sem dia em comum com valor em reais entre " + ", ".join(rotulo[g] for g in exibidas) + "; sem índice.")
+    else:
+        st.caption(
+            f"Dia base: {p3.dia_base:%d/%m/%Y}. Cartas fora por falta de preço em algum dia: "
+            + "; ".join(f"{sigla[g]}: {n}" for g, n in p3.cartas_fora.items())
+            + "."
+        )
+        dados_p3 = {"Dia": pd.to_datetime([l.data for l in p3.linhas])}
+        for g in p3.colecoes:
+            dados_p3[f"{sigla[g]} (índice)"] = [l.indices[g] for l in p3.linhas]
+        dados_p3["PTAX (índice)"] = [l.indice_ptax for l in p3.linhas]
+        for g in p3.colecoes:
+            dados_p3[f"{sigla[g]} ({simbolo})"] = [l.valores[g] for l in p3.linhas]
+        dados_p3["PTAX de venda"] = [l.ptax for l in p3.linhas]
+        tabela_p3 = pd.DataFrame(dados_p3)
+        for coluna_p3 in tabela_p3.columns[1:]:
+            tabela_p3[coluna_p3] = tabela_p3[coluna_p3].astype("Float64")
+        series_p3 = [f"{sigla[g]} (índice)" for g in p3.colecoes] + ["PTAX (índice)"]
+        grafico_p3 = (
+            alt.Chart(tabela_p3)
+            .transform_fold(series_p3, as_=["Série", "Índice"])
+            .mark_line(point=True)
+            .encode(
+                x=alt.X("Dia:T", title="Data"),
+                y=alt.Y("Índice:Q", title=f"Índice (base 100, {simbolo})"),
+                color=alt.Color("Série:N", title="Série"),
+            )
+        )
+        st.altair_chart(grafico_p3, width="stretch")
+        st.dataframe(
+            tabela_p3,
+            hide_index=True,
+            column_config={
+                f"{sigla[g]} ({simbolo})": st.column_config.NumberColumn(f"{sigla[g]} ({simbolo})", format=formato_preco)
+                for g in p3.colecoes
+            },
+        )
+else:
+    st.info("Nenhuma coleção selecionada.")
 con.close()

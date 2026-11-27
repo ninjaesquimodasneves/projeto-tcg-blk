@@ -5775,3 +5775,53 @@ Plano da T-49 aprovado, e as regras A a G como você propôs (na E, a PTAX apare
 
 ### Decisão humana
 Regras encontradas no plano da T-49 escritas no RF-41 antes do código, a partir dos dados reais da T-44: dia base como o primeiro dia em que todas as coleções exibidas têm valor em reais, com aviso se não houver; seletor de coleções com padrão só das que têm preço em reais, informando as que ficaram fora e o motivo (a 24269 não tem nenhum preço em reais); conjunto fixo de cartas por coleção, como na P2; chave em dólar sem mover o dia base; PTAX em todos os dias de calendário; filtro de preço mínimo por coleção. Testes extras acrescentados à T-49.
+## 2026-11-27 — Etapa: implementação da T-49 (P3: valor por coleção da turma em base 100)
+
+O pedido original da T-49 (prompt 1) e a aprovação do plano com as regras A a G (prompt 2) estão na entrada "quarto adendo de 2026-11-27 ao RF-41 (plano da T-49)".
+
+### Prompt 3 (literal)
+
+```text
+Spec e tasks commitados (b9d9aef). Pode implementar a T-49 conforme o plano aprovado, com as regras A a F do adendo de 2026-11-27 ao RF-41 e os testes listados na T-49. Se um teste existente quebrar por causa da página ganhar mais elementos, pare e me mostre antes de mudar o arquivo dele. Ao final, mostre a saída do pytest antes e depois, com a última linha da suíte inteira, e um resumo de até cinco linhas com a mensagem de commit proposta. Não acesse o bucket real e não abra o dashboard. Não rode git add, git commit nem git push.
+```
+
+### Observação do agente
+- Os nove testes da lista da T-49 foram escritos primeiro, com uma gold sintética de três coleções (24325, 24541 e 24269), PTAX só a partir de 17/11 e 20/11 com a PTAX de 19/11.
+- `colecoes_p3` e `serie_p3` entraram em `src/painel/consultas.py`, reaproveitando `exemplares`, `pares_acima_do_minimo`, `serie_diaria(..., agregacao="soma")` e `_base_100` da T-48 sem mudança.
+- **Uma correção no teste novo:** `test_filtro_de_preco_minimo_por_colecao` esperava nenhum dia base com mínimo de US$ 12 na 24325. Pela regra A, o conjunto fixo vale do dia base em diante, e em 21/11 a carta 1004 tem preço até o último dia, então o dia base é 21/11. A expectativa foi corrigida para a leitura literal do adendo; a consulta não mudou.
+- **Para conferir (regra A):** como o conjunto depende do dia base, uma carta sem preço num dia do meio pode empurrar o dia base para depois desse dia quando ela é a única do conjunto, como no caso acima. Com várias cartas, a carta sai do conjunto e o dia base fica onde está.
+- A tabela da P3 usa a coluna "Dia"; nenhum teste existente quebrou ou mudou.
+- Nenhum acesso ao bucket, o dashboard não foi aberto e o `.env` não foi lido.
+
+### Saída dos testes
+Antes do código da P3 (`.venv/bin/pytest tests/unidade/test_painel_p3.py -q`, linhas de erro agrupadas):
+```text
+      8 E       AttributeError: module 'painel.consultas' has no attribute 'serie_p3'. Did you mean: 'serie_p2'?
+      1 E       ValueError: not enough values to unpack (expected 1, got 0)
+      1 9 failed in 2.86s
+```
+
+Depois da consulta, antes da seção na página e da correção da expectativa:
+```text
+FAILED tests/unidade/test_painel_p3.py::test_sem_dia_em_comum_sem_indice_com_aviso
+FAILED tests/unidade/test_painel_p3.py::test_filtro_de_preco_minimo_por_colecao
+FAILED tests/unidade/test_painel_p3.py::test_chave_dolar_nao_muda_o_dia_base
+3 failed, 6 passed in 3.32s
+```
+
+Depois:
+```text
+tests/unidade/test_painel_p3.py: 9 passed in 3.91s
+tests/unidade/test_painel_base.py, test_painel_p1.py e test_painel_p2.py: 27 passed in 7.49s
+pytest -q: 597 passed in 90.63s (0:01:30)
+```
+
+### Arquivos gerados
+- `tests/unidade/test_painel_p3.py`
+- `src/painel/consultas.py` (`colecoes_p3`, `serie_p3`, `ColecaoP3`, `LinhaP3` e `ResultadoP3`)
+- `dashboard/app.py` (seção da P3)
+- `specs/tasks.md` (T-49 concluída, notas e rastreabilidade do RF-41)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Plano aprovado. P3 como consulta pura: valor diário de cada coleção exibida como soma de um exemplar por carta, sem Code Card, num conjunto fixo por coleção; índices em base 100 no primeiro dia em que todas as coleções exibidas têm valor em reais, com a PTAX de venda na mesma base; seletor de coleções com padrão só das que têm preço em reais e o motivo das que ficaram fora; lacunas como ponto nulo; chave em dólar sem mover o dia base. Testes falharam antes pelo motivo esperado e passaram depois.

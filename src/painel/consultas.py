@@ -15,6 +15,10 @@ Nenhuma funcao aqui usa Streamlit: a pagina so exibe o que estas funcoes devolve
   das raras ("Double Rare em diante") sobre um conjunto fixo de exemplares (acabamento de menor preco do
   primeiro dia, filtro de preco minimo depois) com market_price_usd nao nulo em todos os dias com linha da
   colecao; base 100 no primeiro dia da moeda escolhida; sem indice com valor nulo ou zero no primeiro dia.
+- P3 (RF-41, quarto adendo de 2026-11-27): por colecao exibida, soma de um exemplar de cada carta sem
+  "Code Card" (exemplar e filtro como na P2), com conjunto fixo entre o dia base e o ultimo dia da colecao;
+  dia base = primeira data em que todas as colecoes exibidas tem valor em reais (fixo nas duas moedas);
+  PTAX de venda da fato_cambio_diario em todos os dias de calendario, na mesma base.
 """
 
 import tempfile
@@ -302,3 +306,140 @@ def serie_p2(con, moeda: str, minimo_usd: float = 0.0) -> ResultadoP2:
         sem_indice_selados=indice_selados is None,
         sem_indice_raras=indice_raras is None,
     )
+
+
+@dataclass(frozen=True)
+class ColecaoP3:
+    group_id: int
+    sigla: str
+    tem_valor_em_reais: bool
+
+
+def colecoes_p3(con) -> list[ColecaoP3]:
+    """Colecoes aprovadas (dim_colecao), a 24325 primeiro; tem_valor_em_reais marca o padrao do seletor."""
+    linhas = con.execute(
+        """
+        SELECT c.group_id, c.sigla,
+               EXISTS (
+                   SELECT 1 FROM fato_preco_diario f JOIN dim_produto p USING (group_id, product_id)
+                   WHERE f.group_id = c.group_id AND p.tipo_produto = 'carta'
+                     AND p.raridade IS DISTINCT FROM 'Code Card' AND f.market_price_brl IS NOT NULL
+               )
+        FROM dim_colecao c
+        ORDER BY c.group_id <> ?, c.group_id
+        """,
+        [GROUP_ID_P2],
+    ).fetchall()
+    return [ColecaoP3(g, sigla, bool(tem)) for g, sigla, tem in linhas]
+
+
+@dataclass(frozen=True)
+class LinhaP3:
+    data: date
+    valores: dict[int, float | None]
+    indices: dict[int, float | None]
+    ptax: float | None
+    indice_ptax: float | None
+
+
+@dataclass(frozen=True)
+class ResultadoP3:
+    colecoes: list[int]
+    dia_base: date | None
+    linhas: list[LinhaP3]
+    cartas_fora: dict[int, int]
+
+
+@dataclass
+class _ColecaoP3:
+    lista: list[int]
+    candidatos: list[Par]
+    sem_exemplar: int
+    dias: list[date]
+    precos: dict[Par, dict[date, tuple[float | None, float | None]]]
+
+    def conjunto(self, inicio: date) -> list[Par]:
+        """Exemplares com market_price_usd nao nulo em todos os dias com linha da colecao desde inicio."""
+        dias = [d for d in self.dias if d >= inicio]
+        return [
+            par for par in self.candidatos
+            if all(self.precos[par].get(d, (None, None))[0] is not None for d in dias)
+        ]
+
+    def tem_valor_em_reais(self, dia: date) -> bool:
+        conjunto = self.conjunto(dia)
+        return dia in self.dias and bool(conjunto) and all(self.precos[par][dia][1] is not None for par in conjunto)
+
+
+def _colecao_p3(con, g: int, minimo_usd: float) -> _ColecaoP3:
+    lista = [
+        pid for (pid,) in con.execute(
+            "SELECT product_id FROM dim_produto WHERE group_id = ? AND tipo_produto = 'carta' "
+            "AND raridade IS DISTINCT FROM 'Code Card' ORDER BY product_id",
+            [g],
+        ).fetchall()
+    ]
+    por_carta = exemplares(con, g)
+    acima = set(pares_acima_do_minimo(con, g, minimo_usd))  # exemplar primeiro, filtro depois
+    candidatos = [por_carta[pid] for pid in lista if pid in por_carta and por_carta[pid] in acima]
+    dias = [d for (d,) in con.execute(
+        "SELECT DISTINCT data FROM fato_preco_diario WHERE group_id = ? ORDER BY data", [g]
+    ).fetchall()]
+    precos: dict[Par, dict[date, tuple[float | None, float | None]]] = {par: {} for par in candidatos}
+    for pid, acabamento, d, usd, brl in con.execute(
+        "SELECT product_id, acabamento, data, market_price_usd, market_price_brl FROM fato_preco_diario WHERE group_id = ?",
+        [g],
+    ).fetchall():
+        if (g, pid, acabamento) in precos:
+            precos[(g, pid, acabamento)][d] = (usd, brl)
+    return _ColecaoP3(lista, candidatos, sum(1 for pid in lista if pid not in por_carta), dias, precos)
+
+
+def serie_p3(con, moeda: str, minimo_usd: float = 0.0, colecoes: Iterable[int] | None = None) -> ResultadoP3:
+    """P3: valor por colecao exibida e PTAX de venda em base 100 no primeiro dia em comum (em reais)."""
+    if moeda not in COLUNA_PRECO:
+        raise ValueError(f"moeda deve ser 'brl' ou 'usd': {moeda!r}")
+    if colecoes is None:
+        colecoes = [c.group_id for c in colecoes_p3(con) if c.tem_valor_em_reais]
+    exibidas = list(dict.fromkeys(colecoes))
+    dados = {g: _colecao_p3(con, g, minimo_usd) for g in exibidas}
+    em_comum = sorted(set.intersection(*(set(c.dias) for c in dados.values()))) if dados else []
+    dia_base = next((d for d in em_comum if all(c.tem_valor_em_reais(d) for c in dados.values())), None)
+
+    def fora(c: _ColecaoP3, inicio: date | None) -> int:
+        if inicio is None:
+            inicio = c.dias[0] if c.dias else date.min
+        return c.sem_exemplar + len(c.candidatos) - len(c.conjunto(inicio))
+
+    cartas_fora = {g: fora(c, dia_base) for g, c in dados.items()}
+    if dia_base is None:
+        return ResultadoP3(colecoes=exibidas, dia_base=None, linhas=[], cartas_fora=cartas_fora)
+
+    fim = max(c.dias[-1] for c in dados.values())
+    calendario = con.execute(
+        """
+        SELECT d.data, c.ptax_venda FROM dim_data d LEFT JOIN fato_cambio_diario c USING (data)
+        WHERE d.data BETWEEN ? AND ? ORDER BY d.data
+        """,
+        [dia_base, fim],
+    ).fetchall()
+    datas = [d for d, _ in calendario]
+    ptax = [None if v is None else float(v) for _, v in calendario]
+    valores: dict[int, list[float | None]] = {}
+    indices: dict[int, list[float | None] | None] = {}
+    for g, c in dados.items():
+        serie = dict(serie_diaria(con, g, moeda, 0.0, pares=c.conjunto(dia_base), agregacao="soma"))
+        valores[g] = [serie.get(d) for d in datas]
+        indices[g] = _base_100(valores[g])
+    indice_ptax = _base_100(ptax)
+    linhas = [
+        LinhaP3(
+            data=d,
+            valores={g: valores[g][i] for g in exibidas},
+            indices={g: None if indices[g] is None else indices[g][i] for g in exibidas},
+            ptax=ptax[i],
+            indice_ptax=None if indice_ptax is None else indice_ptax[i],
+        )
+        for i, d in enumerate(datas)
+    ]
+    return ResultadoP3(colecoes=exibidas, dia_base=dia_base, linhas=linhas, cartas_fora=cartas_fora)
