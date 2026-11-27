@@ -5323,3 +5323,70 @@ Suíte inteira (`.venv/bin/pytest -q`):
 
 ### Decisão humana
 Plano aprovado. Job gold separado no workflow, com needs: silver e if: always() && needs.silver.result == 'success', para nunca ler uma silver que falhou; mesmos secrets e valores públicos dos outros jobs; comando PYTHONPATH=src python -m gold; não chama coletor nem silver e não lê forcar_falha. Timeout de 15 minutos como hipótese. Teste do conjunto de jobs atualizado para incluir a gold. Testes novos falharam antes pelo motivo esperado e passaram depois.
+## 2026-11-27 — Etapa: adendo de 2026-11-27 ao RF-38 (plano da T-46)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados Python que constrói dashboards testáveis, com a lógica separada da interface. Pratica desenvolvimento orientado a testes, executa uma única tarefa, prova com a saída real do terminal e para.
+
+[R] Pedido
+Implemente somente a tarefa T-46 de specs/tasks.md (base do dashboard). Siga esta ordem:
+1. mostre o plano: dependências novas com versões fixadas e compatíveis com o Python 3.14, arquivos, como o dashboard lê a gold publicada (só leitura, com cache), as funções puras de consulta, a chave reais/dólar, o filtro de preço mínimo em dólar, o aviso sobre os limites do dado, o cálculo de dias desde o lançamento na consulta, o comando para abrir o dashboard e o comando de verificação. Se o plano precisar de alguma regra que ainda não está escrita na spec, liste essas regras numa seção separada "Regras fora da spec" e espere minha decisão, sem implementá-las; espere minha confirmação;
+2. instale as dependências novas no .venv e confirme que importam no Python 3.14;
+3. escreva primeiro os testes da tarefa, rode e mostre que falham pelo motivo esperado;
+4. implemente o mínimo para os testes passarem;
+5. rode a verificação da tarefa e o pytest inteiro, mostre a saída real e o novo tempo da suíte inteira (pendência da T-22: medir de novo agora que o pandas entra como dependência do Streamlit);
+6. marque a T-46 como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit.
+
+[E] Exemplos
+Casos que os testes precisam cobrir (gold sintética em arquivos locais, sem rede):
+  as consultas são funções puras sobre DuckDB, testadas sem Streamlit;
+  a chave reais/dólar troca a coluna de preço exibida, testada com streamlit.testing.v1.AppTest;
+  o filtro de preço mínimo em dólar remove os produtos abaixo do valor;
+  dias desde o lançamento são calculados na consulta (data menos data_lancamento), sem coluna na gold;
+  o aviso sobre os limites do dado aparece na página;
+  o dashboard não chama put, delete nem copy no S3.
+Commit proposto: feat(T-46): base do dashboard [RF-36, RF-38]
+
+[A] Ajustes
+- Faça só a T-46; as perguntas P1 a P5 são das T-47 a T-51.
+- Se o streamlit ou o altair não instalarem no Python 3.14, pare e me mostre o erro antes de tentar outra versão.
+- Testes sem rede e sem o bucket real; o dashboard de verdade só será aberto na T-54.
+- Siga o RF-36 e o RF-38 ao pé da letra; regras novas só depois da minha decisão.
+- Não leia nem imprima o .env.
+- Não rode git add, git commit nem git push.
+- Se a verificação falhar, tente corrigir no máximo duas vezes; depois disso, pare e explique.
+- Não declare sucesso sem mostrar a saída do comando.
+
+[T] Tipo de saída
+Os arquivos da tarefa, a saída do pytest antes e depois, o tempo da suíte inteira e um resumo de até cinco linhas com a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/plan.md, specs/tasks.md, requirements.txt e src/gold/ antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2 (literal)
+
+```text
+Plano da T-46 aprovado, e as regras 1 a 5 como você propôs. A regra 1 é só apresentação e não precisa de spec. As regras 2 a 5 vão para a spec antes do código: edite apenas specs/spec.md com o adendo de 2026-11-27 ao RF-38 (filtro de preço mínimo por par, pelo preço do primeiro dia da coleção, padrão US$ 0,00, maior ou igual, par sem preço no primeiro dia sai; série de calendário entre o primeiro e o último dia da coleção, média só dos preços não nulos da moeda escolhida, dia sem preço vira ponto nulo e nunca zero; falha na leitura da gold mostra só a classe do erro e para a página). Acrescente esta mudança em docs/prompts.md e pare, sem instalar nada e sem criar código. Não rode git add, git commit nem git push.
+```
+
+### Observação do agente
+- O prompt 1 pedia a T-46 inteira, mas nesta etapa saiu só o plano, com cinco "Regras fora da spec". O prompt 2 aprovou o plano e as cinco regras. A regra 1 (a página base mostra a série diária do preço médio dos pares da 24325 que passam no filtro, em gráfico e tabela, sem citar cartas pelo nome) é só apresentação e não entrou na spec. As regras 2 a 5 entraram na spec antes do código.
+- **Plano aprovado:**
+  - `streamlit==1.67.0` e `altair==6.3.0` no `requirements.txt`; a compatibilidade com o Python 3.14 foi conferida só com `pip download` (rodas `py3-none-any` das duas e `cp314` do pandas 3.1.1 e do pyarrow 26.0.1), sem instalar;
+  - `src/painel/leitura.py`: `ler_gold(s3, bucket)` só com `get_object` nas seis chaves de `gold.parquet.chave_gold`; `baixar_gold_publicada()` com a config do ambiente; cache com `st.cache_data(ttl=3600)` em `dashboard/app.py` (hipótese, validação pendente, já no plano);
+  - `src/painel/consultas.py`: `conectar`, `pares_acima_do_minimo`, `serie_diaria` e `dias_desde_o_lancamento` (data − data_lancamento na consulta), puras sobre DuckDB;
+  - `dashboard/app.py`: aviso dos limites do RF-38, `st.toggle` desligado (reais por padrão), filtro em US$ e a série diária.
+- **No RF-38 entraram (adendo de 2026-11-27):** o filtro por par (group_id, product_id, acabamento) pelo market_price_usd do primeiro dia da coleção, padrão US$ 0,00 sem tirar nenhum par, maior ou igual, e par com preço nulo ou sem linha no primeiro dia fora; a série de calendário da dim_data entre o primeiro e o último dia da coleção, com média só dos preços não nulos da moeda escolhida e dia sem preço como ponto nulo, nunca zero; a falha na leitura da gold só com a classe do erro, parando a página. Entraram também o motivo e os testes na Verificação. O cabeçalho cita o adendo.
+- **Para conferir:** a Verificação do adendo cita um teste do dashboard com falha na leitura, que não está na lista de testes da T-46 em `specs/tasks.md`. Esta etapa editou só a spec, como pedido; o teste entra na implementação da T-46 se você concordar, e a lista da T-46 pode ser corrigida junto.
+- Nada foi instalado e nenhum código foi criado. A T-46 (instalação, testes e código) continua pendente até o commit desta mudança.
+
+### Arquivos gerados
+- `specs/spec.md` (adendo de 2026-11-27 ao RF-38 e menção no cabeçalho)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Regras encontradas no plano da T-46 escritas no RF-38 antes do código: filtro de preço mínimo por par, pelo preço do primeiro dia, padrão US$ 0,00; série diária com média só dos preços não nulos e lacuna como ponto nulo; falha na leitura da gold mostra só a classe do erro. Conteúdo da página base (série do preço médio, sem citar cartas) decidido como apresentação.
