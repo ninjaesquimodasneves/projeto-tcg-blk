@@ -5825,3 +5825,70 @@ pytest -q: 597 passed in 90.63s (0:01:30)
 
 ### Decisão humana
 Plano aprovado. P3 como consulta pura: valor diário de cada coleção exibida como soma de um exemplar por carta, sem Code Card, num conjunto fixo por coleção; índices em base 100 no primeiro dia em que todas as coleções exibidas têm valor em reais, com a PTAX de venda na mesma base; seletor de coleções com padrão só das que têm preço em reais e o motivo das que ficaram fora; lacunas como ponto nulo; chave em dólar sem mover o dia base. Testes falharam antes pelo motivo esperado e passaram depois.
+## 2026-11-27 — Etapa: quinto adendo de 2026-11-27 ao RF-42 (plano da T-50)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados Python que constrói dashboards testáveis, com a lógica separada da interface. Pratica desenvolvimento orientado a testes, executa uma única tarefa, prova com a saída real do terminal e para.
+
+[R] Pedido
+Implemente somente a tarefa T-50 de specs/tasks.md (P4: concentração por raridade e cartas até 80%, RF-42). Siga esta ordem:
+1. mostre o plano: a consulta (pura, sobre DuckDB), qual é o "último dia" de cada coleção, como o valor de cada carta é obtido (um exemplar de cada carta, sem Code Card), como a participação de cada raridade é calculada, como o número de cartas que somam 80% do valor é contado (incluindo o critério de ordenação e de empate), como a chave reais/dólar afeta o resultado, e o comando de verificação. Se o plano precisar de alguma regra que ainda não está escrita na spec, liste essas regras numa seção separada "Regras fora da spec" e espere minha decisão, sem implementá-las; espere minha confirmação;
+2. escreva primeiro os testes da tarefa, rode e mostre que falham pelo motivo esperado;
+3. implemente o mínimo para os testes passarem;
+4. rode a verificação da tarefa e o pytest inteiro e mostre a saída real;
+5. marque a T-50 como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit.
+
+[E] Exemplos
+Casos que os testes precisam cobrir (gold sintética com pelo menos duas coleções, sem rede):
+  participação de cada raridade no valor total do último dia de cada coleção, somando 100%;
+  número de cartas, da mais cara para a mais barata, até atingir 80% do valor da coleção, com um caso conferido à mão;
+  Code Card fora;
+  carta sem preço no último dia: o comportamento esperado vai no plano, sem inventar preço;
+  uma coleção por vez ou todas lado a lado, conforme o plano;
+  o filtro de preço mínimo em dólar aplicado conforme o RF-38.
+Commit proposto: feat(T-50): pergunta 4 com concentracao por raridade [RF-38, RF-42]
+
+[A] Ajustes
+- Faça só a T-50; a P5 é da T-51.
+- Reaproveite as consultas (inclusive exemplares), a leitura e o módulo gold_sintetica.py; nada de reimplementar.
+- Testes sem rede e sem o bucket real; se um teste existente quebrar por causa da página ganhar mais elementos, pare e me mostre antes de mudar o arquivo dele.
+- Siga o RF-38 e o RF-42 ao pé da letra; regras novas só depois da minha decisão.
+- Não leia nem imprima o .env.
+- Não rode git add, git commit nem git push.
+- Se a verificação falhar, tente corrigir no máximo duas vezes; depois disso, pare e explique.
+- Não declare sucesso sem mostrar a saída do comando.
+
+[T] Tipo de saída
+Os arquivos da tarefa, a saída do pytest antes e depois e um resumo de até cinco linhas com a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/tasks.md, docs/evidencias/T-44_primeira_gold.md, src/painel/ e dashboard/app.py antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2 (literal)
+
+```text
+Plano da T-50 aprovado, com uma mudança na regra 2: siga a decisão já registrada na spec v3, de que na P3 e na P4 o exemplar é escolhido no acabamento de menor preço do primeiro dia e fica fixo depois (como na P2 e na P3); use a alternativa da regra 2, e a carta cujo exemplar não tem preço no último dia sai pela regra 1. Com isso, exemplares() não precisa do parâmetro dia. Regras 1, 3, 4, 5 e 6 aprovadas como você propôs. Regra 7 aprovada, trocando test_exemplar_no_acabamento_de_menor_preco_do_ultimo_dia por test_exemplar_do_primeiro_dia_sem_preco_no_ultimo_fora. Antes do código, edite specs/spec.md com o adendo de 2026-11-27 ao RF-42 (regras 1 a 6) e specs/tasks.md (regra 7), acrescente esta mudança em docs/prompts.md e pare, sem criar código. Não rode git add, git commit nem git push.
+```
+
+### Observação do agente
+- O prompt 1 pedia a T-50 inteira, mas nesta etapa saiu só o plano. O plano trazia sete "Regras fora da spec"; o prompt 2 aprovou o plano e as regras 1, 3, 4, 5 e 6, trocou a regra 2 pela alternativa e ajustou a regra 7.
+- **Erro do agente no plano:** a regra 2 propunha escolher o exemplar no último dia como regra nova, mas a spec já decidia esse ponto nas "Convenções do dashboard" (exemplar no acabamento de menor market_price_usd do primeiro dia, fixo depois, decisão de 2026-11-23, valendo de P2 a P4). O adendo segue a convenção e a cita; `exemplares()` não muda.
+- **Plano aprovado:**
+  - `concentracao_p4(con, moeda, minimo_usd)` em `src/painel/consultas.py`, reaproveitando `exemplares` e `pares_acima_do_minimo` sem mudança: por coleção aprovada, último dia (maior data da fato_preco_diario), cartas sem "Code Card", valor do exemplar no último dia na moeda escolhida, participação por raridade, contagem até 80% e cartas fora por falta de preço;
+  - na página, seção da P4 depois da P3, com todas as coleções aprovadas lado a lado, sem seletor: barra empilhada de 100% por coleção, tabela por coleção e raridade e tabela-resumo por coleção, com colunas "Coleção" e "Raridade".
+- O adendo se chama "quinto adendo de 2026-11-27", porque o RF-38 a RF-41 já receberam adendos nesta data.
+- **No RF-42 entraram:** a regra 1 com a alternativa da regra 2 (exemplar do primeiro dia; sem preço no último dia, fica fora, sem trocar de acabamento; contagem na página); a regra 3 (moeda escolhida; mensagem "sem preço em reais no último dia"); a regra 4 (filtro depois do exemplar); a regra 5 ("(sem raridade)"); a regra 6 (ordem decrescente com desempate por product_id, borda com tolerância de 1e-9 e total zero com aviso). Entraram também o motivo e os testes na Verificação. O cabeçalho cita o adendo.
+- **Em `specs/tasks.md`:** a lista de testes da T-50 ganhou os sete testes extras, com test_exemplar_do_primeiro_dia_sem_preco_no_ultimo_fora no lugar do teste do exemplar no último dia, e uma nota. A rastreabilidade do RF-42 será atualizada na conclusão da T-50, como nas tarefas anteriores.
+- Nenhum código foi criado. A T-50 (testes e código) continua pendente até o commit desta mudança.
+
+### Arquivos gerados
+- `specs/spec.md` (quinto adendo de 2026-11-27 ao RF-42 e menção no cabeçalho)
+- `specs/tasks.md` (lista de testes e nota da T-50)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Regras encontradas no plano da T-50 escritas no RF-42 antes do código: exemplar escolhido no primeiro dia, mantendo a decisão da spec v3 e a coerência com a P2 e a P3; carta sem preço no último dia fora, com contagem na página; participações e contagem na moeda escolhida, com aviso para coleção sem preço em reais; filtro de preço mínimo no exemplar; raridade nula em categoria própria; total zero com aviso e tolerância na borda de 80%. Testes extras acrescentados à T-50.

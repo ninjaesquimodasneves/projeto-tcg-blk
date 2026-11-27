@@ -448,9 +448,10 @@ Comando base da gold: `PYTHONPATH=src python -m gold`. Dashboard: `PYTHONPATH=sr
 ## T-50 P4: concentração do valor por raridade
 - Requisitos: RF-42
 - Arquivos: `src/painel/consultas.py`, `dashboard/app.py`, `tests/unidade/test_painel_p4.py`
-- Teste: test_participacoes_somam_100_com_tolerancia_1e_9; test_contagem_ate_80_com_borda_exata; test_code_card_fora; test_ultimo_dia_de_cada_colecao
+- Teste: test_participacoes_somam_100_com_tolerancia_1e_9; test_contagem_ate_80_com_borda_exata; test_code_card_fora; test_ultimo_dia_de_cada_colecao; test_carta_sem_preco_no_ultimo_dia_fora; test_exemplar_do_primeiro_dia_sem_preco_no_ultimo_fora; test_chave_dolar_mesmas_participacoes (AppTest); test_colecao_sem_preco_em_reais_no_ultimo_dia; test_filtro_de_preco_minimo_no_exemplar; test_raridade_nula_em_categoria_propria; test_total_zero_sem_participacao_com_aviso (quinto adendo de 2026-11-27 ao RF-42)
 - Comando: pytest tests/unidade/test_painel_p4.py -q
 - Depende de: T-49
+- Nota (2026-11-27, regra 7 do plano aprovada pela aluna): os sete testes extras cobrem as regras 1 a 6 do quinto adendo de 2026-11-27 ao RF-42. test_exemplar_do_primeiro_dia_sem_preco_no_ultimo_fora substitui o teste do exemplar no último dia proposto no plano: a aluna manteve a convenção do dashboard (exemplar no primeiro dia, fixo depois), e `exemplares()` não ganha o parâmetro `dia`.
 
 ## T-51 P5: retorno contra volatilidade
 - Requisitos: RF-43
