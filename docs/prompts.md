@@ -5525,3 +5525,61 @@ Plano da T-47 aprovado, e as três regras como você propôs. Antes do código: 
 
 ### Decisão humana
 Regras encontradas no plano da T-47 escritas no RF-39 antes do código: rankings independentes de até 10 linhas, sem linha vazia; a chave em dólar não reordena, a ordem é sempre pela variação em reais, e em dólar aparecem os preços e a variação em dólar, sem os efeitos. Módulo de apoio gold_sintetica.py acrescentado à lista de arquivos da T-47.
+## 2026-11-27 — Etapa: implementação da T-47 (P1: rankings com decomposição)
+
+O pedido original da T-47 (prompt 1) e a aprovação do plano com as regras 1 a 3 (prompt 2) estão na entrada "segundo adendo de 2026-11-27 ao RF-39 (plano da T-47)".
+
+### Prompt 3 (literal)
+
+```text
+Spec e tasks commitados (c71d158). Pode implementar a T-47 conforme o plano aprovado, com as regras 1 e 2 agora escritas no RF-39 e o módulo de apoio tests/unidade/gold_sintetica.py, sem mudar nenhum teste da T-46. Ao final, mostre a saída do pytest antes e depois e um resumo de até cinco linhas com a mensagem de commit proposta. Não acesse o bucket real e não abra o dashboard. Não rode git add, git commit nem git push.
+```
+
+### Prompt 4 (literal)
+
+```text
+Opção (a): ajuste só o auxiliar _tabela do teste da T-46 para escolher a tabela com a coluna data, sem mudar nenhuma função test_ nem asserção; isso não conta como tentativa de correção, porque a causa foi a página ganhar mais tabelas. A mensagem "Nenhuma carta elegível com os filtros atuais." pode ficar, como apresentação. Rode de novo os testes da P1, os da T-46 e o pytest inteiro, mostre a saída real, marque a T-47 em specs/tasks.md (registrando o ajuste no auxiliar) e acrescente a entrada da implementação em docs/prompts.md. Não rode git add, git commit nem git push.
+```
+
+### Observação do agente
+- O construtor da gold sintética foi para `tests/unidade/gold_sintetica.py` (`gravar_gold`). Antes da troca, um script comparou o construtor antigo e o novo: as seis tabelas saíram com o mesmo DESCRIBE e as mesmas linhas. No arquivo da T-46 mudaram só o construtor e os imports; os 8 testes da T-46 passaram em seguida.
+- O teste `test_menos_de_10_elegiveis_cada_ranking_com_todas` entrou além dos sete da lista da T-47, porque a Verificação do segundo adendo de 2026-11-27 ao RF-39 o exige; a lista e a rastreabilidade do RF-39 em `specs/tasks.md` foram atualizadas.
+- Depois do código da P1, `test_chave_dolar_e_reais_com_ptax_aplicada` (T-46) falhou: o auxiliar `_tabela` esperava uma só tabela na página, e a P1 acrescentou duas (a gold da T-46 tem uma carta elegível para a P1). O agente parou e perguntou; no prompt 4 a aluna escolheu a opção (a): só o auxiliar passou a escolher a tabela com a coluna `data`, sem mudar nenhuma função `test_` nem asserção.
+- A mensagem "Nenhuma carta elegível com os filtros atuais." não estava no plano; ficou como apresentação (prompt 4).
+- Nenhum acesso ao bucket, o dashboard não foi aberto e o `.env` não foi lido.
+
+### Saída dos testes
+Antes do código da P1 (`.venv/bin/pytest tests/unidade/test_painel_p1.py -q`, linhas de erro agrupadas):
+```text
+      6 E       AttributeError: module 'painel.consultas' has no attribute 'ranking_p1'
+      2 E       AssertionError: [['data', 'Preço médio (R$)']]
+      1 8 failed in 3.07s
+```
+
+Depois do código da P1, antes do ajuste no auxiliar da T-46:
+```text
+tests/unidade/test_painel_p1.py: 8 passed in 3.13s
+tests/unidade/test_painel_base.py: 1 failed, 7 passed in 3.01s
+>       (df,) = [d.value for d in at.dataframe]
+E       ValueError: too many values to unpack (expected 1, got 3)
+pytest -q: 1 failed, 576 passed in 87.31s (0:01:27)
+```
+
+Depois do ajuste no auxiliar `_tabela`:
+```text
+tests/unidade/test_painel_p1.py: 8 passed in 3.44s
+tests/unidade/test_painel_base.py: 8 passed in 3.24s
+pytest -q: 577 passed in 87.46s (0:01:27)
+```
+
+### Arquivos gerados
+- `tests/unidade/gold_sintetica.py`
+- `tests/unidade/test_painel_p1.py`
+- `tests/unidade/test_painel_base.py` (construtor trocado por `gravar_gold` e auxiliar `_tabela`)
+- `src/painel/consultas.py` (`ranking_p1` e `LinhaP1`)
+- `dashboard/app.py` (seção da P1)
+- `specs/tasks.md` (T-47 concluída, lista de testes, notas e rastreabilidade do RF-39)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Plano aprovado. P1 como consulta pura: cartas da 24325 sem Code Card, acima de US$ 1 no primeiro dia e dentro do filtro de preço mínimo, sem preço inventado no primeiro ou no último dia; decomposição da T-35 em cada par; dois rankings de até 10 pela variação em reais, com desempate por product_id e acabamento. Página com imagem e link de cada carta; em dólar, preços e variação em dólar, sem os efeitos, sem reordenar; mensagem quando nenhuma carta é elegível. Construtor da gold sintética movido para gold_sintetica.py; no teste da T-46, só o auxiliar que encontra a tabela foi ajustado, porque a página passou a ter mais tabelas, sem mudar nenhuma asserção. Testes falharam antes pelo motivo esperado e passaram depois.

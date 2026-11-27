@@ -8,14 +8,20 @@ Nenhuma funcao aqui usa Streamlit: a pagina so exibe o que estas funcoes devolve
 - Serie diaria: datas de calendario da dim_data entre o primeiro e o ultimo dia da colecao; media so dos
   precos nao nulos da moeda escolhida; dia sem nenhum preco nao nulo (inclusive sem linha) e nulo.
 - Dias desde o lancamento: data - data_lancamento na consulta, sem coluna na gold (RF-36).
+- P1 (RF-39, segundo adendo de 2026-11-27): cartas da 24325 sem "Code Card", por par, com preco > US$ 1
+  no primeiro dia e preco nao nulo no primeiro e no ultimo dia, decompostas por gold.decomposicao (RF-37);
+  dois rankings independentes de ate 10 linhas por r_brl, com desempate por product_id e acabamento.
 """
 
 import tempfile
 from collections.abc import Iterable, Mapping
+from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
 import duckdb
+
+from gold.decomposicao import decompor
 
 COLUNA_PRECO = {"brl": "market_price_brl", "usd": "market_price_usd"}
 
@@ -98,3 +104,72 @@ def dias_desde_o_lancamento(con, group_id: int) -> list[tuple[date, int]]:
         """,
         [group_id],
     ).fetchall()
+
+
+GROUP_ID_P1 = 24325
+LIMITE_P1_USD = 1.0  # "acima de US$ 1" no primeiro dia (RF-39)
+TAMANHO_RANKING = 10
+
+
+@dataclass(frozen=True)
+class LinhaP1:
+    product_id: int
+    acabamento: str
+    nome: str
+    numero: str | None
+    image_url: str | None
+    url: str | None
+    usd_d0: float
+    usd_d1: float
+    brl_d0: float
+    brl_d1: float
+    r_usd: float
+    r_brl: float
+    efeito_carta: float
+    efeito_cambio: float
+    efeito_cruzado: float
+
+
+def ranking_p1(con, minimo_usd: float = 0.0) -> tuple[list[LinhaP1], list[LinhaP1]]:
+    """P1: (maiores r_brl, menores r_brl), cada um com ate 10 pares, entre o primeiro e o ultimo dia."""
+    elegiveis = set(pares_acima_do_minimo(con, GROUP_ID_P1, minimo_usd))
+    linhas = con.execute(
+        """
+        WITH limites AS (
+            SELECT min(data) AS d0, max(data) AS d1 FROM fato_preco_diario WHERE group_id = ?
+        )
+        SELECT p.group_id, p.product_id, f0.acabamento, p.nome, p.numero, p.image_url, p.url,
+               f0.market_price_usd, f1.market_price_usd, f0.market_price_brl, f1.market_price_brl,
+               f0.ptax_venda_aplicada, f1.ptax_venda_aplicada
+        FROM limites l
+        JOIN fato_preco_diario f0 ON f0.group_id = ? AND f0.data = l.d0
+        JOIN fato_preco_diario f1
+          ON f1.group_id = f0.group_id AND f1.product_id = f0.product_id
+         AND f1.acabamento = f0.acabamento AND f1.data = l.d1
+        JOIN dim_produto p ON p.group_id = f0.group_id AND p.product_id = f0.product_id
+        WHERE p.tipo_produto = 'carta'
+          AND p.raridade IS DISTINCT FROM 'Code Card'
+          AND f0.market_price_usd > ?
+          AND f1.market_price_usd IS NOT NULL
+        """,
+        [GROUP_ID_P1, GROUP_ID_P1, LIMITE_P1_USD],
+    ).fetchall()
+    pares: list[LinhaP1] = []
+    for group_id, pid, acabamento, nome, numero, image_url, url, usd0, usd1, brl0, brl1, ptax0, ptax1 in linhas:
+        if (group_id, pid, acabamento) not in elegiveis:
+            continue
+        decomposicao = decompor(usd0, usd1, ptax0, ptax1)
+        if decomposicao is None:  # sem decomposicao (RF-37): o par fica fora, sem inventar preco
+            continue
+        pares.append(
+            LinhaP1(
+                product_id=pid, acabamento=acabamento, nome=nome, numero=numero, image_url=image_url, url=url,
+                usd_d0=usd0, usd_d1=usd1, brl_d0=brl0, brl_d1=brl1,
+                r_usd=decomposicao.r_usd, r_brl=decomposicao.r_brl,
+                efeito_carta=decomposicao.efeito_carta, efeito_cambio=decomposicao.efeito_cambio,
+                efeito_cruzado=decomposicao.efeito_cruzado,
+            )
+        )
+    maiores = sorted(pares, key=lambda l: (-l.r_brl, l.product_id, l.acabamento))[:TAMANHO_RANKING]
+    menores = sorted(pares, key=lambda l: (l.r_brl, l.product_id, l.acabamento))[:TAMANHO_RANKING]
+    return maiores, menores

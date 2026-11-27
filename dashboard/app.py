@@ -2,7 +2,7 @@
 
 Abrir (so local, credenciais do ambiente): PYTHONPATH=src streamlit run dashboard/app.py
 A pagina so exibe: a leitura da gold publicada esta em painel.leitura (so get_object) e as contas em
-painel.consultas (DuckDB). Perguntas P1 a P5 entram nas T-47 a T-51.
+painel.consultas (DuckDB). P1 na T-47; P2 a P5 entram nas T-48 a T-51.
 """
 
 import altair as alt
@@ -63,4 +63,69 @@ grafico = (
 )
 st.altair_chart(grafico, width="stretch")
 st.dataframe(serie, hide_index=True)
+
+# --- P1 (RF-39; segundo adendo de 2026-11-27): a ordem e sempre pela variacao em reais ---
+st.header("P1 — Cartas que mais valorizaram e desvalorizaram em reais")
+st.caption(
+    "Cartas da coleção 24325, sem Code Card, por produto e acabamento, com preço acima de US$ 1 no primeiro "
+    "dia e preço no primeiro e no último dia; ordem pela variação em reais. Desempate por produto e acabamento."
+)
+maiores, menores = consultas.ranking_p1(con, minimo_usd)
+
+
+def _tabela_p1(linhas) -> pd.DataFrame:
+    """Uma linha por par, na ordem do ranking; em dolar, sem r_brl nem os tres efeitos (RF-38)."""
+    registros = []
+    for posicao, l in enumerate(linhas, start=1):
+        registro = {
+            "Posição": posicao,
+            "Imagem": l.image_url,
+            "Carta": l.nome,
+            "Número": l.numero,
+            "Acabamento": l.acabamento,
+        }
+        if em_dolar:
+            registro |= {
+                "Preço no primeiro dia (US$)": l.usd_d0,
+                "Preço no último dia (US$)": l.usd_d1,
+                "Variação em dólar": l.r_usd,
+            }
+        else:
+            registro |= {
+                "Preço no primeiro dia (R$)": l.brl_d0,
+                "Preço no último dia (R$)": l.brl_d1,
+                "Variação em reais": l.r_brl,
+                "Efeito da carta": l.efeito_carta,
+                "Efeito do câmbio": l.efeito_cambio,
+                "Efeito cruzado": l.efeito_cruzado,
+            }
+        registro["Página do produto"] = l.url
+        registros.append(registro)
+    return pd.DataFrame(registros)
+
+
+formato_preco = "dollar" if em_dolar else "R$ %.2f"
+configuracao_p1 = {
+    "Imagem": st.column_config.ImageColumn("Imagem"),
+    "Página do produto": st.column_config.LinkColumn("Página do produto", display_text="abrir no TCGplayer"),
+    **{
+        nome: st.column_config.NumberColumn(nome, format="percent")
+        for nome in ("Variação em reais", "Variação em dólar", "Efeito da carta", "Efeito do câmbio", "Efeito cruzado")
+    },
+    **{
+        nome: st.column_config.NumberColumn(nome, format=formato_preco)
+        for nome in (
+            "Preço no primeiro dia (R$)", "Preço no último dia (R$)",
+            "Preço no primeiro dia (US$)", "Preço no último dia (US$)",
+        )
+    },
+}
+for titulo, linhas in (("Maiores valorizações", maiores), ("Maiores desvalorizações", menores)):
+    st.subheader(titulo)
+    if em_dolar:
+        st.caption("Valores em dólar, sem a decomposição; ordem pela variação em reais.")
+    if linhas:
+        st.dataframe(_tabela_p1(linhas), hide_index=True, column_config=configuracao_p1)
+    else:
+        st.info("Nenhuma carta elegível com os filtros atuais.")
 con.close()

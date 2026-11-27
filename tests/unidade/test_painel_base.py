@@ -9,7 +9,6 @@ import re
 from datetime import date
 from pathlib import Path
 
-import duckdb
 import pandas as pd
 import pytest
 import streamlit as st
@@ -17,6 +16,7 @@ from streamlit.testing.v1 import AppTest
 
 from gold.contrato import CONTRATO_GOLD
 from gold.parquet import chave_gold
+from gold_sintetica import gravar_gold
 from painel import consultas, leitura
 
 RAIZ = Path(__file__).resolve().parents[2]
@@ -44,44 +44,9 @@ PRECOS = [
 DATAS = ["2026-11-16", "2026-11-17", "2026-11-18", "2026-11-19", "2026-11-20", "2026-11-21"]
 
 
-def _criar(con, tabela: str) -> None:
-    colunas = ", ".join(f"{nome} {tipo}" for nome, tipo in CONTRATO_GOLD[tabela])
-    con.execute(f"CREATE TABLE {tabela} ({colunas})")
-
-
 def _gold_sintetica(diretorio: Path) -> dict[str, bytes]:
-    con = duckdb.connect()
-    for tabela in CONTRATO_GOLD:
-        _criar(con, tabela)
-    con.execute(
-        "INSERT INTO dim_colecao VALUES (24325, 'SV: Black Bolt', 'BLK', DATE '2025-07-18', 'Gabriel_Cabral', 'SV'),"
-        " (24269, 'Colega', 'COL', DATE '2025-03-28', 'Colega', 'SV')"
-    )
-    for group_id, product_id in {(p[1], p[2]) for p in PRECOS}:
-        con.execute(
-            "INSERT INTO dim_produto VALUES (?, ?, ?, 'carta', 'Rare', NULL, NULL, NULL)",
-            [group_id, product_id, f"Carta {product_id}"],
-        )
-    for d in DATAS:
-        con.execute(
-            "INSERT INTO dim_data SELECT CAST(? AS DATE) AS d, year(d), month(d), day(d), isodow(d), weekofyear(d), true",
-            [d],
-        )
-        con.execute("INSERT INTO fato_cambio_diario VALUES (CAST(? AS DATE), 4.9, ?, CAST(? AS DATE), 0.0004)", [d, PTAX, d])
-    con.execute("INSERT INTO dim_acabamento VALUES ('Holofoil'), ('Normal')")
-    for d, group_id, product_id, acabamento, usd in PRECOS:
-        brl = None if usd is None else usd * PTAX
-        con.execute(
-            "INSERT INTO fato_preco_diario VALUES (CAST(? AS DATE), ?, ?, ?, ?, ?, ?, CAST(? AS DATE))",
-            [d, group_id, product_id, acabamento, usd, brl, PTAX, d],
-        )
-    gold = {}
-    for tabela in CONTRATO_GOLD:
-        caminho = diretorio / f"{tabela}.parquet"
-        con.execute(f"COPY {tabela} TO '{caminho}' (FORMAT parquet)")
-        gold[tabela] = caminho.read_bytes()
-    con.close()
-    return gold
+    produtos = [(g, p, f"Carta {p}", "carta", "Rare", None, None, None) for g, p in sorted({(x[1], x[2]) for x in PRECOS})]
+    return gravar_gold(diretorio, produtos=produtos, datas=DATAS, ptax={d: PTAX for d in DATAS}, precos=PRECOS)
 
 
 @pytest.fixture
@@ -140,7 +105,7 @@ def test_leitura_da_gold_so_com_get(gold):
 
 
 def _tabela(at) -> tuple[str, dict[date, float | None]]:
-    (df,) = [d.value for d in at.dataframe]
+    (df,) = [d.value for d in at.dataframe if "data" in d.value.columns]  # a serie; a P1 (T-47) tem outras tabelas
     coluna = [c for c in df.columns if c != "data"]
     assert len(coluna) == 1, df.columns
     return coluna[0], {
