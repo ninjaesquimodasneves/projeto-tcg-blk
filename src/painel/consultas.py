@@ -19,8 +19,12 @@ Nenhuma funcao aqui usa Streamlit: a pagina so exibe o que estas funcoes devolve
   "Code Card" (exemplar e filtro como na P2), com conjunto fixo entre o dia base e o ultimo dia da colecao;
   dia base = primeira data em que todas as colecoes exibidas tem valor em reais (fixo nas duas moedas);
   PTAX de venda da fato_cambio_diario em todos os dias de calendario, na mesma base.
+- P4 (RF-42, quinto adendo de 2026-11-27): por colecao aprovada, valor no ultimo dia do exemplar do
+  primeiro dia de cada carta sem "Code Card" (sem preco no ultimo dia, fica fora), na moeda escolhida;
+  participacao por raridade ("(sem raridade)" para nula) e cartas ate 80% em ordem decrescente de valor.
 """
 
+import math
 import tempfile
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
@@ -443,3 +447,105 @@ def serie_p3(con, moeda: str, minimo_usd: float = 0.0, colecoes: Iterable[int] |
         for i, d in enumerate(datas)
     ]
     return ResultadoP3(colecoes=exibidas, dia_base=dia_base, linhas=linhas, cartas_fora=cartas_fora)
+
+
+SEM_RARIDADE = "(sem raridade)"
+LIMITE_P4 = 0.8
+TOLERANCIA_P4 = 1e-9  # Verificacao do RF-42
+
+
+@dataclass(frozen=True)
+class RaridadeP4:
+    raridade: str
+    valor: float
+    participacao: float
+
+
+@dataclass(frozen=True)
+class ColecaoP4:
+    group_id: int
+    sigla: str
+    ultimo_dia: date | None
+    total: float | None
+    raridades: list[RaridadeP4]
+    cartas: int
+    ate_80: int | None
+    cartas_fora: int
+    sem_preco_em_reais: bool
+
+
+def _cartas_ate_80(valores: list[tuple[int, float]]) -> int:
+    """Cartas em ordem decrescente de valor (desempate por product_id) ate o acumulado >= 80% do total."""
+    total = math.fsum(v for _, v in valores)
+    limite = LIMITE_P4 * total - TOLERANCIA_P4 * total
+    acumulado = 0.0
+    for posicao, (_, valor) in enumerate(sorted(valores, key=lambda x: (-x[1], x[0])), start=1):
+        acumulado += valor
+        if acumulado >= limite:
+            return posicao
+    return len(valores)
+
+
+def concentracao_p4(con, moeda: str, minimo_usd: float = 0.0) -> list[ColecaoP4]:
+    """P4: participacao de cada raridade e cartas ate 80% no ultimo dia de cada colecao aprovada."""
+    if moeda not in COLUNA_PRECO:
+        raise ValueError(f"moeda deve ser 'brl' ou 'usd': {moeda!r}")
+    resultado = []
+    for colecao in colecoes_p3(con):
+        g = colecao.group_id
+        raridade = {
+            pid: SEM_RARIDADE if r is None else r
+            for pid, r in con.execute(
+                "SELECT product_id, raridade FROM dim_produto WHERE group_id = ? AND tipo_produto = 'carta' "
+                "AND raridade IS DISTINCT FROM 'Code Card'",
+                [g],
+            ).fetchall()
+        }
+        por_carta = exemplares(con, g)
+        acima = set(pares_acima_do_minimo(con, g, minimo_usd))  # exemplar primeiro, filtro depois
+        candidatos = {por_carta[pid] for pid in raridade if pid in por_carta and por_carta[pid] in acima}
+        (ultimo_dia,) = con.execute("SELECT max(data) FROM fato_preco_diario WHERE group_id = ?", [g]).fetchone()
+        precos = {
+            (g, pid, acabamento): (usd, brl)
+            for pid, acabamento, usd, brl in con.execute(
+                "SELECT product_id, acabamento, market_price_usd, market_price_brl FROM fato_preco_diario "
+                "WHERE group_id = ? AND data = ?",
+                [g, ultimo_dia],
+            ).fetchall()
+        }
+        indice = 0 if moeda == "usd" else 1
+        valores = [
+            (par[1], float(precos[par][indice]))
+            for par in sorted(candidatos)
+            if par in precos and precos[par][indice] is not None
+        ]
+        sem_exemplar = sum(1 for pid in raridade if pid not in por_carta)
+        sem_preco_em_reais = (
+            moeda == "brl" and not valores and any(precos.get(par, (None, None))[0] is not None for par in candidatos)
+        )
+        total = math.fsum(v for _, v in valores) if valores else None
+        raridades: list[RaridadeP4] = []
+        ate_80 = None
+        if total:  # nem nulo nem zero: sem divisao por zero
+            soma: dict[str, list[float]] = {}
+            for pid, valor in valores:
+                soma.setdefault(raridade[pid], []).append(valor)
+            raridades = sorted(
+                (RaridadeP4(r, math.fsum(v), math.fsum(v) / total) for r, v in soma.items()),
+                key=lambda x: (-x.valor, x.raridade),
+            )
+            ate_80 = _cartas_ate_80(valores)
+        resultado.append(
+            ColecaoP4(
+                group_id=g,
+                sigla=colecao.sigla,
+                ultimo_dia=ultimo_dia,
+                total=None if sem_preco_em_reais else total,
+                raridades=raridades,
+                cartas=len(valores),
+                ate_80=ate_80,
+                cartas_fora=sem_exemplar + len(candidatos) - len(valores),
+                sem_preco_em_reais=sem_preco_em_reais,
+            )
+        )
+    return resultado

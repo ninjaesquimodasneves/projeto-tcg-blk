@@ -2,7 +2,7 @@
 
 Abrir (so local, credenciais do ambiente): PYTHONPATH=src streamlit run dashboard/app.py
 A pagina so exibe: a leitura da gold publicada esta em painel.leitura (so get_object) e as contas em
-painel.consultas (DuckDB). P1 na T-47; P2 na T-48; P3 na T-49; P4 e P5 entram nas T-50 e T-51.
+painel.consultas (DuckDB). P1 na T-47; P2 na T-48; P3 na T-49; P4 na T-50; P5 entra na T-51.
 """
 
 import altair as alt
@@ -234,4 +234,62 @@ if exibidas:
         )
 else:
     st.info("Nenhuma coleção selecionada.")
+
+# --- P4 (RF-42; quinto adendo de 2026-11-27): todas as colecoes aprovadas no ultimo dia de cada uma ---
+st.header("P4 — Concentração do valor por raridade")
+st.caption(
+    "Valor no último dia de cada coleção: soma de um exemplar de cada carta, sem Code Card (acabamento de menor "
+    "preço no primeiro dia, fixo depois); a carta cujo exemplar não tem preço no último dia fica fora. Cartas até "
+    "80%: da mais cara para a mais barata, até somar pelo menos 80% do valor."
+)
+p4 = consultas.concentracao_p4(con, moeda, minimo_usd)
+for c in p4:
+    if c.sem_preco_em_reais:
+        st.warning(f"{c.sigla} ({c.group_id}): sem preço em reais no último dia.")
+    elif not c.raridades:
+        st.warning(f"{c.sigla} ({c.group_id}): total zero ou nenhuma carta com preço no último dia; sem participação.")
+resumo_p4 = pd.DataFrame(
+    {
+        "Coleção": [f"{c.sigla} ({c.group_id})" for c in p4],
+        "Último dia": [c.ultimo_dia for c in p4],
+        f"Total ({simbolo})": pd.array([c.total for c in p4], dtype="Float64"),
+        "Cartas com preço": [c.cartas for c in p4],
+        "Cartas até 80%": pd.array([c.ate_80 for c in p4], dtype="Int64"),
+        "Cartas fora por falta de preço": [c.cartas_fora for c in p4],
+    }
+)
+raridades_p4 = pd.DataFrame(
+    [
+        {"Coleção": f"{c.sigla} ({c.group_id})", "Raridade": r.raridade, f"Valor ({simbolo})": r.valor,
+         "Participação": r.participacao}
+        for c in p4
+        for r in c.raridades
+    ],
+    columns=["Coleção", "Raridade", f"Valor ({simbolo})", "Participação"],
+)
+if not raridades_p4.empty:
+    grafico_p4 = (
+        alt.Chart(raridades_p4)
+        .mark_bar()
+        .encode(
+            y=alt.Y("Coleção:N", title="Coleção"),
+            x=alt.X("Participação:Q", title="Participação no valor", stack="normalize", axis=alt.Axis(format="%")),
+            color=alt.Color("Raridade:N", title="Raridade"),
+            tooltip=["Coleção", "Raridade", alt.Tooltip("Participação:Q", format=".1%")],
+        )
+    )
+    st.altair_chart(grafico_p4, width="stretch")
+st.dataframe(
+    resumo_p4,
+    hide_index=True,
+    column_config={f"Total ({simbolo})": st.column_config.NumberColumn(f"Total ({simbolo})", format=formato_preco)},
+)
+st.dataframe(
+    raridades_p4,
+    hide_index=True,
+    column_config={
+        f"Valor ({simbolo})": st.column_config.NumberColumn(f"Valor ({simbolo})", format=formato_preco),
+        "Participação": st.column_config.NumberColumn("Participação", format="percent"),
+    },
+)
 con.close()

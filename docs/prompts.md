@@ -5892,3 +5892,43 @@ Plano da T-50 aprovado, com uma mudança na regra 2: siga a decisão já registr
 
 ### Decisão humana
 Regras encontradas no plano da T-50 escritas no RF-42 antes do código: exemplar escolhido no primeiro dia, mantendo a decisão da spec v3 e a coerência com a P2 e a P3; carta sem preço no último dia fora, com contagem na página; participações e contagem na moeda escolhida, com aviso para coleção sem preço em reais; filtro de preço mínimo no exemplar; raridade nula em categoria própria; total zero com aviso e tolerância na borda de 80%. Testes extras acrescentados à T-50.
+## 2026-11-27 — Etapa: implementação da T-50 (P4: concentração do valor por raridade)
+
+O pedido original da T-50 (prompt 1) e a aprovação do plano com as regras 1 a 7 (prompt 2) estão na entrada "quinto adendo de 2026-11-27 ao RF-42 (plano da T-50)".
+
+### Prompt 3 (literal)
+
+```text
+Spec e tasks commitados (81ee22f). Pode implementar a T-50 conforme o plano aprovado, com o exemplar do primeiro dia (sem o parâmetro dia em exemplares), as regras 1 a 6 do adendo de 2026-11-27 ao RF-42 e os testes listados na T-50. Se um teste existente quebrar por causa da página ganhar mais elementos, pare e me mostre antes de mudar o arquivo dele. Ao final, mostre a saída do pytest antes e depois, com a última linha da suíte inteira, e um resumo de até cinco linhas com a mensagem de commit proposta. Não acesse o bucket real e não abra o dashboard. Não rode git add, git commit nem git push.
+```
+
+### Observação do agente
+- Os onze testes da lista da T-50 foram escritos primeiro, com uma gold sintética de três coleções (24325 com último dia 21/11, 24541 com 18/11 e 24269 com 15/11, sem preço em reais). O caso conferido à mão é a 24541: 50 + 25 = 75 (75%) < 80%, e com 15 chega a 90%, então são 3 cartas; a borda exata é a 24325: 40 + 40 = 80 de 100, 2 cartas.
+- `concentracao_p4` entrou em `src/painel/consultas.py`, reaproveitando `colecoes_p3`, `exemplares` (sem o parâmetro `dia`) e `pares_acima_do_minimo` sem mudança.
+- As tabelas da P4 usam as colunas "Coleção" e "Raridade"; nenhum teste existente quebrou ou mudou, e nenhuma correção foi necessária.
+- Nenhum acesso ao bucket, o dashboard não foi aberto e o `.env` não foi lido.
+
+### Saída dos testes
+Antes do código da P4 (`.venv/bin/pytest tests/unidade/test_painel_p4.py -q`, linhas de erro agrupadas):
+```text
+     10 E       AttributeError: module 'painel.consultas' has no attribute 'concentracao_p4'
+      1 E       ValueError: not enough values to unpack (expected 1, got 0)
+      1 11 failed in 2.85s
+```
+
+Depois:
+```text
+tests/unidade/test_painel_p4.py: 11 passed in 3.75s
+tests/unidade/test_painel_base.py, test_painel_p1.py, test_painel_p2.py e test_painel_p3.py: 36 passed in 9.97s
+pytest -q: 608 passed in 91.66s (0:01:31)
+```
+
+### Arquivos gerados
+- `tests/unidade/test_painel_p4.py`
+- `src/painel/consultas.py` (`concentracao_p4`, `ColecaoP4`, `RaridadeP4` e `_cartas_ate_80`)
+- `dashboard/app.py` (seção da P4)
+- `specs/tasks.md` (T-50 concluída, nota e rastreabilidade do RF-42)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Plano aprovado. P4 como consulta pura, com todas as coleções aprovadas lado a lado: no último dia de cada coleção, participação de cada raridade na soma de um exemplar por carta (escolhido no primeiro dia, sem Code Card) e número de cartas, da mais cara para a mais barata, até 80% do valor, com tolerância na borda. Cartas sem preço no último dia fora e contadas na página; raridade nula em categoria própria; aviso para coleção sem preço em reais ou com total zero. Testes falharam antes pelo motivo esperado e passaram depois.
