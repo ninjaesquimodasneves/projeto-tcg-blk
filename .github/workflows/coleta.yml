@@ -1,4 +1,4 @@
-# Coleta diaria do raw BLK (groupId 24325) e geracao da silver [RF-11, RF-12, RF-22, RF-25, RNF-03, RNF-05].
+# Coleta diaria do raw BLK (groupId 24325), geracao da silver e da gold [RF-11, RF-12, RF-22, RF-25, RF-50, RNF-03, RNF-05, RNF-07].
 # Credenciais so via secrets; os demais valores sao os publicos do .env.example.
 name: coleta
 
@@ -94,3 +94,38 @@ jobs:
           SIGLA: BLK
           USER_AGENT: colecao-blk/1.0
         run: PYTHONPATH=src python -m silver
+
+  gold:
+    # RF-50, RNF-07: roda depois da silver, so se ela terminar com sucesso (nunca le uma silver que falhou);
+    # always() evita que uma falha so da coleta pule a gold; uma falha aqui deixa so este job vermelho
+    needs: silver
+    if: always() && needs.silver.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15  # hipotese, validacao pendente (na T-44, cada geracao real local levou menos de 30 s)
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Python 3.14
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: python -m pip install -r requirements.txt
+
+      - name: Gerar a gold e a carteira
+        shell: bash
+        env:
+          S3_ENDPOINT_URL: ${{ secrets.S3_ENDPOINT_URL }}
+          S3_ACCESS_KEY: ${{ secrets.S3_ACCESS_KEY }}
+          S3_SECRET_KEY: ${{ secrets.S3_SECRET_KEY }}
+          S3_REGION: us-east-1
+          BUCKET: tcg
+          GROUP_ID: "24325"
+          SIGLA: BLK
+          USER_AGENT: colecao-blk/1.0
+        run: PYTHONPATH=src python -m gold

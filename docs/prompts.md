@@ -5225,3 +5225,101 @@ Depois de salvar a evidência (mesmo comando):
 
 ### Decisão humana
 Primeira gold e primeira carteira reais aprovadas: duas execuções com código 0 e os mesmos sha256; quatro coleções aprovadas (24269, 24325, 24380 e 24541); esquema igual ao contrato; PTAX de 20/11 a 22/11 vinda de 19/11, com CDI zero; composição em 17/11 conforme as ADRs (selado e cesta_raras em caixa, propria com 1 ETB e R$ 120,72 em caixa); preço carregado só na propria em 20/11; prefixos de fora intocados. Risco da ADR 0001 confirmado: linhas das coleções 24269 e 24541 anteriores a 17/11 sem preço em reais, a tratar nas perguntas que comparam a turma.
+## 2026-11-27 — Etapa: T-45 (job da gold no workflow)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados que configura pipelines agendados no GitHub Actions com cuidado com segredos. Executa uma única tarefa e para.
+
+[R] Pedido
+Implemente somente a T-45 de specs/tasks.md: o job gold no workflow .github/workflows/coleta.yml. Siga esta ordem:
+1. mostre o plano e o trecho completo do workflow que vai mudar. Se o plano precisar de alguma regra que ainda não está escrita na spec, liste essas regras numa seção separada "Regras fora da spec" e espere minha decisão, sem implementá-las; espere minha confirmação;
+2. escreva primeiro os testes novos em tests/unidade/test_workflow.py, rode e mostre que falham pelo motivo esperado;
+3. altere o workflow;
+4. valide o YAML localmente e rode o pytest inteiro, mostrando a saída real;
+5. marque a T-45 como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit.
+
+[E] Exemplos
+Elementos esperados, conforme o specs/plan.md:
+  um job gold separado, com needs: silver e if: always() && needs.silver.result == 'success', para a gold nunca ler uma silver que falhou;
+  os mesmos secrets e os mesmos valores públicos dos jobs coleta e silver;
+  passo que roda PYTHONPATH=src python -m gold;
+  o job gold fica vermelho quando o comando sai com código diferente de zero;
+  o job gold não chama o coletor nem a silver e não lê a opção forcar_falha;
+  timeout com o valor e a justificativa no plano (a geração real da T-44 é a referência).
+Commit proposto: ci(T-45): gold no workflow depois da silver [RF-50, RNF-07]
+
+[A] Ajustes
+- Faça só a T-45; não altere os jobs coleta e silver além do necessário.
+- Nenhum valor de segredo no workflow; só referências a secrets.
+- Não rode a coleta, a silver nem a gold contra o bucket e não dispare o workflow.
+- Não leia nem imprima o .env.
+- Não rode git add, git commit nem git push.
+- Não declare sucesso sem mostrar a saída dos comandos.
+
+[T] Tipo de saída
+O trecho alterado do workflow, os testes, a saída da validação e do pytest e um resumo de até cinco linhas com a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/plan.md, specs/tasks.md, .github/workflows/coleta.yml, tests/unidade/test_workflow.py e docs/evidencias/T-44_primeira_gold.md antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2 (literal)
+
+```text
+Plano da T-45 aprovado, com a opção (1a), trocando só a linha do conjunto de jobs para {"coleta", "silver", "gold"} e registrando essa correção na entrada da T-45, e com timeout-minutes: 15 como hipótese. Pode seguir.
+```
+
+### Observação do agente
+- A spec deixa para o plano se a gold roda no mesmo workflow (lacuna v3); o `specs/plan.md` decide pelo job `gold` com `needs: silver` e `if: always() && needs.silver.result == 'success'`.
+- Regras fora da spec levadas à aluna no plano (prompt 1) e decididas no prompt 2: (1) test_job_silver_depois_da_coleta_mesmo_com_falha exigia `set(jobs) == {"coleta", "silver"}`, incompatível com o texto "sem mudança" da T-45; só essa linha mudou, para `{"coleta", "silver", "gold"}`, com a correção registrada em `specs/tasks.md`; (2) `timeout-minutes: 15`, hipótese, validação pendente (na T-44, as duas gerações reais locais começaram com 29 s de diferença).
+- Jobs coleta e silver sem mudança; só o comentário do cabeçalho do workflow passou a citar a gold, o RF-50 e o RNF-07.
+- Nada foi rodado contra o bucket e o workflow não foi disparado; o `.env` não foi lido.
+
+### Saída dos testes
+Testes novos antes de alterar o workflow (`.venv/bin/pytest tests/unidade/test_workflow.py -q`), falhando porque o job `gold` ainda não existia:
+```text
+>       assert set(jobs) == {"coleta", "silver", "gold"}  # T-45: job gold acrescentado
+E       AssertionError: assert {'coleta', 'silver'} == {'coleta', 'gold', 'silver'}
+>       assert jobs["gold"]["needs"] == "silver"
+E       KeyError: 'gold'
+>       env_gold = _env_do_passo(jobs["gold"], "python -m gold")
+E       KeyError: 'gold'
+>       gold = _jobs()["gold"]
+E       KeyError: 'gold'
+FAILED tests/unidade/test_workflow.py::test_job_silver_depois_da_coleta_mesmo_com_falha
+FAILED tests/unidade/test_workflow.py::test_job_gold_depois_da_silver_so_com_sucesso
+FAILED tests/unidade/test_workflow.py::test_job_gold_usa_secrets_e_nenhum_valor_literal
+FAILED tests/unidade/test_workflow.py::test_job_gold_roda_python_m_gold - Key...
+4 failed, 6 passed in 0.23s
+```
+
+Validação do YAML depois da mudança (`yaml.safe_load` do workflow):
+```text
+coleta | needs: None | if: None | timeout: 15 | run: PYTHONPATH=src python -m coleta
+silver | needs: coleta | if: always() | timeout: 15 | run: PYTHONPATH=src python -m silver
+gold | needs: silver | if: always() && needs.silver.result == 'success' | timeout: 15 | run: PYTHONPATH=src python -m gold
+codigo: 0
+```
+
+Depois da mudança (`.venv/bin/pytest tests/unidade/test_workflow.py -q`):
+```text
+..........                                                               [100%]
+10 passed in 0.09s
+```
+
+Suíte inteira (`.venv/bin/pytest -q`):
+```text
+561 passed in 218.46s (0:03:38)
+```
+
+### Arquivos gerados
+- `.github/workflows/coleta.yml` (job `gold`)
+- `tests/unidade/test_workflow.py` (três testes da T-45 e a linha do conjunto de jobs)
+- `specs/tasks.md` (T-45 concluída, com notas)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Plano aprovado. Job gold separado no workflow, com needs: silver e if: always() && needs.silver.result == 'success', para nunca ler uma silver que falhou; mesmos secrets e valores públicos dos outros jobs; comando PYTHONPATH=src python -m gold; não chama coletor nem silver e não lê forcar_falha. Timeout de 15 minutos como hipótese. Teste do conjunto de jobs atualizado para incluir a gold. Testes novos falharam antes pelo motivo esperado e passaram depois.

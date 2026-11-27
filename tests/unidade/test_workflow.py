@@ -1,6 +1,6 @@
-"""T-10, T-13 e T-27: workflow do GitHub Actions [RF-11, RF-12, RF-22, RNF-03, RNF-05].
+"""T-10, T-13, T-27 e T-45: workflow do GitHub Actions [RF-11, RF-12, RF-22, RF-50, RNF-03, RNF-05, RNF-07].
 
-Le o YAML como texto e, nos testes do job silver (T-27), com yaml.safe_load (PyYAML ja vem
+Le o YAML como texto e, nos testes dos jobs silver (T-27) e gold (T-45), com yaml.safe_load (PyYAML ja vem
 com o vcrpy e e usado em tests/unidade/cassetes.py; sem dependencia nova). Sem rede e sem .env.
 O RF-25 (janela de coleta) foi substituido pela nova D na T-28; os quatro horarios do RF-12 continuam.
 """
@@ -72,7 +72,7 @@ def _env_do_passo(job: dict, comando: str) -> dict:
 
 def test_job_silver_depois_da_coleta_mesmo_com_falha():
     jobs = _jobs()
-    assert set(jobs) == {"coleta", "silver"}
+    assert set(jobs) == {"coleta", "silver", "gold"}  # T-45: job gold acrescentado
     assert jobs["silver"]["needs"] == "coleta"
     assert jobs["silver"]["if"] == "always()"
     assert "needs" not in jobs["coleta"] and "if" not in jobs["coleta"]
@@ -101,3 +101,43 @@ def test_job_silver_roda_python_m_silver():
     assert "forcar_falha" not in texto.lower()  # a falha forcada (RF-11) e so do coletor
     assert "continue-on-error" not in texto  # codigo diferente de zero deixa o job vermelho (RF-22)
     assert silver["timeout-minutes"] == 15
+
+
+# --- T-45: job gold [RF-50, RNF-07] ---
+
+
+def test_job_gold_depois_da_silver_so_com_sucesso():
+    """RF-50: a gold nunca le uma silver que falhou; always() evita o salto quando so a coleta falha."""
+    jobs = _jobs()
+    assert jobs["gold"]["needs"] == "silver"
+    assert jobs["gold"]["if"] == "always() && needs.silver.result == 'success'"
+    assert jobs["silver"]["needs"] == "coleta"
+    assert jobs["silver"]["if"] == "always()"
+
+
+def test_job_gold_usa_secrets_e_nenhum_valor_literal():
+    """RNF-07: credenciais so por secrets; valores publicos iguais aos do .env.example, da coleta e da silver."""
+    env_example = _env_example()
+    jobs = _jobs()
+    env_gold = _env_do_passo(jobs["gold"], "python -m gold")
+    env_silver = _env_do_passo(jobs["silver"], "python -m silver")
+    env_coleta = _env_do_passo(jobs["coleta"], "python -m coleta")
+    for nome in SEGREDOS:
+        assert env_gold[nome] == "${{ secrets.%s }}" % nome, nome
+    for nome in PUBLICAS:
+        assert str(env_gold[nome]) == env_example[nome] == str(env_silver[nome]) == str(env_coleta[nome]), nome
+    assert set(env_gold) == set(SEGREDOS) | set(PUBLICAS)
+    assert env_example["S3_ENDPOINT_URL"] not in WORKFLOW
+    assert not re.search(r"\b(?:AKIA|ASIA)[A-Z0-9]{16}\b", WORKFLOW)
+
+
+def test_job_gold_roda_python_m_gold():
+    gold = _jobs()["gold"]
+    comandos = [str(p.get("run", "")) for p in gold["steps"]]
+    assert "PYTHONPATH=src python -m gold" in [c.strip() for c in comandos]
+    texto = yaml.safe_dump(gold)
+    assert "python -m coleta" not in texto  # o job nao chama o coletor
+    assert "python -m silver" not in texto  # nem a silver
+    assert "forcar_falha" not in texto.lower()  # a falha forcada (RF-11) e so do coletor
+    assert "continue-on-error" not in texto  # codigo diferente de zero deixa o job vermelho (RF-50)
+    assert gold["timeout-minutes"] == 15  # hipotese, validacao pendente (T-44: geracao real local < 30 s)

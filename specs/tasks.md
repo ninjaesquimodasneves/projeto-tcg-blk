@@ -399,12 +399,14 @@ Comando base da gold: `PYTHONPATH=src python -m gold`. Dashboard: `PYTHONPATH=sr
 - Depende de: T-43. Exige autorização explícita para gravar em gold/ e gold_turma/ no bucket.
 - Nota (2026-11-26): autorização explícita da aluna para gravar e apagar só em `gold/group_id=24325/` e `gold_turma/carteira/group_id=24325/` via `python -m gold`; Actions sem execução em andamento, conferido pela aluna. Duas execuções com código 0, mesmas contagens por tabela e o mesmo sha256 nas sete chaves publicadas; 24269, 24325, 24380 e 24541 aprovadas, nenhuma fora do contrato. DESCRIBE das seis tabelas e do carteira.parquet igual ao contrato; data_ptax de 20/11, 21/11 e 22/11 = 2026-11-19, com CDI 0. Preço em reais nulo por falta de PTAX anterior: 5.785 linhas da 24269 e 1.316 da 24541 (dim_data desde 03/11, PTAX desde 17/11; risco da ADR 0001). Composição em d0 igual às ADRs 0002, 0003 e 0005 (propria: 1 unidade do 630686 e R$ 120,72 em caixa); preço carregado só na propria, em 20/11. CDI de 25/11 ainda zero (RF-45, corrigido no reprocessamento seguinte). raw/, silver/ e quarentena/ da 24325 e a gold e a gold_turma da 24269 e da 24541 com as mesmas chaves e o mesmo sha256. Conferências por script local fora do repositório, só com list e get; nenhum código alterado.
 
-## T-45 Job da gold no workflow
+## T-45 Job da gold no workflow — concluída (2026-11-27)
 - Requisitos: RF-50, RNF-07
 - Arquivos: `.github/workflows/coleta.yml`, `tests/unidade/test_workflow.py`
-- Teste: test_job_gold_depois_da_silver_so_com_sucesso (`needs: silver` e `if: always() && needs.silver.result == 'success'`); test_job_gold_usa_secrets_e_nenhum_valor_literal; test_job_gold_roda_python_m_gold; os testes atuais dos jobs coleta e silver continuam passando sem mudança
+- Teste: test_job_gold_depois_da_silver_so_com_sucesso (`needs: silver` e `if: always() && needs.silver.result == 'success'`); test_job_gold_usa_secrets_e_nenhum_valor_literal; test_job_gold_roda_python_m_gold; os testes atuais dos jobs coleta e silver continuam passando, com uma única mudança (ver nota)
 - Comando: pytest tests/unidade/test_workflow.py -q. Depois do push autorizado: `gh workflow run coleta.yml` e `gh run list --workflow coleta.yml`.
 - Depende de: T-44
+- Nota (2026-11-27, correção aprovada pela aluna no plano): o texto original pedia os testes atuais "sem mudança", mas test_job_silver_depois_da_coleta_mesmo_com_falha exigia `set(jobs) == {"coleta", "silver"}`, o que é incompatível com um terceiro job; a única linha alterada passou a exigir `{"coleta", "silver", "gold"}`, mantendo a proibição de jobs a mais.
+- Nota (2026-11-27): job `gold` com `needs: silver`, `if: always() && needs.silver.result == 'success'` (o `always()` evita que uma falha só da coleta pule a gold) e os mesmos secrets e valores públicos dos jobs coleta e silver; roda `PYTHONPATH=src python -m gold`, sem coletor, sem silver e sem `forcar_falha`; nada mascara o código de saída. Os jobs coleta e silver não mudaram; só o comentário do cabeçalho do workflow cita a gold. `timeout-minutes: 15` é hipótese, validação pendente (na T-44, as duas gerações reais locais começaram com 29 s de diferença, 16:29:07 e 16:29:36 UTC). Validação local só com `yaml.safe_load` e os testes; o disparo com `gh workflow run` fica para depois do push autorizado.
 
 ## T-46 Base do dashboard
 - Requisitos: RF-38, RF-36
