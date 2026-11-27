@@ -5390,3 +5390,68 @@ Plano da T-46 aprovado, e as regras 1 a 5 como você propôs. A regra 1 é só a
 
 ### Decisão humana
 Regras encontradas no plano da T-46 escritas no RF-38 antes do código: filtro de preço mínimo por par, pelo preço do primeiro dia, padrão US$ 0,00; série diária com média só dos preços não nulos e lacuna como ponto nulo; falha na leitura da gold mostra só a classe do erro. Conteúdo da página base (série do preço médio, sem citar cartas) decidido como apresentação.
+## 2026-11-27 — Etapa: implementação da T-46 (base do dashboard)
+
+O pedido original da T-46 (prompt 1) e a aprovação do plano com as regras 1 a 5 (prompt 2) estão na entrada "adendo de 2026-11-27 ao RF-38 (plano da T-46)".
+
+### Prompt 3 (literal)
+
+```text
+Spec commitada (d47ec78). Pode implementar a T-46 conforme o plano aprovado, com as regras 2 a 5 agora escritas no RF-38 e a regra 1 como apresentação: instale streamlit==1.67.0 e altair==6.3.0 no .venv, confirme os imports no Python 3.14, escreva os testes primeiro, implemente e rode a verificação. Ao final, mostre a saída do pytest antes e depois, o tempo da suíte inteira comparado aos 218 s da T-45 e um resumo de até cinco linhas com a mensagem de commit proposta. Não acesse o bucket real e não abra o dashboard. Não rode git add, git commit nem git push.
+```
+
+### Observação do agente
+- Instalação no `.venv`: `streamlit==1.67.0` e `altair==6.3.0` no `requirements.txt`; imports conferidos no Python 3.14.2 (`streamlit 1.67.0 altair 6.3.0 pandas 3.1.1 pyarrow 26.0.1`).
+- O teste `test_falha_na_leitura_mostra_so_a_classe_do_erro_e_para` entrou além dos sete da lista da T-46, porque a Verificação do adendo de 2026-11-27 ao RF-38 o exige; a lista da T-46 e a rastreabilidade do RF-38 em `specs/tasks.md` foram atualizadas.
+- Testes antes do código: primeiro sem o pacote (`ModuleNotFoundError: No module named 'painel'` na coleta); depois com `src/painel/` vazio, para mostrar o motivo de cada teste.
+- Uma correção depois da primeira execução: o auxiliar do teste da chave usava `v != v` para achar nulos, o que não funciona com `pd.NA` da coluna `Float64`; trocado por `pd.isna`. Também troquei `use_container_width=True` (aviso de descontinuação do Streamlit) por `width="stretch"`. Nenhuma regra mudou.
+- `serie_diaria` tem um parâmetro opcional `pares`, usado no teste do dia com todos os preços nulos e disponível para as perguntas das T-47 a T-51.
+- Tempo da suíte: 74,04 s com 569 testes, contra 218,46 s na T-45 com 561. Compatível com o diagnóstico da T-22 (o pandas agora está no `.venv`), sem isolar a causa.
+- Nenhum acesso ao bucket, o dashboard não foi aberto e o `.env` não foi lido.
+
+### Saída dos testes
+Sem o pacote `painel` (`.venv/bin/pytest tests/unidade/test_painel_base.py -q`):
+```text
+E   ModuleNotFoundError: No module named 'painel'
+ERROR tests/unidade/test_painel_base.py
+1 error in 0.94s
+```
+
+Com `src/painel/` vazio (mesmo comando, linhas de erro):
+```text
+E       AttributeError: <module 'painel.leitura' from '/workspaces/projeto-tcg-blk/src/painel/leitura.py'> has no attribute 'baixar_gold_publicada'
+E       AttributeError: module 'painel.consultas' has no attribute 'conectar'
+E       AttributeError: module 'painel.leitura' has no attribute 'ler_gold'
+FAILED tests/unidade/test_painel_base.py::test_falha_na_leitura_mostra_so_a_classe_do_erro_e_para
+FAILED tests/unidade/test_painel_base.py::test_leitura_da_gold_so_com_get - A...
+2 failed, 6 errors in 1.66s
+```
+
+Primeira execução com o código (falha no auxiliar do teste):
+```text
+E   TypeError: boolean value of NA is ambiguous
+FAILED tests/unidade/test_painel_base.py::test_chave_dolar_e_reais_com_ptax_aplicada
+1 failed, 7 passed in 3.28s
+```
+
+Verificação da T-46 (`.venv/bin/pip install -r requirements.txt && pytest tests/unidade/test_painel_base.py -q && time pytest -q`):
+```text
+pip codigo: 0
+8 passed in 2.40s
+569 passed in 74.04s (0:01:14)
+
+real	1m15.358s
+user	1m5.090s
+sys	0m5.098s
+```
+
+### Arquivos gerados
+- `requirements.txt` (streamlit e altair)
+- `src/painel/__init__.py`, `src/painel/leitura.py`, `src/painel/consultas.py`
+- `dashboard/app.py`
+- `tests/unidade/test_painel_base.py`
+- `specs/tasks.md` (T-46 concluída, lista de testes, notas e rastreabilidade do RF-38)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Plano aprovado. streamlit==1.67.0 e altair==6.3.0 fixados e testados no Python 3.14. Dashboard lê a gold publicada só com get_object, com cache de 1 hora, e nunca grava no lake; consultas como funções puras sobre DuckDB, testadas sem Streamlit; chave reais/dólar, filtro de preço mínimo por par no primeiro dia, série de calendário com lacuna como ponto nulo, dias desde o lançamento calculados na consulta e aviso sobre os limites do dado. Tempo da suíte medido de novo para a pendência da T-22. Testes falharam antes pelo motivo esperado e passaram depois.
