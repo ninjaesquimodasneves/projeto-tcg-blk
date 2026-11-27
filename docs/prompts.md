@@ -5706,3 +5706,72 @@ pytest -q: 588 passed in 94.82s (0:01:34)
 
 ### Decisão humana
 Plano aprovado. P2 como consulta pura, só da 24325: média dos selados com preço no dia e soma das cartas Double Rare em diante, um exemplar por carta no acabamento de menor preço do primeiro dia, num conjunto fixo só com as cartas que têm preço em todos os dias; as duas séries em base 100 na moeda escolhida, com a lacuna de 20/11 como ponto nulo e a contagem das cartas fora visível na página. Testes falharam antes pelo motivo esperado e passaram depois.
+## 2026-11-27 — Etapa: quarto adendo de 2026-11-27 ao RF-41 (plano da T-49)
+
+### Prompt 1 (literal)
+
+```text
+[C] Personagem
+Você é um engenheiro de dados Python que constrói dashboards testáveis, com a lógica separada da interface. Pratica desenvolvimento orientado a testes, executa uma única tarefa, prova com a saída real do terminal e para.
+
+[R] Pedido
+Implemente somente a tarefa T-49 de specs/tasks.md (P3: valor por coleção da turma em base 100, com a PTAX em base 100, RF-41). Siga esta ordem:
+1. mostre o plano: a consulta (pura, sobre DuckDB), como o valor de cada coleção é calculado por dia (um exemplar de cada carta, sem Code Card), como o dia base (primeiro dia em comum entre as coleções exibidas) é escolhido, como a PTAX entra em base 100, como ficam os dias anteriores a 17/11 das coleções que começaram antes (preço em reais nulo, risco da ADR 0001), como a lacuna aparece, e o comando de verificação. Se o plano precisar de alguma regra que ainda não está escrita na spec, liste essas regras numa seção separada "Regras fora da spec" e espere minha decisão, sem implementá-las; espere minha confirmação;
+2. escreva primeiro os testes da tarefa, rode e mostre que falham pelo motivo esperado;
+3. implemente o mínimo para os testes passarem;
+4. rode a verificação da tarefa e o pytest inteiro e mostre a saída real;
+5. marque a T-49 como concluída em specs/tasks.md, acrescente este prompt em docs/prompts.md e proponha a mensagem de commit.
+
+[E] Exemplos
+Casos que os testes precisam cobrir (gold sintética com pelo menos duas coleções, sem rede):
+  valor diário de cada coleção em reais = soma de um exemplar de cada carta, sem Code Card;
+  cada coleção em base 100 no primeiro dia em comum entre as coleções exibidas;
+  PTAX de venda em base 100 no mesmo dia base, ao lado das coleções;
+  coleção de colega com datas anteriores ao dia base não muda o dia base nem gera índice antes dele;
+  dia sem coleta aparece como lacuna (ponto nulo), sem interpolar;
+  Code Card fora da soma;
+  a soma de cada coleção não pode cair só porque faltou o preço de uma carta num dia: aplique a mesma solução de conjunto fixo do terceiro adendo ao RF-40, se a spec da P3 permitir; se não permitir, liste como regra fora da spec.
+Commit proposto: feat(T-49): pergunta 3 com valor por colecao da turma [RF-38, RF-41]
+
+[A] Ajustes
+- Faça só a T-49; as outras perguntas são das T-50 e T-51.
+- Reaproveite as consultas (inclusive exemplares e a série com soma da T-48), a leitura e o módulo gold_sintetica.py; nada de reimplementar.
+- Testes sem rede e sem o bucket real; se um teste existente quebrar por causa da página ganhar mais elementos, pare e me mostre antes de mudar o arquivo dele.
+- Siga o RF-38 e o RF-41 ao pé da letra; regras novas só depois da minha decisão.
+- Não leia nem imprima o .env.
+- Não rode git add, git commit nem git push.
+- Se a verificação falhar, tente corrigir no máximo duas vezes; depois disso, pare e explique.
+- Não declare sucesso sem mostrar a saída do comando.
+
+[T] Tipo de saída
+Os arquivos da tarefa, a saída do pytest antes e depois e um resumo de até cinco linhas com a mensagem de commit proposta.
+
+[E] Extras
+Leia AGENTS.md, specs/spec.md, specs/tasks.md, docs/adr/0001-gold-modelagem-estrela.md, docs/evidencias/T-44_primeira_gold.md, src/painel/ e dashboard/app.py antes de começar. Pare ao final da tarefa.
+```
+
+### Prompt 2 (literal)
+
+```text
+Plano da T-49 aprovado, e as regras A a G como você propôs (na E, a PTAX aparece em todos os dias de calendário do período, igual à usada na conversão). Antes do código, edite specs/spec.md com o adendo de 2026-11-27 ao RF-41 (regras A a F) e specs/tasks.md (regra G, com os cinco testes extras na lista da T-49), acrescente esta mudança em docs/prompts.md e pare, sem criar código. Não rode git add, git commit nem git push.
+```
+
+### Observação do agente
+- O prompt 1 pedia a T-49 inteira, mas nesta etapa saiu só o plano. O plano trazia sete "Regras fora da spec" (A a G); o prompt 2 aprovou o plano e as sete e pediu a spec e as tarefas antes do código.
+- **Plano aprovado:**
+  - `serie_p3(con, moeda, minimo_usd, colecoes)` em `src/painel/consultas.py`, reaproveitando `exemplares` e `serie_diaria(..., agregacao="soma")` da T-48 sem mudança: por coleção exibida, exemplares das cartas sem "Code Card" (comparação literal), filtro de preço mínimo depois do exemplar, conjunto fixo e soma por dia; dia base pela regra A; índice = valor(d) / valor(dia base) × 100; PTAX de venda da fato_cambio_diario na mesma base;
+  - na página, seção da P3 depois da P2, com o seletor das coleções, um gráfico Altair com uma linha por coleção (sigla) e a da PTAX, a legenda com o dia base e a contagem das cartas fora por coleção, e uma tabela com a coluna "Dia", para não confundir os auxiliares dos testes da T-46 a T-48.
+- **Dado real que motivou as regras A e B:** na gold da T-44 (`docs/evidencias/T-44_primeira_gold.md`, seção 4.4), a 24269 tem datas só de 03/11 a 15/11, todas com preço em reais nulo, e a 24541 tem 14/11 e 15/11 com preço em reais nulo. Com as quatro coleções, "primeiro dia em comum" ao pé da letra não existe.
+- O adendo se chama "quarto adendo de 2026-11-27", porque o RF-38, o RF-39 e o RF-40 já receberam adendos nesta data.
+- **No RF-41 entraram:** a regra A (dia base pelo valor em reais não nulo em todas as coleções exibidas, período do dia base ao último dia, aviso sem dia em comum); a regra B (seletor, padrão com as coleções com algum valor em reais, motivo das que ficaram fora); a regra C (conjunto fixo por coleção entre o dia base e o último dia dela, contagem por coleção); a regra D (dia base fixo na chave em dólar, PTAX igual nas duas moedas); a regra E (PTAX em todos os dias de calendário, como na conversão); a regra F (filtro de preço mínimo depois do exemplar, no primeiro dia da própria coleção). Entraram também o motivo e os testes na Verificação. O cabeçalho cita o adendo.
+- **Para conferir (regra C):** a contagem das cartas fora segue a mesma definição aprovada na P2 (sem exemplar e com exemplar sem preço em algum dia do período, sem contar as que saíram pelo filtro).
+- **Em `specs/tasks.md`:** a lista de testes da T-49 ganhou os cinco testes extras da regra G, com uma nota. A rastreabilidade do RF-41 será atualizada na conclusão da T-49, como nas tarefas anteriores.
+- Nenhum código foi criado. A T-49 (testes e código) continua pendente até o commit desta mudança.
+
+### Arquivos gerados
+- `specs/spec.md` (quarto adendo de 2026-11-27 ao RF-41 e menção no cabeçalho)
+- `specs/tasks.md` (lista de testes e nota da T-49)
+- `docs/prompts.md` (esta entrada)
+
+### Decisão humana
+Regras encontradas no plano da T-49 escritas no RF-41 antes do código, a partir dos dados reais da T-44: dia base como o primeiro dia em que todas as coleções exibidas têm valor em reais, com aviso se não houver; seletor de coleções com padrão só das que têm preço em reais, informando as que ficaram fora e o motivo (a 24269 não tem nenhum preço em reais); conjunto fixo de cartas por coleção, como na P2; chave em dólar sem mover o dia base; PTAX em todos os dias de calendário; filtro de preço mínimo por coleção. Testes extras acrescentados à T-49.

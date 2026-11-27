@@ -438,9 +438,10 @@ Comando base da gold: `PYTHONPATH=src python -m gold`. Dashboard: `PYTHONPATH=sr
 ## T-49 P3: valor da coleção em base 100 por coleção da turma
 - Requisitos: RF-41
 - Arquivos: `src/painel/consultas.py`, `dashboard/app.py`, `tests/unidade/test_painel_p3.py`
-- Teste: test_base_no_primeiro_dia_em_comum; test_ptax_na_mesma_base; test_lacuna_sem_ponto; test_code_card_fora
+- Teste: test_base_no_primeiro_dia_em_comum; test_ptax_na_mesma_base; test_lacuna_sem_ponto; test_code_card_fora; test_colega_com_datas_anteriores_nao_muda_a_base; test_soma_so_com_exemplares_com_preco_em_todos_os_dias_por_colecao; test_sem_dia_em_comum_sem_indice_com_aviso; test_filtro_de_preco_minimo_por_colecao; test_chave_dolar_nao_muda_o_dia_base (AppTest) (quarto adendo de 2026-11-27 ao RF-41)
 - Comando: pytest tests/unidade/test_painel_p3.py -q
 - Depende de: T-48
+- Nota (2026-11-27, regra G do plano aprovada pela aluna): os cinco testes extras cobrem as regras A a F do quarto adendo de 2026-11-27 ao RF-41: coleção de colega com datas anteriores ao dia base e preço em reais nulo nelas (base inalterada, sem índice antes dele); conjunto fixo por coleção com a contagem das cartas fora; nenhum dia em comum (aviso, nenhum índice); filtro de preço mínimo aplicado ao exemplar de cada coleção; chave em dólar com o mesmo dia base, valores em US$ e a mesma série da PTAX.
 
 ## T-50 P4: concentração do valor por raridade
 - Requisitos: RF-42
